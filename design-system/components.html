@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventario — maqueta de pantalla</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="ui.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: {
+        bg: "var(--color-bg)", surface: "var(--color-surface)", surface2: "var(--color-surface-2)",
+        line: "var(--color-border)", ink: "var(--color-text)", muted: "var(--color-text-muted)",
+        accent: { DEFAULT: "var(--color-accent)", hover: "var(--color-accent-hover)", contrast: "var(--color-accent-contrast)", text: "var(--color-accent-text)" },
+        success: { DEFAULT: "var(--color-success)", fg: "var(--color-success-fg)", subtle: "var(--color-success-subtle)" },
+        danger: { DEFAULT: "var(--color-danger)", on: "var(--color-on-danger)", fg: "var(--color-danger-fg)", subtle: "var(--color-danger-subtle)" },
+        warning: { fg: "var(--color-warning-fg)", subtle: "var(--color-warning-subtle)" }
+      },
+      fontFamily: { sans: "var(--font-sans)", mono: "var(--font-mono)" },
+      borderRadius: { sm: "var(--radius-sm)", md: "var(--radius-md)", lg: "var(--radius-lg)" },
+      boxShadow: { lg: "var(--shadow-lg)" }
+    } }
+  };
+</script>
+</head>
+<body>
+<header class="bg-surface border-b border-line">
+  <div class="mx-auto max-w-5xl px-4 h-14 flex items-center justify-between gap-3">
+    <span class="text-lg font-bold">Inventario</span>
+    <div class="flex items-center gap-3 text-sm">
+      <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">admin</strong></span>
+      <button class="btn btn-secondary" type="button">Cerrar sesión</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-5xl px-4 py-6 space-y-10">
+
+  <section aria-labelledby="t-inv">
+    <h1 id="t-inv" class="sr-only">Inventario</h1>
+    <div class="flex flex-wrap gap-2 mb-4">
+      <button class="btn btn-primary" type="button" data-open="m-ingreso">Ingreso de stock</button>
+      <button class="btn btn-primary" type="button" data-open="m-egreso">Egreso de stock</button>
+      <button class="btn btn-primary" type="button" data-open="m-orden">Nueva orden</button>
+      <a class="btn btn-secondary" href="ordenes.html">Ver órdenes</a>
+    </div>
+    <div class="bg-surface border border-line rounded-lg">
+      <div class="flex items-center justify-between p-3 border-b border-line">
+        <h2 class="font-bold">Inventario</h2><span class="text-sm text-muted">3 productos</span>
+      </div>
+      <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Tabla de inventario">
+        <table class="tbl" style="min-width:26rem">
+          <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Stock</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+          <tbody>
+            <tr><td class="num">RD-6204</td><td>Rodamiento 6204</td><td class="num r">25</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" data-open="m-del-prod" data-target="del-prod-name" data-name="RD-6204 — Rodamiento 6204">Eliminar</button></td></tr>
+            <tr><td class="num">TOR-M8x40</td><td>Tornillo M8 x 40 mm</td><td class="num r">480</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" data-open="m-del-prod" data-target="del-prod-name" data-name="TOR-M8x40 — Tornillo M8 x 40 mm">Eliminar</button></td></tr>
+            <tr><td class="num">JUN-IND-12</td><td>Junta industrial 12"</td><td class="num r"><span class="badge bg-warning-subtle text-warning-fg">0</span></td><td class="r"><button class="btn btn-secondary btn-sm" type="button" data-open="m-del-prod" data-target="del-prod-name" data-name="JUN-IND-12 — Junta industrial 12&quot;">Eliminar</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <h3 class="text-sm font-semibold text-muted mt-6 mb-2">Estado vacío</h3>
+    <div class="bg-surface border border-dashed border-line rounded-lg p-8 text-center">
+      <p class="font-semibold">Todavía no hay productos</p>
+      <p class="text-sm text-muted mt-1">Registrá un ingreso con un código nuevo para dar de alta el primero.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="t-ref" class="space-y-6">
+    <h2 id="t-ref" class="text-xl font-bold border-t border-line pt-6">Referencia de componentes</h2>
+
+    <div>
+      <h3 class="sec-title">Botones</h3>
+      <div class="bg-surface border border-line rounded-lg p-4 flex flex-wrap gap-3">
+        <button class="btn btn-primary" type="button">Primario</button>
+        <button class="btn btn-secondary" type="button">Secundario</button>
+        <button class="btn btn-danger" type="button">Peligro</button>
+        <button class="btn btn-primary" type="button" disabled>Deshabilitado</button>
+        <button class="btn btn-secondary" type="button" style="box-shadow:var(--focus-ring)">Foco (ejemplo)</button>
+      </div>
+    </div>
+
+    <div>
+      <h3 class="sec-title">Campos</h3>
+      <div class="bg-surface border border-line rounded-lg p-4 grid gap-4 sm:grid-cols-2">
+        <div><label class="label" for="r-n">Nombre</label><input class="field" id="r-n" type="text"><p class="help">Texto de ayuda.</p></div>
+        <div><label class="label" for="r-d">Fecha (AAAA-MM-DD)</label><input class="field num" id="r-d" type="date" value="2026-11-19"></div>
+        <div><label class="label" for="r-c">Cantidad</label><input class="field num" id="r-c" type="number" min="1" step="1" value="-3" aria-invalid="true" aria-describedby="r-c-e"><p class="err" id="r-c-e" role="alert">La cantidad debe ser un entero mayor a 0.</p></div>
+        <div><label class="label" for="r-o">Campo obligatorio</label><input class="field" id="r-o" aria-invalid="true" aria-describedby="r-o-e"><p class="err" id="r-o-e" role="alert">Este campo es obligatorio.</p></div>
+      </div>
+    </div>
+
+    <div>
+      <h3 class="sec-title">Alertas</h3>
+      <div class="space-y-3">
+        <div role="status" class="p-3 rounded-md border border-success bg-success-subtle text-success-fg text-sm"><strong>Listo.</strong> Ingreso registrado: RD-6204 +10 (stock 25).</div>
+        <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm"><strong>Error.</strong> Stock insuficiente para RD-6204: disponible 4, solicitado 10.</div>
+      </div>
+    </div>
+
+    <div>
+      <h3 class="sec-title">Login</h3>
+      <div class="flex justify-center py-4">
+        <div class="w-full max-w-sm bg-surface border border-line rounded-lg shadow-lg p-6">
+          <p class="text-xl font-bold text-center">Inventario</p>
+          <form class="mt-5 space-y-4" onsubmit="return false">
+            <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">Usuario o contraseña incorrectos.</div>
+            <div><label class="label" for="l-u">Usuario</label><input class="field" id="l-u" autocomplete="username" value="admin"></div>
+            <div>
+              <label class="label" for="l-p">Contraseña</label>
+              <div class="relative">
+                <input class="field pr-24" id="l-p" type="password" autocomplete="current-password" value="admin123">
+                <button type="button" class="absolute right-1 top-1 bottom-1 px-3 text-sm font-semibold text-accent-text rounded-md hover:bg-surface2" data-toggle="l-p" aria-controls="l-p" aria-pressed="false">Mostrar</button>
+              </div>
+            </div>
+            <button class="btn btn-primary w-full" type="submit">Ingresar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Modal: Ingreso de stock -->
+<div class="overlay" id="m-ingreso" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-ingreso-t">
+    <div class="modal-head"><h2 id="m-ingreso-t">Ingreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" onsubmit="return false">
+      <div><label class="label" for="i-cod">Código</label><input class="field num" id="i-cod" autocomplete="off"></div>
+      <div><label class="label" for="i-nom">Nombre</label><input class="field" id="i-nom" aria-describedby="i-nom-h"><p class="help" id="i-nom-h">Solo si el código es nuevo.</p></div>
+      <div><label class="label" for="i-cant">Cantidad</label><input class="field num" id="i-cant" type="number" inputmode="numeric" min="1" step="1" aria-invalid="true" aria-describedby="i-cant-e"><p class="err" id="i-cant-e" role="alert">La cantidad debe ser un entero mayor a 0.</p></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Registrar ingreso</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Egreso de stock -->
+<div class="overlay" id="m-egreso" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-egreso-t">
+    <div class="modal-head"><h2 id="m-egreso-t">Egreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" onsubmit="return false">
+      <div><label class="label" for="e-cod">Código</label><input class="field num" id="e-cod" value="RD-6204" autocomplete="off"><p class="help">Stock actual: <span class="num">4</span></p></div>
+      <div><label class="label" for="e-cant">Cantidad</label><input class="field num" id="e-cant" type="number" min="1" step="1" value="10" aria-invalid="true" aria-describedby="e-cant-e"><p class="err" id="e-cant-e" role="alert">La cantidad no puede superar el stock actual (4).</p></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Registrar egreso</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Nueva orden -->
+<div class="overlay" id="m-orden" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="m-orden-t">
+    <div class="modal-head"><h2 id="m-orden-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" onsubmit="return false">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div><label class="label" for="o-num">Número de orden</label><input class="field num" id="o-num" autocomplete="off"></div>
+        <div><label class="label" for="o-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="o-fec" type="date" value="2026-11-19"></div>
+      </div>
+      <fieldset>
+        <legend class="label">Componentes</legend>
+        <div id="o-rows" class="space-y-2">
+          <div data-row class="grid grid-cols-[1fr_5rem_auto] gap-2 items-center">
+            <select class="field" aria-label="Producto"><option value="">Producto…</option><option>RD-6204 — Rodamiento 6204</option><option>TOR-M8x40 — Tornillo M8 x 40 mm</option><option>JUN-IND-12 — Junta industrial 12"</option></select>
+            <input class="field num" type="number" min="1" step="1" aria-label="Cantidad" placeholder="0">
+            <button class="btn btn-secondary btn-sm" type="button" data-remove-row aria-label="Quitar componente">Quitar</button>
+          </div>
+        </div>
+        <button class="btn btn-secondary mt-2" type="button" data-add-row="o-rows">Agregar componente</button>
+      </fieldset>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Eliminar producto -->
+<div class="overlay" id="m-del-prod" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="m-del-prod-t" aria-describedby="m-del-prod-d">
+    <div class="modal-head"><h2 id="m-del-prod-t">Eliminar producto</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <div class="modal-body space-y-4">
+      <p id="m-del-prod-d" class="text-sm">Se eliminará <strong id="del-prod-name" class="num"></strong>. Las órdenes anteriores lo seguirán mostrando.</p>
+      <div class="flex justify-end gap-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-danger" type="button" data-close>Eliminar producto</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="ui.js"></script>
+</body>
+</html>
