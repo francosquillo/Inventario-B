@@ -1,6 +1,6 @@
 # Preguntas Abiertas
 
-Las preguntas del discovery (reactivación de productos, fecha de orden, tipo de clave Supabase, mecanismo de sesión) ya fueron resueltas: ver SU-03, DD-08, DD-05 y DD-04. Cambio de framework Flask a FastAPI resuelto el 2026-11-19 (DD-03, DD-11); pendiente de definir en el Paso 6: servir `static/` con `StaticFiles` y/o ruteo estático de `vercel.json`. Resueltas también el 2026-11-19: contraseña del admin (DD-07), seed por script Python (IN-01), producto repetido en orden (RN-OR-11) y reintegro a producto inactivo (RN-OR-12).
+Las preguntas del discovery (reactivación de productos, fecha de orden, tipo de clave Supabase, mecanismo de sesión) ya fueron resueltas: ver SU-03, DD-08, DD-05 y DD-04. Cambio de framework Flask a FastAPI resuelto el 2026-11-19 (DD-03, DD-11); pendiente de definir en el Paso 6: servir `static/` con `StaticFiles` y/o ruteo estático de `vercel.json`. Cambio de alcance 2026-11-19: se elimina la CLI y se construye FastAPI desde el Paso 1 (DD-12); las referencias a la CLI en esta KB son históricas. Resueltas también el 2026-11-19: contraseña del admin (DD-07), seed por script Python (IN-01), producto repetido en orden (RN-OR-11) y reintegro a producto inactivo (RN-OR-12).
 
 ## Inconsistencias detectadas
 
@@ -11,10 +11,10 @@ Las preguntas del discovery (reactivación de productos, fecha de orden, tipo de
 **Resolución (confirmada por el usuario 2026-11-19)**: `schema.sql` crea solo estructura y funciones; el admin se inserta con un script Python de seed que reutiliza `security.py` y lee `ADMIN_DEFAULT_PASSWORD` (DD-07).
 
 ### IN-02 — "Todo borrado requiere confirmación" vs API REST
-**Documento A dice**: todo borrado se confirma (CLI `s/n`, web modal).
+**Documento A dice**: todo borrado se confirma (modal en la web; la CLI ya no existe, DD-12).
 **Documento B dice**: la API es stateless y no tiene paso de confirmación propio.
 **Impacto**: un `DELETE` directo a la API saltea la confirmación.
-**Resolución propuesta**: la confirmación es responsabilidad del adaptador (UI); la API recibe el parámetro explícito `reintegrar` y se asume cliente confiable (usuarios autenticados).
+**Resolución propuesta**: la confirmación es responsabilidad del frontend (modal, Paso 5); en Fase 1 la verificación en `/docs` es explícita; la API recibe el parámetro explícito `reintegrar` y se asume cliente confiable (usuarios autenticados).
 
 ## Preguntas abiertas (priorizadas)
 

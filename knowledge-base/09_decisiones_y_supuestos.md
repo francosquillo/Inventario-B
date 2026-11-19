@@ -2,17 +2,17 @@
 
 ## Decisiones documentadas
 
-### DD-01 — Fase 1 solo con biblioteca estándar
-**Decisión**: la Fase 1 (CLI + SQLite) usa únicamente `sqlite3`, `hashlib`, `datetime`, `os` (más `getpass`, `hmac`, `abc` de stdlib).
-**Contexto**: restricción de la consigna.
+### DD-01 — Fase 1 solo con biblioteca estándar (REEMPLAZADA por DD-12, 2026-11-19)
+**Decisión original**: la Fase 1 (CLI + SQLite) usaba únicamente biblioteca estándar. Ya no aplica: desde el Paso 1 se permiten dependencias declaradas (FastAPI, etc.). Se conserva como registro histórico; la lógica de negocio sigue usando solo stdlib más SQLite.
+**Contexto**: restricción de la consigna original.
 **Alternativas consideradas**: usar un ORM o librería de CLI.
 **Justificación**: cero dependencias, arranque inmediato, foco en lógica de negocio.
 **Trade-offs aceptados**: más código manual de menú y SQL.
 
-### DD-02 — Repositorio/DAO + services; CLI y API como adaptadores
-**Decisión**: separación estricta entre dominio/services, interfaces de repositorio con implementaciones SQLite y Supabase, y adaptadores delgados.
-**Contexto**: la misma lógica debe servir en consola y en web, y migrar de SQLite a Postgres.
-**Alternativas consideradas**: lógica dentro de la CLI y reescritura en Fase 2.
+### DD-02 — Repositorio/DAO + services; FastAPI como adaptador
+**Decisión**: separación estricta entre dominio/services, interfaces de repositorio con implementaciones SQLite y Supabase, y un adaptador HTTP delgado (FastAPI).
+**Contexto**: la misma lógica y API deben migrar de SQLite a Postgres sin reescritura (la CLI ya no existe, ver DD-12).
+**Alternativas consideradas**: lógica dentro de las rutas y reescritura en Fase 2.
 **Justificación**: reutilización y testabilidad (TDD estricto).
 **Trade-offs aceptados**: más archivos e indirección desde el inicio.
 
@@ -21,7 +21,7 @@
 **Contexto**: cambio de Flask a FastAPI decidido por el usuario el 2026-11-19, antes de escribir código de la Fase 2.
 **Alternativas consideradas**: Flask (decisión original; WSGI, plantillas Jinja2).
 **Justificación**: validación automática por esquema (Pydantic), inyección de dependencias para la auth, docs OpenAPI de serie, tipado; el frontend estático + API JSON encaja naturalmente.
-**Trade-offs aceptados**: más dependencias; el cliente `supabase` es síncrono, por lo que los endpoints que lo usen se declaran `def` (threadpool) y no `async def`; la validación Pydantic no reemplaza a la de los services (compartidos con la CLI); los tests de API requieren `httpx` (solo test).
+**Trade-offs aceptados**: más dependencias; el cliente `supabase` es síncrono, por lo que los endpoints que lo usen se declaran `def` (threadpool) y no `async def`; la validación Pydantic no reemplaza a la de los services (independientes de HTTP); los tests de API requieren `httpx` (solo test).
 
 ### DD-11 — Frontend estático + API JSON, sin templates (2026-11-19)
 **Decisión**: páginas HTML estáticas en `static/` (`login.html`, `index.html` = inventario, `ordenes.html`) con `static/js/` y `static/css/` (`tokens.css`, `ui.css` del design-system); todos los datos vía `fetch` a `/api/...`; ante 401 el JS redirige al login. No se usa Jinja2 ni carpeta `templates/`.
@@ -29,6 +29,13 @@
 **Alternativas consideradas**: render server-side con Jinja2 y `templates/`.
 **Justificación**: separación clara frontend/backend, API reutilizable, menos acoplamiento.
 **Trade-offs aceptados**: la protección de las páginas depende del JS y de los 401 de la API (los datos nunca se exponen sin sesión); posible parpadeo previo a la redirección.
+
+### DD-12 — Se elimina la CLI; backend FastAPI desde el Paso 1 verificado en /docs (2026-11-19)
+**Decisión**: no hay CLI. Los pasos 1 a 4b se construyen como backend FastAPI + SQLite local, verificado con la Swagger UI (`/docs`) y tests `unittest` (`TestClient`, requiere `httpx` solo en `requirements-dev.txt`). El Paso 5 cambia la implementación del repositorio a Supabase sin tocar los services y agrega el frontend; el Paso 6 despliega. Se permiten dependencias desde el Paso 1, declaradas en `requirements.txt`/`requirements-dev.txt`, dentro de `.venv`. La lógica (`domain/`, `services/`, `repositories/`) no depende de FastAPI. Auth con cookie de sesión firmada (`SessionMiddleware`, `SECRET_KEY`), que funciona en `/docs` por ser same-origin; init de DB y seed del admin en el lifespan de FastAPI.
+**Contexto**: cambio de alcance pedido por el usuario el 2026-11-19; se aparta del brief original, que exigía CLI con solo biblioteca estándar en la Fase 1.
+**Alternativas consideradas**: CLI con stdlib según el brief (menú de consola, `getpass`).
+**Justificación**: evita escribir y descartar una interfaz de consola; la API ya queda lista para el frontend; `/docs` da verificación manual inmediata.
+**Trade-offs aceptados**: se aparta del brief; dependencias externas desde el Paso 1 (entorno virtual y `requirements*.txt`); la contraseña de `/docs` no se enmascara; la contraseña aleatoria del admin queda en el log del servidor.
 
 ### DD-04 — Sesión por cookie firmada (Starlette `SessionMiddleware`)
 **Decisión**: sesión con cookie firmada con `SECRET_KEY` mediante `SessionMiddleware` (requiere `itsdangerous`); HttpOnly, SameSite=Lax, `https_only` en producción. La dependencia `get_current_user` devuelve 401 sin sesión.
@@ -52,9 +59,9 @@
 **Trade-offs aceptados**: lógica de negocio duplicada en SQL (validación de stock) además de los services; hay que mantener paridad con la implementación SQLite y testearla.
 
 ### DD-07 — Contraseña inicial del admin desde variable de entorno (confirmada por el usuario 2026-11-19)
-**Decisión**: la contraseña inicial de `admin` se lee de `ADMIN_DEFAULT_PASSWORD`. Si no está definida, en el prototipo CLI local se genera una contraseña aleatoria que se muestra una sola vez en la inicialización (nunca se hardcodea ni se guarda en texto plano). En Supabase/Vercel la variable es obligatoria para el script de seed.
+**Decisión**: la contraseña inicial de `admin` se lee de `ADMIN_DEFAULT_PASSWORD`. Si no está definida, en el backend local (SQLite) se genera una contraseña aleatoria que se imprime UNA sola vez en la consola del servidor (log de uvicorn) durante la primera inicialización (lifespan de FastAPI) (nunca se hardcodea ni se guarda en texto plano). En Supabase/Vercel la variable es obligatoria para el script de seed.
 **Contexto**: la consigna pide `admin` por defecto con contraseña hasheada, pero prohíbe secretos en el código.
-**Alternativas consideradas**: constante `admin/admin` documentada (descartada: insegura y contradice RN-SE-01); pedirla por consola en el primer arranque.
+**Alternativas consideradas**: constante `admin/admin` documentada (descartada: insegura y contradice RN-SE-01); pedirla por consola en el primer arranque (descartada además por la eliminación de la CLI).
 **Justificación**: cumple RN-SE-01 y no deja credenciales conocidas.
 **Trade-offs aceptados**: un paso extra de setup; hay que anotar la contraseña generada. Se recomienda cambiarla (cambio de contraseña queda en backlog).
 

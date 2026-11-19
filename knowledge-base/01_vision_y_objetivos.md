@@ -2,7 +2,7 @@
 
 ## Propósito del sistema
 
-Inventario-B es un sistema de control de inventario y órdenes de trabajo para un taller o pyme chica. Centraliza el stock de piezas, las órdenes de trabajo que lo consumen y el control de acceso en una aplicación que nace como CLI local y evoluciona a una app web en la nube.
+Inventario-B es un sistema de control de inventario y órdenes de trabajo para un taller o pyme chica. Centraliza el stock de piezas, las órdenes de trabajo que lo consumen y el control de acceso en una aplicación que nace como backend API local (FastAPI + SQLite, verificado en `/docs`, sin CLI) y evoluciona a una app web en la nube.
 
 Hoy el problema se resuelve (supuesto, no verificado: SU-01) con planillas o papel, sin certeza de qué piezas hay ni qué consumió cada orden. El sistema reemplaza ese circuito manual con una única fuente de verdad, con reglas que impiden estados inconsistentes (stock negativo, órdenes sin stock suficiente).
 
@@ -23,7 +23,8 @@ Hoy el problema se resuelve (supuesto, no verificado: SU-01) con planillas o pap
 - Listado de órdenes, todas o por rango de fechas `YYYY-MM-DD` inclusivo.
 - Borrado de órdenes (con opción de reintegrar stock) y borrado lógico de productos, siempre con confirmación.
 - Registro en `movimientos` de todo ingreso y egreso manual (sin motivo).
-- Fase 1: CLI en Python stdlib con SQLite. Fase 2: API FastAPI + Supabase PostgreSQL + frontend HTML estático/Tailwind CDN/JS. Fase 3: despliegue en Vercel.
+- Fase 1: backend API local (FastAPI + SQLite), verificado en la Swagger UI `/docs` y con tests. Fase 2: Supabase + frontend web (repositorios Supabase, HTML estático/Tailwind CDN/JS). Fase 3: despliegue en Vercel.
+- Cambio de alcance (2026-11-19, decisión del usuario): se elimina la CLI; no hay menú de consola. Ver DD-12.
 
 ## Fuera de alcance
 

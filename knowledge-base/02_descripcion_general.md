@@ -1,39 +1,38 @@
 # Descripción General
 
-Tipo de sistema: `web_app` (arranca como CLI en Fase 1 y evoluciona a web). Dominio: inventario y órdenes de trabajo para taller/pyme. Escala: equipo chico (pocos usuarios, mismos permisos).
+Tipo de sistema: `web_app` (arranca como backend API local en Fase 1, sin CLI, y suma frontend web en Fase 2). Dominio: inventario y órdenes de trabajo para taller/pyme. Escala: equipo chico (pocos usuarios, mismos permisos).
 
 ## Stack tecnológico
 
 | Capa | Tecnologías | Versión mínima |
 |------|-------------|----------------|
-| Fase 1 — lógica y CLI | Python stdlib únicamente: `sqlite3`, `hashlib`, `datetime`, `os` | Python 3.10+ |
+| Fase 1 — backend API local | FastAPI (ASGI) + `uvicorn`, Pydantic, `python-dotenv`, `itsdangerous` (sesión); lógica con `sqlite3`, `hashlib`, `hmac`, `datetime`, `os`; `.venv` | Python 3.10+; dependencias en `requirements.txt` |
 | Fase 1 — persistencia | SQLite (archivo local, ruta opcional `INVENTARIO_DB_PATH`) | sqlite 3.x (incluido en Python) |
-| Fase 2 — backend | FastAPI (ASGI) + `uvicorn`, Pydantic, cliente `supabase` (Python, síncrono), `python-dotenv`, `itsdangerous` (sesión) | Versiones a fijar en el Paso 6; tests de API con `TestClient` (requiere `httpx`, solo test) |
+| Fase 1 — verificación | Swagger UI en `/docs` + `unittest` con `TestClient` | `httpx` en `requirements-dev.txt` (solo test) |
+| Fase 2 — backend | Mismo FastAPI; se agrega el cliente `supabase` (Python, síncrono) y repositorios Supabase que reemplazan a SQLite sin tocar los services | Versiones a fijar en el Paso 6 |
 | Fase 2 — base de datos | Supabase (PostgreSQL gestionado) + funciones PL/pgSQL vía RPC | PostgreSQL 15+ |
 | Fase 2 — frontend | HTML5 + Tailwind CSS vía CDN + JavaScript vanilla | Navegadores modernos |
 | Fase 3 — despliegue | Vercel (Serverless Functions, runtime Python), GitHub como origen | — |
 
-Las versiones exactas se fijan en `requirements.txt` durante el Paso 5/6.
+Las dependencias se declaran en `requirements.txt` (runtime) y `requirements-dev.txt` (test) desde el Paso 1; el cliente `supabase` se agrega en el Paso 5 y las versiones exactas se fijan en el Paso 6.
 
 ## Arquitectura general
 
 Separación estricta entre lógica de negocio y adaptadores de entrada/salida:
 
 ```
- CLI (Fase 1) ─────────┐
-                       ▼
                  ┌──────────────┐        ┌───────────────────────────┐
  FastAPI ────▶  │  Services    │ ─────▶ │ Repositorios (interfaces) │
- (Fase 2)        │ (dominio)    │        └───────┬──────────┬────────┘
+ (desde Fase 1)  │ (dominio)    │        └───────┬──────────┬────────┘
                  └──────────────┘                │          │
                                         SQLite impl.    Supabase impl.
                                         (Fase 1)        (Fase 2, RPC)
 ```
 
-- **Services**: reglas de negocio puras (validaciones, composición de operaciones). No conocen consola ni HTTP.
+- **Services**: reglas de negocio puras (validaciones, composición de operaciones). No conocen HTTP ni FastAPI.
 - **Repositorios/DAO**: contrato abstracto por agregado. Dos implementaciones intercambiables (SQLite y Supabase).
-- **Adaptadores**: CLI y API FastAPI son delgados; solo traducen entrada/salida y llaman a los mismos services.
-- Justificación: la lógica escrita y probada en Fase 1 se reutiliza sin cambios en Fase 2 (ver DD-02).
+- **Adaptador**: la API FastAPI es delgada; solo traduce entrada/salida HTTP y llama a los services. En Fase 1 se verifica en `/docs`; en Fase 2 la consume el frontend estático.
+- Justificación: la lógica y la API escritas y probadas en Fase 1 se reutilizan sin cambios en Fase 2 (solo cambia la implementación del repositorio) (ver DD-02).
 
 ## Integraciones externas
 

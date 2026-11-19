@@ -6,7 +6,7 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 
 - **RN-AU-01**: Para operar el sistema se requiere login con usuario y contraseña.
 - **RN-AU-02**: Las contraseñas se guardan como hash PBKDF2-HMAC-SHA256 (`hashlib.pbkdf2_hmac`) con salt aleatorio por usuario; nunca en texto plano.
-- **RN-AU-03**: Sin sesión válida no se accede a ninguna operación (CLI: no se muestra el menú; web: rutas protegidas devuelven 401/redirigen al login).
+- **RN-AU-03**: Sin sesión válida no se accede a ninguna operación (API: endpoints protegidos devuelven 401; web: el frontend redirige al login).
 - **RN-AU-04**: Existe un usuario `admin` creado por defecto al inicializar la base. Todos los usuarios tienen los mismos permisos.
 - **RN-AU-05**: Credenciales inválidas se rechazan con un mensaje genérico (no revela si falló usuario o contraseña).
 - **RN-AU-06**: La comparación de hashes usa comparación en tiempo constante (`hmac.compare_digest`).
@@ -51,7 +51,7 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 - **RN-VA-02**: Los campos obligatorios no pueden estar vacíos (se recortan espacios antes de validar).
 - **RN-VA-03**: Las fechas usan formato `YYYY-MM-DD` y deben ser fechas reales (p. ej. `2026-02-30` es inválida).
 - **RN-VA-04**: Toda validación se aplica en frontend (UX) y en backend (autoridad); el backend nunca confía en el frontend.
-- **RN-VA-05**: Todo borrado (orden o producto) requiere confirmación (CLI `s/n`, web modal).
+- **RN-VA-05**: Todo borrado (orden o producto) requiere confirmación (la confirmación es del adaptador de UI: modal en la web; la API exige el parámetro explícito `reintegrar` y no tiene paso de confirmación propio).
 
 ## Dominio: Seguridad (RN-SE)
 
@@ -60,7 +60,7 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 - **RN-SE-03**: La sesión web es una cookie firmada (Starlette `SessionMiddleware`) con `SECRET_KEY` (HttpOnly, SameSite=Lax, `https_only` en producción).
 - **RN-SE-04**: `.env` está en `.gitignore`; `.env.example` contiene solo nombres de variables, sin valores reales.
 - **RN-SE-05**: Todas las consultas están parametrizadas (sin concatenar SQL con input de usuario).
-- **RN-SE-06**: La contraseña se oculta al tipearla (CLI con `getpass`, web con `input type="password"`).
+- **RN-SE-06**: La contraseña se oculta al tipearla (web con `input type="password"`; en `/docs` el campo es de texto de la API, sin enmascarar, aceptado en el prototipo local).
 
 ## Dominio: Excepciones globales
 

@@ -3,7 +3,7 @@
 > Este archivo (y su copia `CLAUDE.md`) es lo PRIMERO que todo agente lee al entrar al repo.
 > Generado a partir de `knowledge-base/` y `CHANGES.md`. No editar a mano sin re-sincronizar ambos archivos.
 
-Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme chica. Arranca como CLI en Python stdlib con SQLite (Fase 1), evoluciona a una app web FastAPI + Supabase PostgreSQL con frontend HTML estático/Tailwind (Fase 2) y se despliega en Vercel (Fase 3). Se construye paso a paso con OpenSpec y TDD estricto.
+Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme chica. Arranca como backend API local FastAPI + SQLite, verificado en la Swagger UI (`/docs`) y con tests (Fase 1); evoluciona migrando a Supabase PostgreSQL y agregando el frontend HTML estático/Tailwind (Fase 2) y se despliega en Vercel (Fase 3). No hay CLI (decisión del usuario, 2026-11-19). Se construye paso a paso con OpenSpec y TDD estricto.
 
 ---
 
@@ -11,9 +11,10 @@ Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme 
 
 | Capa | Tecnologías | Versión mínima |
 |------|-------------|----------------|
-| Fase 1 — lógica y CLI | Python stdlib únicamente: `sqlite3`, `hashlib`, `datetime`, `os` | Python 3.10+ |
+| Fase 1 — backend API local | FastAPI + `uvicorn`, Pydantic, `python-dotenv`, `itsdangerous` (sesión); lógica con `sqlite3`, `hashlib`, `hmac`, `datetime`, `os`; `.venv` local | Python 3.10+; versiones en `requirements.txt` |
 | Fase 1 — persistencia | SQLite (archivo local, ruta opcional `INVENTARIO_DB_PATH`) | sqlite 3.x (incluido en Python) |
-| Fase 2 — backend | FastAPI + `uvicorn`, Pydantic, cliente `supabase` (Python, síncrono), `python-dotenv`, `itsdangerous` | Versiones a fijar en el Paso 6; tests de API con `TestClient` (`httpx`, solo test) |
+| Fase 1 — verificación | Swagger UI en `/docs` + `unittest` con `TestClient` de FastAPI | `httpx` en `requirements-dev.txt` (solo test) |
+| Fase 2 — backend | Mismo FastAPI; se agrega el cliente `supabase` (Python, síncrono) y repositorios Supabase que reemplazan a SQLite sin tocar los services | Versiones a fijar en el Paso 6 |
 | Fase 2 — base de datos | Supabase (PostgreSQL gestionado) + funciones PL/pgSQL vía RPC | PostgreSQL 15+ |
 | Fase 2 — frontend | HTML5 + Tailwind CSS vía CDN + JavaScript vanilla | Navegadores modernos |
 | Fase 3 — despliegue | Vercel (Serverless Functions, runtime Python), GitHub como origen | — |
@@ -55,7 +56,7 @@ La fuente de verdad del dominio vive en `knowledge-base/`. **Leé el archivo rel
 
 | Agente | Rol | Skills que carga |
 |--------|-----|------------------|
-| **Backend CLI / dominio** | Services, repositorios, CLI, tests `unittest` | `python-testing-patterns`, `test-driven-development`, `systematic-debugging` |
+| **Backend dominio / API local** | Services, repositorios, adaptador FastAPI, tests `unittest` | `python-testing-patterns`, `test-driven-development`, `systematic-debugging` |
 | **Datos / Supabase** | Schema Postgres, RLS, funciones RPC | `supabase`, `supabase-postgres-best-practices`, `postgres-patterns`, `postgresql-table-design` |
 | **Backend web (API)** | FastAPI, modelos Pydantic, auth por sesión, tests con `TestClient` | `fastapi`, `pydantic`, `python-testing-patterns`, `test-driven-development` |
 | **Frontend web** | HTML estático / Tailwind CDN / JS vanilla, mockups | `design-system`, `frontend-design`, `emil-design-eng`, `impeccable`, `ui-ux-pro-max`, `web-design-guidelines` |
@@ -73,7 +74,7 @@ Cargá la skill correspondiente al contexto ANTES de escribir código.
 El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 
 - **Total**: 7 changes (C-01..C-07), estrictamente secuenciales.
-- **Camino crítico** (7): `C-01 paso-1-base-cli → C-02 paso-2-movimientos-stock → C-03 paso-3-crear-ordenes → C-04 paso-4-listado-ordenes → C-05 paso-4b-borrado-ordenes-productos → C-06 paso-5-supabase-api-web → C-07 paso-6-despliegue-vercel`.
+- **Camino crítico** (7): `C-01 paso-1-base-cli (nombre histórico; sin CLI) → C-02 paso-2-movimientos-stock → C-03 paso-3-crear-ordenes → C-04 paso-4-listado-ordenes → C-05 paso-4b-borrado-ordenes-productos → C-06 paso-5-supabase-api-web → C-07 paso-6-despliegue-vercel`.
 - **Primer change**: `C-01` (`paso-1-base-cli`).
 
 **Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md), identificá las dependencias del change y los archivos de "Leer antes".
@@ -86,10 +87,10 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 
 Son contrato; romperlas es un defecto.
 
-1. **Fase 1 solo biblioteca estándar**: NUNCA importar paquetes externos en los pasos 1 a 4b (`sqlite3`, `hashlib`, `datetime`, `os`, etc. sí) → `fastapi`, `uvicorn`, `supabase`, `python-dotenv` e `itsdangerous` recién desde el Paso 5, declarados en `requirements.txt`.
+1. **Dependencias declaradas y lógica desacoplada**: NUNCA instalar paquetes fuera de `requirements.txt`/`requirements-dev.txt` ni importar FastAPI dentro de `domain/`, `services/` o `repositories/` → FastAPI es solo el adaptador HTTP; trabajar en `.venv`.
 2. **Sin secretos en código**: NUNCA poner URLs, claves API ni contraseñas en el código o el repo → siempre `os.environ`; `.env` nunca se commitea, solo `.env.example` con los nombres de variables.
 3. **Stock atómico + doble validación**: NUNCA operar sobre varios productos sin atomicidad (crear orden, borrar orden con reintegro) → transacción en SQLite / función RPC en Postgres, todo o nada. Cantidades enteras > 0, fechas `YYYY-MM-DD` y campos obligatorios se validan en frontend Y backend.
-4. **Tests con `unittest`**: NUNCA usar pytest ni mockear la base de datos → tests con `unittest` (stdlib) y los tests de repositorio usan SQLite real en memoria (`:memory:`).
+4. **Tests con `unittest`**: NUNCA usar pytest ni mockear la base de datos → tests con `unittest` (stdlib; endpoints con `TestClient`) y los tests de repositorio usan SQLite real en memoria (`:memory:`).
 5. **Un paso a la vez**: NUNCA empezar el siguiente change de `CHANGES.md` sin que el usuario diga "Continuar" → cada paso cierra su ciclo propose → apply → verify → archive.
 6. **Commits solo a pedido**: NUNCA hacer commit ni push sin pedido explícito del usuario → mensajes con Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`).
 
@@ -102,7 +103,7 @@ Son contrato; romperlas es un defecto.
 2. Identificar el change en CHANGES.md           → respetar el orden secuencial
 3. /opsx:propose <change>                        → proposal + design + specs + tasks
 4. /opsx:apply <change>                          → implementar tasks (Strict TDD, cargando skills)
-5. verify                                        → validar contra specs/design/tasks
+5. verify                                        → validar contra specs/design/tasks y probar los endpoints en /docs
 6. /opsx:archive <change> + marcar [x]           → cerrar el change; esperar "Continuar"
 ```
 

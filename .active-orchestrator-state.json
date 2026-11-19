@@ -20,12 +20,12 @@
       "Borrar órdenes y productos"
     ],
     "funcionalidades_necesarias": [
-      "Paso 1: SQLite local, tablas usuarios/productos/ordenes/movimientos, login CLI con admin por defecto, menú, inventario",
-      "Paso 2: movimientos de stock CLI (ingreso + egreso manual sin orden)",
-      "Paso 3: creación de órdenes CLI con validación y descuento atómico",
-      "Paso 4: listado de órdenes CLI con filtro por fechas",
-      "Paso 4b: borrado de órdenes y productos CLI con confirmación",
-      "Paso 5: schema.sql Supabase, capa de datos con cliente supabase, API FastAPI serverless (Pydantic), frontend HTML estático/Tailwind CDN/JS",
+      "Paso 1: esqueleto FastAPI + SQLite local, init idempotente y seed admin al arrancar (lifespan), POST /api/login, POST /api/logout, GET /api/me, GET /api/inventario (sin CLI, verificado en /docs)",
+      "Paso 2: POST /api/stock/ingreso y POST /api/stock/egreso (movimientos, egreso manual sin orden)",
+      "Paso 3: POST /api/ordenes con validación y descuento atómico",
+      "Paso 4: GET /api/ordenes?desde&hasta con filtro por fechas",
+      "Paso 4b: DELETE /api/ordenes/{id}?reintegrar= y DELETE /api/productos/{codigo}",
+      "Paso 5: schema.sql Supabase, repositorios Supabase que reemplazan a SQLite (la API ya existe), frontend HTML estático/Tailwind CDN/JS",
       "Paso 6: estructura Vercel, vercel.json, requirements.txt, .env.example, .gitignore, README guía de despliegue"
     ],
     "funcionalidades_opcionales": [
@@ -53,10 +53,10 @@
       "GitHub"
     ],
     "restricciones": [
-      "Fase 1 solo stdlib (sqlite3, hashlib, datetime, os)",
-      "Fases 2-3: fastapi, uvicorn, supabase, python-dotenv, itsdangerous en requirements.txt",
+      "Dependencias permitidas desde el Paso 1, declaradas en requirements.txt y requirements-dev.txt (httpx solo test); trabajo en .venv; supabase desde el Paso 5",
+      "Sin CLI: pasos 1-4b como backend FastAPI + SQLite verificado en /docs y con unittest/TestClient (cambio de alcance del usuario 2026-11-19)",
       "Sin secretos hardcodeados: os.environ",
-      "Patrón Repositorio/DAO, lógica desacoplada de la interfaz",
+      "Patrón Repositorio/DAO; domain/services/repositories sin importar FastAPI (FastAPI = adaptador HTTP)",
       "OpenSpec estricto, un paso por vez con pausa"
     ],
     "riesgos": [
@@ -82,7 +82,7 @@
       "system_type": "web_app",
       "domain": "inventario y órdenes de trabajo",
       "scale": "team",
-      "stack": "Python stdlib + SQLite (Fase 1) → FastAPI + Supabase PostgreSQL + HTML estático/Tailwind CDN/JS en Vercel",
+      "stack": "FastAPI + SQLite (pasos 1-4b, verificado en /docs) → FastAPI + Supabase PostgreSQL + HTML estático/Tailwind CDN/JS en Vercel",
       "needs_infra": true
     },
     "files": [
@@ -135,7 +135,7 @@
       "AGENTS.md"
     ],
     "reglas_applied": [
-      "fase1-solo-stdlib",
+      "deps-declaradas-logica-desacoplada",
       "sin-secretos",
       "stock-atomico-doble-validacion",
       "unittest-sin-mock-db",

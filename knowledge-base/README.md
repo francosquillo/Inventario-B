@@ -29,4 +29,4 @@ Base de conocimiento generada a partir del discovery del proyecto (`discovery/di
 
 ## Resumen Ejecutivo
 
-Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme chica. Arranca como CLI en Python stdlib con SQLite (Fase 1), evoluciona a una app web FastAPI + Supabase PostgreSQL con frontend HTML estático/Tailwind (Fase 2) y se despliega en Vercel (Fase 3). La lógica de negocio vive en services desacoplados con repositorios intercambiables; las operaciones compuestas son atómicas y no hay secretos en el repositorio. Se construye paso a paso con OpenSpec y TDD estricto.
+Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme chica. Arranca como backend API local FastAPI + SQLite verificado en `/docs` (Fase 1, sin CLI: decisión del usuario 2026-11-19, DD-12), migra a Supabase PostgreSQL con frontend HTML estático/Tailwind (Fase 2) y se despliega en Vercel (Fase 3). La lógica de negocio vive en services desacoplados con repositorios intercambiables; las operaciones compuestas son atómicas y no hay secretos en el repositorio. Se construye paso a paso con OpenSpec y TDD estricto.

@@ -14,7 +14,9 @@
 4. Pausá y esperá la orden "Continuar" del usuario antes de pasar al siguiente.
 5. Marcá el checkbox `[x]` del change archivado.
 
-**Test runner (todos los changes)**: Python stdlib `unittest` (`python -m unittest discover`). Strict TDD activo: safety net, RED, GREEN, TRIANGULATE, REFACTOR.
+**Test runner (todos los changes)**: `unittest` (`python -m unittest discover`), con `TestClient` de FastAPI (requiere `httpx` en `requirements-dev.txt`) para los endpoints. Strict TDD activo: safety net, RED, GREEN, TRIANGULATE, REFACTOR. Además, cada endpoint se verifica a mano en la Swagger UI (`/docs`).
+
+> **Cambio de alcance 2026-11-19 (decisión explícita del usuario)**: se elimina la CLI. Los pasos 1 a 4b se construyen como backend FastAPI + SQLite local, verificado en `/docs` y con tests. Esto se aparta del brief original (CLI con stdlib en Fase 1). Los nombres de los changes se mantienen sin cambios (`paso-1-base-cli` es un nombre histórico). Dependencias permitidas desde el Paso 1, declaradas en `requirements.txt` / `requirements-dev.txt`, trabajando en `.venv`.
 
 ---
 
@@ -58,17 +60,19 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
 
 ---
 
-## FASE 1 — Lógica de negocio y CLI (solo stdlib)
+## FASE 1 — Backend API local (FastAPI + SQLite), verificado en /docs
 
 ### [C-01] `paso-1-base-cli`
-- **Estado**: `[ ]` pendiente
+> Nombre histórico: ya no hay CLI; el change entrega la base del backend FastAPI.
+- **Estado**: `[x]` archivado (2026-11-19)
 - **Scope**:
-  - SQLite local (`sqlite3`): tablas `usuarios`, `productos`, `ordenes`, `orden_items`, `movimientos`; inicialización idempotente al primer arranque
-  - Seed de `admin` con hash PBKDF2-HMAC-SHA256 + salt por usuario, `hmac.compare_digest`; contraseña inicial desde `ADMIN_DEFAULT_PASSWORD` (`os.environ`)
-  - Login CLI con `getpass`, mensaje genérico ante credenciales inválidas; menú principal; ver inventario (solo activos, stock 0 visible, mensaje de vacío)
-  - Estructura Repositorio/DAO + services desacoplados de la interfaz (US-001, US-002, US-003)
-  - Tests `unittest`: hashing, login válido/inválido, init idempotente, listado de inventario (SQLite `:memory:`)
-- **Test runner**: Python stdlib `unittest` (Strict TDD)
+  - Esqueleto FastAPI (adaptador HTTP fino) + `requirements.txt` (`fastapi`, `uvicorn`, `python-dotenv`, `itsdangerous`) y `requirements-dev.txt` (`httpx`); `.venv` gitignored
+  - SQLite local (`sqlite3`): tablas `usuarios`, `productos`, `ordenes`, `orden_items`, `movimientos`; inicialización idempotente y seed del admin al arrancar la app (lifespan de FastAPI)
+  - Seed de `admin` con hash PBKDF2-HMAC-SHA256 + salt por usuario, `hmac.compare_digest`; contraseña inicial desde `ADMIN_DEFAULT_PASSWORD` (`os.environ`); si falta, se genera aleatoria y se imprime UNA sola vez en la consola del servidor (log de uvicorn) en la primera inicialización
+  - Auth con cookie de sesión firmada (Starlette `SessionMiddleware`, env `SECRET_KEY`); dependencia `get_current_user` que responde 401 sin sesión; endpoints `POST /api/login` (mensaje genérico ante credenciales inválidas), `POST /api/logout`, `GET /api/me`, `GET /api/inventario` (solo activos, stock 0 visible, lista vacía explícita)
+  - Estructura Repositorio/DAO + services desacoplados de FastAPI (US-001, US-002, US-003)
+  - Verificación manual en `/docs` + tests `unittest`: hashing, login válido/inválido, init idempotente, listado de inventario (SQLite `:memory:`), endpoints con `TestClient`
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: ninguna
 - **Governance**: CRITICO (auth y modelo core del que depende todo)
 - **Leer antes**:
@@ -84,9 +88,9 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
   - Ingreso de stock por código: suma si existe, crea con nombre si no existe, reactiva si está inactivo (US-004)
   - Egreso manual: entero > 0 y <= stock actual (US-005)
   - Registro atómico en `movimientos` (fecha, producto, tipo, cantidad, usuario) sin motivo; transacción SQLite
-  - Opciones de menú CLI correspondientes
-  - Tests `unittest`: suma, alta, reactivación, rechazo por exceso/cantidad inválida, atomicidad
-- **Test runner**: Python stdlib `unittest` (Strict TDD)
+  - Endpoints `POST /api/stock/ingreso` y `POST /api/stock/egreso` (protegidos, 401 sin sesión), verificados en `/docs`
+  - Tests `unittest`: suma, alta, reactivación, rechazo por exceso/cantidad inválida, atomicidad, endpoints con `TestClient`
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-01`
 - **Governance**: MEDIO
 - **Leer antes**:
@@ -98,12 +102,13 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
 ### [C-03] `paso-3-crear-ordenes`
 - **Estado**: `[ ]` pendiente
 - **Scope**:
-  - Crear orden CLI: número único, fecha `YYYY-MM-DD` ingresada a mano, >= 1 componente activo con cantidad entera > 0 (US-006)
+  - `POST /api/ordenes`: número único, fecha `YYYY-MM-DD`, >= 1 componente activo con cantidad entera > 0 (US-006)
   - Consolidación de líneas repetidas del mismo producto (RN-OR-11)
   - Validación de stock de TODOS los componentes; rechazo completo si falta; descuento + alta de `ordenes`/`orden_items` en una transacción
   - Los descuentos por orden NO se registran en `movimientos` (RN-ST-06)
-  - Tests `unittest`: éxito, stock insuficiente sin cambios parciales, número duplicado, fecha inválida, consolidación
-- **Test runner**: Python stdlib `unittest` (Strict TDD)
+  - Verificación en `/docs`
+  - Tests `unittest`: éxito, stock insuficiente sin cambios parciales, número duplicado, fecha inválida, consolidación, endpoint con `TestClient`
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-02`
 - **Governance**: MEDIO
 - **Leer antes**:
@@ -115,10 +120,11 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
 ### [C-04] `paso-4-listado-ordenes`
 - **Estado**: `[ ]` pendiente
 - **Scope**:
-  - Listado CLI de órdenes: todas o rango `YYYY-MM-DD` inclusivo, validando fechas reales y desde <= hasta (US-007)
+  - `GET /api/ordenes?desde&hasta`: todas o rango `YYYY-MM-DD` inclusivo, validando fechas reales y desde <= hasta (US-007)
   - Detalle de componentes por orden, mostrando productos dados de baja (RN-PR-04)
-  - Tests `unittest`: sin filtro, rango inclusivo en bordes, rango invertido, fecha inexistente, sin resultados
-- **Test runner**: Python stdlib `unittest` (Strict TDD)
+  - Verificación en `/docs`
+  - Tests `unittest`: sin filtro, rango inclusivo en bordes, rango invertido, fecha inexistente, sin resultados, endpoint con `TestClient`
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-03`
 - **Governance**: BAJO (lectura)
 - **Leer antes**:
@@ -129,10 +135,11 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
 ### [C-05] `paso-4b-borrado-ordenes-productos`
 - **Estado**: `[ ]` pendiente
 - **Scope**:
-  - Borrar orden con confirmación `s/n`; pregunta cada vez si reintegra stock; reintegro + borrado atómicos; reactiva productos inactivos al reintegrar (US-008, RN-OR-08/09/12)
-  - Borrar producto lógico (`activo = 0`) con confirmación; las órdenes históricas lo siguen mostrando (US-009)
-  - Tests `unittest`: con/sin reintegro, reactivación, cancelación de confirmación, baja lógica e inventario, órdenes históricas intactas
-- **Test runner**: Python stdlib `unittest` (Strict TDD)
+  - `DELETE /api/ordenes/{id}?reintegrar=true|false`: el parámetro `reintegrar` es obligatorio y explícito en cada llamada (sin valor por defecto); reintegro + borrado atómicos; reactiva productos inactivos al reintegrar (US-008, RN-OR-08/09/12). La confirmación previa es responsabilidad del frontend (Paso 5); la API exige el parámetro explícito
+  - `DELETE /api/productos/{codigo}`: baja lógica (`activo = 0`); las órdenes históricas lo siguen mostrando (US-009)
+  - Verificación en `/docs`
+  - Tests `unittest`: con/sin reintegro, reactivación, parámetro `reintegrar` ausente rechazado, baja lógica e inventario, órdenes históricas intactas, endpoints con `TestClient`
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-04`
 - **Governance**: ALTO (borrado destructivo con reintegro de datos)
 - **Leer antes**:
@@ -146,17 +153,19 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
 ## FASE 2 — Supabase + web
 
 ### [C-06] `paso-5-supabase-api-web`
+> Nombre histórico: la API ya existe desde C-01..C-05; este change migra a Supabase y agrega el frontend.
 - **Estado**: `[ ]` pendiente
 - **Scope**:
   - **Cambio visual**: política `system-and-mockups`, design-system Revision 1 aprobado. ANTES de `apply` deben crearse y aprobarse los mockups del change en `openspec/changes/paso-5-supabase-api-web/mockups/` (basados en `design-system/components.html` y `design-system/ordenes.html`; inventario primero; modales para ingreso/egreso/nueva orden/borrados; órdenes en pantalla aparte `/ordenes`), con renders 390x844 y 1440x900 y `## UI Mockups` en `design.md`
   - `schema.sql` Supabase: 5 tablas + funciones RPC Postgres para operaciones atómicas (ingreso/egreso con movimiento, crear orden, borrar orden con reintegro)
   - Script de seed del admin (contraseña desde entorno, PBKDF2)
-  - Capa de datos con cliente `supabase` implementando el mismo contrato de repositorio que SQLite; tests de contrato compartidos
-  - API FastAPI serverless-ready: auth con cookie firmada (Starlette `SessionMiddleware`, `SECRET_KEY`, HttpOnly, SameSite=Lax), `Depends(get_current_user)` (401 sin sesión), endpoints JSON `/api/...` de inventario, movimientos, órdenes (crear/listar/borrar) y borrado de producto; validación en backend con modelos Pydantic (sin reemplazar la de los services)
+  - Repositorios `supabase` (cliente Python síncrono) que reemplazan la implementación SQLite sin tocar los services; tests de contrato compartidos entre ambas implementaciones; `supabase` se agrega a `requirements.txt`
+  - La API FastAPI YA EXISTE (C-01..C-05); aquí solo se ajusta para serverless-ready (cookie HttpOnly, SameSite=Lax, `SECRET_KEY` por entorno) sin cambiar el contrato de los endpoints `/api/...`
   - Frontend HTML estático en `static/` (`login.html`, `index.html`, `ordenes.html`, `js/`, `css/`) + Tailwind CDN + JS vanilla con `fetch` a la API JSON (redirige al login en 401; sin Jinja2 ni `templates/`): login, inventario, modales, `/ordenes` con filtro de fechas; validación en front
-  - Los services de C-01..C-05 se reutilizan sin modificarlos
+  - Los services y rutas de C-01..C-05 se reutilizan sin modificarlos
+  - Revisar CSRF de login/logout (observación verify C-01)
   - Tests `unittest` (contrato de repositorio, rutas FastAPI con `TestClient` (dependencia de test: `httpx`), servicios)
-- **Test runner**: Python stdlib `unittest` (Strict TDD)
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-05`
 - **Governance**: CRITICO (auth web, service_role key, sesión) con componente visual
 - **Leer antes**:
@@ -174,10 +183,10 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
 - **Estado**: `[ ]` pendiente
 - **Scope**:
   - `api/index.py` (entrypoint serverless, exporta `app` FastAPI), `static/` (servido con `StaticFiles` y/o ruteo estático: definir aquí), `vercel.json`
-  - `requirements.txt` (`fastapi`, `uvicorn`, `supabase`, `python-dotenv`, `itsdangerous`; versiones fijadas en este paso; `httpx` solo para tests), `.env.example` (solo nombres), `.gitignore` (incluye `.env`)
+  - `requirements.txt` (`fastapi`, `uvicorn`, `supabase`, `python-dotenv`, `itsdangerous`; versiones fijadas en este paso; `httpx` solo en `requirements-dev.txt`), `.env.example` (solo nombres), `.gitignore` (incluye `.env`)
   - README con guía: Supabase, `schema.sql`, seed admin, GitHub, Vercel, variables de entorno, verificación (US-011)
   - Tests `unittest`: smoke del entrypoint, ausencia de secretos hardcodeados, presencia de variables en `.env.example`
-- **Test runner**: Python stdlib `unittest` (Strict TDD)
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-06`
 - **Governance**: ALTO (configuración de despliegue y secretos)
 - **Leer antes**:
@@ -191,7 +200,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
 
 | ID | Change | Fase | Dependencias | Governance |
 |----|--------|------|--------------|------------|
-| C-01 | paso-1-base-cli | 1 | — | CRITICO |
+| C-01 | paso-1-base-cli (nombre histórico) | 1 | — | CRITICO |
 | C-02 | paso-2-movimientos-stock | 1 | C-01 | MEDIO |
 | C-03 | paso-3-crear-ordenes | 1 | C-02 | MEDIO |
 | C-04 | paso-4-listado-ordenes | 1 | C-03 | BAJO |

@@ -1,6 +1,7 @@
 # Discovery — Inventario-B
 
 **Fecha**: 2026-11-19
+**Cambio de alcance 2026-11-19**: sin CLI; FastAPI + `/docs` desde el Paso 1 (decisión del usuario, se aparta del brief original; ver DD-12 en la KB).
 **Fuentes investigadas**: ninguna URL de competidores. Fuente principal: el prompt/consigna del proyecto provisto por el usuario, más una ronda de Q&A.
 
 ## 1. Problema que resuelve
@@ -40,15 +41,15 @@ No se analizaron competidores. Hoy el problema se resuelve con planillas o papel
 
 Plan por pasos (un paso a la vez, ciclo OpenSpec propose → apply → verify → archive, con pausa entre pasos):
 
-**Fase 1 — Lógica de negocio y CLI** (solo stdlib; patrón Repositorio/DAO, lógica desacoplada de la consola)
-- **Paso 1**: SQLite local, tablas `usuarios`, `productos`, `ordenes`, `movimientos`; login por terminal con `admin` por defecto (contraseña hasheada); menú principal; visualización de inventario.
-- **Paso 2 — Movimientos de stock**: ingreso por código interno (suma o alta con nombre) y egreso manual (descuenta unidades sin orden).
-- **Paso 3**: creación de órdenes (número + componentes) validando y descontando stock.
-- **Paso 4**: listado de órdenes, todas o por rango de fechas.
-- **Paso 4b**: borrado de órdenes y productos (con confirmación).
+**Fase 1 — Backend API local (FastAPI + SQLite), verificado en /docs** (sin CLI; patrón Repositorio/DAO, lógica desacoplada de FastAPI; dependencias declaradas en `requirements.txt`/`requirements-dev.txt`, `.venv`)
+- **Paso 1**: esqueleto FastAPI; SQLite local, tablas `usuarios`, `productos`, `ordenes`, `movimientos`; init idempotente y seed del `admin` (contraseña hasheada) al arrancar; `POST /api/login`, `POST /api/logout`, `GET /api/me`, `GET /api/inventario`.
+- **Paso 2 — Movimientos de stock**: `POST /api/stock/ingreso` (suma o alta con nombre) y `POST /api/stock/egreso` (descuenta unidades sin orden).
+- **Paso 3**: `POST /api/ordenes` (número + componentes) validando y descontando stock.
+- **Paso 4**: `GET /api/ordenes?desde&hasta`, todas o por rango de fechas.
+- **Paso 4b**: `DELETE /api/ordenes/{id}?reintegrar=` y `DELETE /api/productos/{codigo}` (el frontend aplica la confirmación en el Paso 5).
 
 **Fase 2 — Supabase + web**
-- **Paso 5**: `schema.sql` para PostgreSQL/Supabase con `admin` inicial; capa de datos adaptada al cliente `supabase` vía `SUPABASE_URL`/`SUPABASE_KEY`; API en **FastAPI** (ASGI) preparada para serverless con validación Pydantic; frontend HTML estático + Tailwind (CDN) + JS que consume la API JSON con login (contraseña oculta), dashboard con tabla de inventario y modales para pasos 2, 3, 4 y 4b.
+- **Paso 5**: `schema.sql` para PostgreSQL/Supabase con `admin` inicial; repositorios Supabase (cliente `supabase` vía `SUPABASE_URL`/`SUPABASE_KEY`) que reemplazan a SQLite sin tocar los services; la API **FastAPI** ya existe desde la Fase 1 y se ajusta para serverless; frontend HTML estático + Tailwind (CDN) + JS que consume la API JSON con login (contraseña oculta), dashboard con tabla de inventario y modales para pasos 2, 3, 4 y 4b.
 
 **Fase 3 — Despliegue en Vercel**
 - **Paso 6**: estructura `api/index.py`, `static/` (sin `templates/`); `vercel.json`, `requirements.txt`, `.env.example`, `.gitignore`; `README.md` con guía paso a paso (Supabase, schema.sql, GitHub, Vercel, variables de entorno, verificación).
@@ -71,7 +72,7 @@ Plan por pasos (un paso a la vez, ciclo OpenSpec propose → apply → verify �
 - **Registro de movimientos**: todo ingreso y todo egreso manual de stock se registra en la tabla `movimientos` (fecha, producto, tipo `ingreso`/`egreso`, cantidad, usuario) **sin pedir motivo**.
 - **Borrar orden**: el sistema pregunta cada vez si reintegrar al inventario el stock descontado; si se reintegra, es atómico.
 - **Borrar producto**: borrado lógico (`activo = 0`); desaparece del inventario y de la selección para nuevas órdenes, pero las órdenes históricas lo siguen mostrando.
-- Todo borrado requiere confirmación (CLI `s/n`, web modal).
+- Todo borrado requiere confirmación (modal en la web; la API exige el parámetro explícito `reintegrar`).
 - Contraseñas: SHA-256 con salt aleatorio por usuario vía PBKDF2-HMAC-SHA256 (`hashlib.pbkdf2_hmac`), nunca en texto plano.
 
 ## 8. Integraciones
@@ -82,10 +83,9 @@ Plan por pasos (un paso a la vez, ciclo OpenSpec propose → apply → verify �
 
 ## 9. Restricciones
 
-- Fase 1: exclusivamente biblioteca estándar (`sqlite3`, `hashlib`, `datetime`, `os`).
-- Fases 2-3: `fastapi`, `uvicorn`, `supabase`, `python-dotenv`, `itsdangerous` declaradas en `requirements.txt`.
+- Dependencias permitidas desde el Paso 1, declaradas en `requirements.txt` (`fastapi`, `uvicorn`, `python-dotenv`, `itsdangerous`; `supabase` desde el Paso 5) y `requirements-dev.txt` (`httpx`, solo test); trabajo en `.venv`. (Reemplaza la restricción original de solo biblioteca estándar en la Fase 1.)
 - Prohibido hardcodear URLs, claves API o contraseñas: todo vía `os.environ`.
-- Backend desacoplado de la interfaz para reutilizarlo desde CLI y API.
+- Lógica de negocio (domain/services/repositories) sin dependencia de FastAPI; FastAPI es solo el adaptador HTTP, para reutilizarla al migrar a Supabase.
 - Metodología OpenSpec estricta, un paso por vez con pausa hasta "Continuar".
 
 ## 10. Riesgos
