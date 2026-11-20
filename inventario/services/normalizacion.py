@@ -14,3 +14,14 @@ def normalizar_codigo(codigo):
     if len(normalizado) > CODIGO_MAX:
         raise DatosInvalidos(MENSAJE_CODIGO_LARGO)
     return normalizado
+
+
+CANTIDAD_MAX = 10_000
+MENSAJE_CANTIDAD = "La cantidad debe ser un entero entre 1 y 10.000."
+
+
+def validar_cantidad(cantidad):
+    # type() is int: rechaza bool, float y str.
+    if type(cantidad) is not int or not 1 <= cantidad <= CANTIDAD_MAX:
+        raise DatosInvalidos(MENSAJE_CANTIDAD)
+    return cantidad

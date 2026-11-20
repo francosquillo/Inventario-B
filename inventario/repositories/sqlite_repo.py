@@ -2,13 +2,29 @@
 import logging
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
-from inventario.domain.entities import Movimiento, Producto, ResultadoIngreso, Usuario
-from inventario.domain.errors import NombreRequerido, ProductoNoEncontrado, StockInsuficiente
+from inventario.domain.entities import (
+    Faltante,
+    ItemOrden,
+    Movimiento,
+    Orden,
+    Producto,
+    ResultadoIngreso,
+    Usuario,
+)
+from inventario.domain.errors import (
+    NombreRequerido,
+    OrdenDuplicada,
+    ProductoNoEncontrado,
+    ProductosNoEncontrados,
+    StockInsuficiente,
+    StockInsuficienteOrden,
+)
 from inventario.domain.tiempo import ZONA_AR
 from inventario.repositories.base import (
     MovimientoRepository,
+    OrdenRepository,
     ProductoRepository,
     StockRepository,
     UsuarioRepository,
@@ -130,6 +146,13 @@ class SqliteUsuarioRepository(UsuarioRepository):
         ).fetchone()
         return _a_usuario(fila) if fila else None
 
+    def obtener_por_id(self, usuario_id):
+        fila = self._conn.execute(
+            "SELECT id, username, password_hash, salt FROM usuarios WHERE id = ?",
+            (usuario_id,),
+        ).fetchone()
+        return _a_usuario(fila) if fila else None
+
     def crear(self, username, password_hash, salt):
         cur = self._conn.execute(
             "INSERT INTO usuarios (username, password_hash, salt) VALUES (?, ?, ?)",
@@ -175,7 +198,12 @@ def _fecha_a_texto(fecha):
 def _transaccion(conn):
     """BEGIN IMMEDIATE: toma el lock de escritura antes de leer (sin carreras de stock)."""
     if conn.in_transaction:
-        conn.commit()  # cierra escrituras previas pendientes de la misma conexion
+        # No se confirma en silencio: un DML previo de la misma conexion quedaria
+        # confirmado aunque esta operacion falle, rompiendo el todo o nada.
+        raise RuntimeError(
+            "La conexión tiene una transacción pendiente; "
+            "no se puede iniciar una operación atómica."
+        )
     conn.execute("BEGIN IMMEDIATE")
     try:
         yield
@@ -281,3 +309,81 @@ class SqliteMovimientoRepository(MovimientoRepository):
                     fila["fecha"],
                 )
         return movimientos
+
+
+# --- Alta de ordenes (D1/D2) ---
+_SQL_ORDEN_EXISTE = "SELECT 1 FROM ordenes WHERE numero = ?"
+_SQL_PRODUCTOS_POR_CODIGOS = (
+    "SELECT id, codigo, stock FROM productos WHERE activo = 1 AND codigo IN ({})"
+)
+_SQL_ALTA_ORDEN = "INSERT INTO ordenes (numero, fecha, usuario_id, created_at) VALUES (?, ?, ?, ?)"
+_SQL_ALTA_ITEM = "INSERT INTO orden_items (orden_id, producto_id, cantidad) VALUES (?, ?, ?)"
+_SQL_ORDEN_COMPLETA = (
+    "SELECT o.id, o.numero, o.fecha, u.username FROM ordenes o "
+    "JOIN usuarios u ON u.id = o.usuario_id WHERE o.id = ?"
+)
+_SQL_ITEMS_DE_ORDEN = (
+    "SELECT p.codigo, p.nombre, i.cantidad FROM orden_items i "
+    "JOIN productos p ON p.id = i.producto_id WHERE i.orden_id = ? ORDER BY p.codigo"
+)
+
+
+class SqliteOrdenRepository(OrdenRepository):
+    def __init__(self, conn):
+        self._conn = conn
+
+    def crear(self, numero, fecha, items, usuario_id, creada_en):
+        texto_creada = _fecha_a_texto(creada_en)
+        try:
+            with _transaccion(self._conn):
+                orden_id = self._crear_en_transaccion(
+                    numero, fecha, items, usuario_id, texto_creada
+                )
+                return self._leer_orden(orden_id)
+        except sqlite3.IntegrityError as exc:
+            # Respaldo del paso 1: el UNIQUE de ordenes.numero ante una carrera.
+            if "ordenes.numero" in str(exc):
+                raise OrdenDuplicada(numero) from exc
+            raise
+
+    def _crear_en_transaccion(self, numero, fecha, items, usuario_id, texto_creada):
+        conn = self._conn
+        if conn.execute(_SQL_ORDEN_EXISTE, (numero,)).fetchone() is not None:
+            raise OrdenDuplicada(numero)
+        codigos = [codigo for codigo, _ in items]
+        # Solo placeholders "?": los codigos viajan como parametros, nunca en el SQL.
+        sql = _SQL_PRODUCTOS_POR_CODIGOS.format(", ".join("?" * len(codigos)))
+        productos = {f["codigo"]: f for f in conn.execute(sql, codigos).fetchall()}
+        ausentes = [c for c in codigos if c not in productos]
+        if ausentes:
+            raise ProductosNoEncontrados(ausentes)
+        faltantes = [
+            Faltante(codigo, productos[codigo]["stock"], cantidad)
+            for codigo, cantidad in items
+            if productos[codigo]["stock"] < cantidad
+        ]
+        if faltantes:
+            raise StockInsuficienteOrden(faltantes)
+        orden_id = conn.execute(
+            _SQL_ALTA_ORDEN, (numero, fecha.isoformat(), usuario_id, texto_creada)
+        ).lastrowid
+        for codigo, cantidad in items:
+            producto_id = productos[codigo]["id"]
+            conn.execute(_SQL_ALTA_ITEM, (orden_id, producto_id, cantidad))
+            cur = conn.execute(_SQL_RESTAR, (cantidad, producto_id, cantidad))
+            if cur.rowcount != 1:  # defensa en profundidad; BEGIN IMMEDIATE lo evita
+                raise StockInsuficienteOrden(
+                    [Faltante(codigo, productos[codigo]["stock"], cantidad)]
+                )
+        return orden_id
+
+    def _leer_orden(self, orden_id):
+        fila = self._conn.execute(_SQL_ORDEN_COMPLETA, (orden_id,)).fetchone()
+        lineas = self._conn.execute(_SQL_ITEMS_DE_ORDEN, (orden_id,)).fetchall()
+        return Orden(
+            id=fila["id"],
+            numero=fila["numero"],
+            fecha=date.fromisoformat(fila["fecha"]),
+            usuario=fila["username"],
+            items=tuple(ItemOrden(f["codigo"], f["nombre"], f["cantidad"]) for f in lineas),
+        )

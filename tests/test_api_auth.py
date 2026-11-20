@@ -48,7 +48,8 @@ class LoginTest(ApiAuthBase):
             ({"username": "admin", "password": ""}, "El campo password es obligatorio."),
             ({"username": "", "password": "x"}, "El campo username es obligatorio."),
             ({"username": 5, "password": "x"}, "El campo username debe ser texto."),
-            ({"username": "admin", "password": None}, "El campo password debe ser texto."),
+            ({"username": "admin", "password": None}, "El campo password es obligatorio."),
+            ({"username": None, "password": "x"}, "El campo username es obligatorio."),
         ]
         for cuerpo, mensaje in invalidos:
             with self.subTest(cuerpo=cuerpo):

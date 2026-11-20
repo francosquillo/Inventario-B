@@ -100,7 +100,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
   - `knowledge-base/04_modelo_de_datos.md` §movimientos
 
 ### [C-03] `paso-3-crear-ordenes`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-20)
 - **Scope**:
   - `POST /api/ordenes`: número único, fecha `YYYY-MM-DD`, >= 1 componente activo con cantidad entera > 0 (US-006)
   - Consolidación de líneas repetidas del mismo producto (RN-OR-11)

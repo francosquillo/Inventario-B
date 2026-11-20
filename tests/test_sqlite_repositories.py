@@ -25,6 +25,17 @@ class UsuarioRepoTest(unittest.TestCase):
     def test_inexistente_devuelve_none(self):
         self.assertIsNone(self.repo.obtener_por_username("nadie"))
 
+    def test_obtener_por_id(self):
+        creado = self.repo.crear("admin", "hh", "ss")
+        otro = self.repo.crear("otro", "h2", "s2")
+        self.assertEqual(self.repo.obtener_por_id(creado.id), creado)
+        self.assertEqual(self.repo.obtener_por_id(otro.id).username, "otro")
+
+    def test_obtener_por_id_inexistente_devuelve_none(self):
+        creado = self.repo.crear("admin", "hh", "ss")
+        self.assertIsNone(self.repo.obtener_por_id(creado.id + 100))
+        self.assertIsNone(self.repo.obtener_por_id(0))
+
     def test_username_con_comilla(self):
         self.repo.crear("o'brien", "h", "s")
         self.assertEqual(self.repo.obtener_por_username("o'brien").username, "o'brien")

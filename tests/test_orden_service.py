@@ -1,0 +1,204 @@
+import unittest
+from datetime import date, datetime
+
+from inventario.domain.entities import Faltante
+from inventario.domain.errors import (
+    DatosInvalidos,
+    OrdenDuplicada,
+    ProductosNoEncontrados,
+    StockInsuficienteOrden,
+)
+from inventario.domain.tiempo import ZONA_AR
+from inventario.repositories.sqlite_repo import SqliteOrdenRepository
+from inventario.services.orden_service import OrdenService
+from tests.helpers import conexion_inicializada, insertar_producto, insertar_usuario, movimientos
+
+FECHA_FIJA = datetime(2026, 11, 19, 15, 30, tzinfo=ZONA_AR)
+MSG_CANTIDAD = "La cantidad debe ser un entero entre 1 y 10.000."
+
+
+class ServiceBase(unittest.TestCase):
+    def setUp(self):
+        self.conn = conexion_inicializada()
+        self.addCleanup(self.conn.close)
+        self.uid = insertar_usuario(self.conn)
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        insertar_producto(self.conn, "B-02", "Tuerca", 10)
+        self.service = OrdenService(SqliteOrdenRepository(self.conn), ahora=lambda: FECHA_FIJA)
+
+    def crear(self, numero="OT-0001", fecha="2026-11-20", componentes=(("A-01", 1),)):
+        return self.service.crear(numero, fecha, componentes, self.uid)
+
+    def stock(self, codigo):
+        return self.conn.execute(
+            "SELECT stock FROM productos WHERE codigo = ?", (codigo,)
+        ).fetchone()[0]
+
+    def assertInvalido(self, mensaje, **kwargs):
+        with self.assertRaises(DatosInvalidos) as ctx:
+            self.crear(**kwargs)
+        self.assertEqual(str(ctx.exception), mensaje)
+
+    def conteos(self):
+        return tuple(
+            self.conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+            for t in ("ordenes", "orden_items", "movimientos")
+        ) + (self.stock("A-01"), self.stock("B-02"))
+
+
+class AltaServiceTest(ServiceBase):
+    def test_normaliza_numero_y_codigos_y_usa_el_reloj(self):
+        orden = self.crear("  ot-0003 ", "2026-11-20", [(" a-01 ", 2)])
+        self.assertEqual(orden.numero, "OT-0003")
+        self.assertEqual(orden.fecha, date(2026, 11, 20))
+        self.assertEqual([(i.codigo, i.cantidad) for i in orden.items], [("A-01", 2)])
+        creada = self.conn.execute("SELECT created_at FROM ordenes").fetchone()[0]
+        self.assertEqual(creada, "2026-11-19T15:30:00-03:00")
+        self.assertEqual(self.stock("A-01"), 3)
+
+    def test_segunda_orden_con_otros_valores(self):
+        orden = self.crear("x-9", "2025-01-15", [("b-02", 4), ("a-01", 1)])
+        self.assertEqual(orden.numero, "X-9")
+        self.assertEqual([(i.codigo, i.cantidad) for i in orden.items], [("A-01", 1), ("B-02", 4)])
+        self.assertEqual((self.stock("A-01"), self.stock("B-02")), (4, 6))
+
+
+class NumeroYFechaTest(ServiceBase):
+    def test_numero_invalido(self):
+        casos = (
+            ("   ", "El campo numero es obligatorio."),
+            ("", "El campo numero es obligatorio."),
+            (None, "El campo numero es obligatorio."),
+            ("X" * 31, "El campo numero admite hasta 30 caracteres."),
+            (5, "El campo numero debe ser texto."),
+        )
+        for numero, mensaje in casos:
+            with self.subTest(numero=numero):
+                self.assertInvalido(mensaje, numero=numero)
+
+    def test_numero_de_30_caracteres_se_acepta(self):
+        self.assertEqual(self.crear("x" * 30).numero, "X" * 30)
+
+    def test_fecha_invalida(self):
+        casos = (
+            (None, "El campo fecha es obligatorio."),
+            ("", "El campo fecha es obligatorio."),
+            ("20/11/2026", "La fecha debe tener formato AAAA-MM-DD."),
+            ("2026-02-30", "La fecha (2026-02-30) no es una fecha válida."),
+        )
+        for fecha, mensaje in casos:
+            with self.subTest(fecha=fecha):
+                self.assertInvalido(mensaje, fecha=fecha)
+
+    def test_fecha_pasada_y_futura_se_aceptan(self):
+        self.assertEqual(self.crear("OT-1", "2025-01-15").fecha, date(2025, 1, 15))
+        self.assertEqual(self.crear("OT-2", "2099-12-31").fecha, date(2099, 12, 31))
+
+
+class ComponentesTest(ServiceBase):
+    def test_lista_vacia(self):
+        self.assertInvalido("La orden requiere al menos un componente.", componentes=[])
+
+    def test_mas_de_100_lineas(self):
+        self.assertInvalido(
+            "La orden admite hasta 100 componentes.", componentes=[("A-01", 1)] * 101
+        )
+
+    def test_100_lineas_se_aceptan(self):
+        insertar_producto(self.conn, "G-10", "Granel", 100)
+        orden = self.crear(componentes=[("G-10", 1)] * 100)
+        self.assertEqual([(i.codigo, i.cantidad) for i in orden.items], [("G-10", 100)])
+
+    def test_componentes_no_es_lista(self):
+        self.assertInvalido("El campo componentes debe ser una lista.", componentes="A-01")
+        self.assertInvalido("El campo componentes debe ser una lista.", componentes={"A-01": 1})
+        self.assertInvalido("El campo componentes es obligatorio.", componentes=None)
+
+    def test_cantidad_invalida_en_la_segunda_linea(self):
+        for cantidad in (0, 2.5, "5", True, 10_001):
+            with self.subTest(cantidad=cantidad):
+                self.assertInvalido(
+                    f"Componente 2: {MSG_CANTIDAD}",
+                    componentes=[("A-01", 1), ("B-02", cantidad)],
+                )
+
+    def test_codigo_invalido_en_la_primera_linea(self):
+        self.assertInvalido(
+            "Componente 1: El campo codigo es obligatorio.", componentes=[("", 1)]
+        )
+        self.assertInvalido(
+            "Componente 1: El campo codigo admite hasta 50 caracteres.",
+            componentes=[("X" * 51, 1)],
+        )
+
+    def test_linea_que_no_es_un_par(self):
+        self.assertInvalido(
+            "Componente 2: debe ser un objeto con codigo y cantidad.",
+            componentes=[("A-01", 1), "B-02"],
+        )
+
+    def test_cantidad_10000_por_linea_se_acepta_con_stock(self):
+        insertar_producto(self.conn, "G-10", "Granel", 10_000)
+        self.assertEqual(self.crear(componentes=[("G-10", 10_000)]).items[0].cantidad, 10_000)
+
+
+class ConsolidacionTest(ServiceBase):
+    def test_codigos_repetidos_se_suman(self):
+        orden = self.crear(componentes=[("A-01", 2), ("a-01", 1)])
+        self.assertEqual([(i.codigo, i.cantidad) for i in orden.items], [("A-01", 3)])
+        self.assertEqual(self.stock("A-01"), 2)
+
+    def test_consolidado_excede_stock_informa_solicitado_total(self):
+        with self.assertRaises(StockInsuficienteOrden) as ctx:
+            self.crear(componentes=[("A-01", 3), ("A-01", 3)])
+        self.assertEqual(ctx.exception.faltantes, (Faltante("A-01", 5, 6),))
+        self.assertEqual(self.stock("A-01"), 5)
+
+    def test_total_consolidado_sobre_10000_se_acepta_con_stock(self):
+        insertar_producto(self.conn, "G-10", "Granel", 12_000)
+        orden = self.crear(componentes=[("G-10", 6_000), ("G-10", 6_000)])
+        self.assertEqual([(i.codigo, i.cantidad) for i in orden.items], [("G-10", 12_000)])
+        self.assertEqual(self.stock("G-10"), 0)
+
+    def test_total_consolidado_sobre_10000_sin_stock_es_409(self):
+        insertar_producto(self.conn, "G-10", "Granel", 11_000)
+        with self.assertRaises(StockInsuficienteOrden) as ctx:
+            self.crear(componentes=[("G-10", 6_000), ("G-10", 6_000)])
+        self.assertEqual(ctx.exception.faltantes, (Faltante("G-10", 11_000, 12_000),))
+        self.assertEqual(self.stock("G-10"), 11_000)
+
+    def test_linea_individual_de_10001_sigue_siendo_422(self):
+        self.assertInvalido(
+            f"Componente 1: {MSG_CANTIDAD}", componentes=[("A-01", 10_001)]
+        )
+
+
+class SinEscrituraTest(ServiceBase):
+    def test_validaciones_fallidas_no_escriben(self):
+        antes = self.conteos()
+        casos = (
+            dict(numero=" "),
+            dict(fecha="2026-02-30"),
+            dict(componentes=[]),
+            dict(componentes=[("A-01", 1), ("B-02", 0)]),
+            dict(componentes=[("A-01", 1), "B-02"]),
+        )
+        for kwargs in casos:
+            with self.subTest(**{k: str(v) for k, v in kwargs.items()}):
+                with self.assertRaises(DatosInvalidos):
+                    self.crear(**kwargs)
+                self.assertEqual(self.conteos(), antes)
+        self.assertEqual(movimientos(self.conn), [])
+
+    def test_rechazos_de_negocio_no_escriben(self):
+        self.crear("OT-0001", componentes=[("A-01", 1)])
+        antes = self.conteos()
+        for tipo, kwargs in (
+            (OrdenDuplicada, dict(numero="ot-0001")),
+            (ProductosNoEncontrados, dict(numero="OT-2", componentes=[("X-00", 1)])),
+            (StockInsuficienteOrden, dict(numero="OT-3", componentes=[("B-02", 11)])),
+        ):
+            with self.subTest(tipo=tipo.__name__):
+                with self.assertRaises(tipo):
+                    self.crear(**kwargs)
+                self.assertEqual(self.conteos(), antes)

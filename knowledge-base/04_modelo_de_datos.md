@@ -44,10 +44,10 @@ usuarios 1 ────< ordenes 1 ────< orden_items >──── 1 pro
 | Campo | Tipo | Notas |
 |-------|------|-------|
 | id | PK | |
-| numero | TEXT/INTEGER, UNIQUE, NOT NULL | a definir tipo en el Paso 3 (PA-06) |
+| numero | TEXT, UNIQUE, NOT NULL | alfanumérico; se guarda sin espacios sobrantes y en mayúsculas (`"  ot-0003 "` → `OT-0003`), de 1 a 30 caracteres; unicidad sobre el valor normalizado (PA-06, resuelta en C-03) |
 | fecha | DATE (`YYYY-MM-DD`), NOT NULL | ingresada a mano por el usuario |
 | usuario_id | FK → usuarios.id, NOT NULL | quién la cargó |
-| created_at | TIMESTAMP, NOT NULL | default now |
+| created_at | TIMESTAMP, NOT NULL | default now; la app lo escribe como ISO 8601 con offset -03:00 (mismo formato que `movimientos`) |
 
 Índice: `fecha` (filtro por rango).
 

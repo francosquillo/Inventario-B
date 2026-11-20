@@ -4,13 +4,13 @@
 
 | Actor | Descripción | Cómo interactúa |
 |-------|-------------|-----------------|
-| Usuario (operario/admin) | Persona del taller con credenciales. Todos tienen los mismos permisos. Existe un `admin` creado por defecto en el seed | Fase 1: Swagger UI (`/docs`) y tests. Fase 2-3: navegador (login + dashboard con modales) |
+| Usuario `admin` | Único usuario del sistema, creado por el seed. Es el único que puede operar (stock, órdenes, consultas). No hay alta de otros usuarios | Fase 1: Swagger UI (`/docs`) y tests. Fase 2-3: navegador (login + dashboard con modales) |
 | Sistema de persistencia | SQLite (Fase 1) / Supabase PostgreSQL (Fase 2) | Accedido solo por la capa de repositorios |
 | Backend FastAPI | Único cliente de Supabase; guarda la sesión en cookie firmada | El navegador nunca habla con Supabase directamente |
 
 ## RBAC — Matriz de permisos
 
-No hay roles diferenciados en v1: cualquier usuario autenticado puede ejecutar todas las operaciones. Roles quedan en backlog.
+Decisión del usuario (2026-11-20): **solo el `admin` logueado puede hacer cosas; quien no se loguea solo puede loguearse**. El sistema es de un único usuario (`admin`, del seed) y no hay gestión de usuarios ni roles: no se planean roles diferenciados (se descarta el backlog de roles). Como `admin` es el único usuario que existe, "usuario autenticado" equivale a `admin`.
 
 | Rol | Recurso | Permisos |
 |-----|---------|----------|

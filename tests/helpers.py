@@ -17,6 +17,7 @@ def insertar_producto(conn, codigo, nombre, stock=0, activo=1):
         "INSERT INTO productos (codigo, nombre, stock, activo) VALUES (?, ?, ?, ?)",
         (codigo, nombre, stock, activo),
     )
+    conn.commit()
     return cur.lastrowid
 
 
@@ -25,6 +26,7 @@ def insertar_usuario(conn, username="admin"):
         "INSERT INTO usuarios (username, password_hash, salt) VALUES (?, 'hash', 'salt')",
         (username,),
     )
+    conn.commit()
     return cur.lastrowid
 
 
@@ -44,6 +46,7 @@ def insertar_movimiento(conn, fecha, producto_id, tipo, cantidad, usuario_id):
         "VALUES (?, ?, ?, ?, ?)",
         (fecha, producto_id, tipo, cantidad, usuario_id),
     )
+    conn.commit()
     return cur.lastrowid
 
 

@@ -10,14 +10,17 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from inventario import config
 from inventario.api.errores_validacion import mensaje_validacion
-from inventario.api.routers import auth, inventario, movimientos, stock
+from inventario.api.routers import auth, inventario, movimientos, ordenes, stock
 from inventario.domain.errors import (
     CredencialesInvalidas,
     DatosInvalidos,
     MENSAJE_CREDENCIALES_INVALIDAS,
     NombreRequerido,
+    OrdenDuplicada,
     ProductoNoEncontrado,
+    ProductosNoEncontrados,
     StockInsuficiente,
+    StockInsuficienteOrden,
 )
 from inventario.repositories.sqlite_repo import (
     SqliteUsuarioRepository,
@@ -86,6 +89,7 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
     app.include_router(inventario.router)
     app.include_router(stock.router)
     app.include_router(movimientos.router)
+    app.include_router(ordenes.router)
 
     @app.exception_handler(CredencialesInvalidas)
     async def credenciales_invalidas(request: Request, exc: CredencialesInvalidas):
@@ -102,8 +106,20 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
         (NombreRequerido, 422),
         (ProductoNoEncontrado, 404),
         (StockInsuficiente, 409),
+        (OrdenDuplicada, 409),
+        (ProductosNoEncontrados, 404),
     ):
         app.add_exception_handler(tipo, _responder(status))
+
+    @app.exception_handler(StockInsuficienteOrden)
+    async def stock_insuficiente_orden(request: Request, exc: StockInsuficienteOrden):
+        faltantes = [
+            {"codigo": f.codigo, "disponible": f.disponible, "solicitado": f.solicitado}
+            for f in exc.faltantes
+        ]
+        return JSONResponse(
+            status_code=409, content={"detail": str(exc), "faltantes": faltantes}
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validacion_en_espanol(request: Request, exc: RequestValidationError):

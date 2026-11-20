@@ -119,6 +119,10 @@ class MovimientosFiltrosTest(unittest.TestCase):
                 "La fecha 'desde' (2026-11-20) no puede ser posterior a 'hasta' (2026-11-19).",
             ),
         ]
+        casos += [
+            ("?desde=%202026-11-19", "La fecha 'desde' debe tener formato AAAA-MM-DD."),
+            ("?hasta=2026-11-19%0A", "La fecha 'hasta' debe tener formato AAAA-MM-DD."),
+        ]
         for query, mensaje in casos:
             with self.subTest(query=query):
                 r = self.client.get("/api/movimientos" + query)

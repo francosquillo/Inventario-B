@@ -181,6 +181,31 @@ class AtomicidadTest(RepoBase):
         self.assertEqual(movimientos(self.conn), [])
 
 
+class TransaccionPendienteTest(RepoBase):
+    """S-2: una escritura sin confirmar no se confirma en silencio."""
+
+    def test_egreso_con_insert_pendiente_lanza_runtimeerror(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        self.conn.execute(
+            "INSERT INTO productos (codigo, nombre, stock) VALUES ('P-01', 'Pendiente', 1)"
+        )
+        with self.assertRaises(RuntimeError):
+            self.repo.registrar_egreso("A-01", 1, self.uid, FECHA_FIJA)
+        self.conn.rollback()
+        self.assertEqual(self.cantidad_productos("P-01"), 0)
+        self.assertEqual(self.fila_de("A-01")[0], 5)
+
+    def test_ingreso_con_insert_pendiente_lanza_runtimeerror(self):
+        self.conn.execute(
+            "INSERT INTO productos (codigo, nombre, stock) VALUES ('P-02', 'Pendiente', 1)"
+        )
+        with self.assertRaises(RuntimeError):
+            self.repo.registrar_ingreso("N-09", 1, "Nuevo", self.uid, FECHA_FIJA)
+        self.conn.rollback()
+        self.assertEqual(self.cantidad_productos("P-02"), 0)
+        self.assertEqual(self.cantidad_productos("N-09"), 0)
+
+
 class ConcurrenciaTest(unittest.TestCase):
     """Archivo temporal: dos conexiones reales (no es un mock; ver D8)."""
 

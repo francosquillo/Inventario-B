@@ -1,6 +1,6 @@
 """Entidades de dominio inmutables."""
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 
 @dataclass(frozen=True)
@@ -45,3 +45,26 @@ class Movimiento:
     tipo: str
     cantidad: int
     usuario: str
+
+
+@dataclass(frozen=True)
+class ItemOrden:
+    codigo: str
+    nombre: str
+    cantidad: int
+
+
+@dataclass(frozen=True)
+class Orden:
+    id: int
+    numero: str
+    fecha: date
+    usuario: str
+    items: "tuple[ItemOrden, ...]"
+
+
+@dataclass(frozen=True)
+class Faltante:
+    codigo: str
+    disponible: int
+    solicitado: int

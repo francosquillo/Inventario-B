@@ -124,3 +124,60 @@ class ErroresDeStockTest(unittest.TestCase):
         self.assertEqual(str(DatosInvalidos("msg")), "msg")
         self.assertEqual(str(NombreRequerido("Z-9")),
                          "El producto 'Z-9' no existe: indicá un nombre para crearlo.")
+
+
+class OrdenEntidadesTest(unittest.TestCase):
+    def test_entidades_inmutables(self):
+        import dataclasses
+        from datetime import date
+
+        from inventario.domain.entities import Faltante, ItemOrden, Orden
+
+        item = ItemOrden("A-01", "Tornillo", 2)
+        orden = Orden(1, "OT-0001", date(2026, 11, 20), "admin", (item,))
+        falta = Faltante("A-01", 1, 2)
+        for objeto, campo in ((item, "cantidad"), (orden, "numero"), (falta, "disponible")):
+            with self.subTest(tipo=type(objeto).__name__):
+                with self.assertRaises(dataclasses.FrozenInstanceError):
+                    setattr(objeto, campo, 99)
+        self.assertEqual(orden.items[0].nombre, "Tornillo")
+        self.assertEqual((falta.codigo, falta.disponible, falta.solicitado), ("A-01", 1, 2))
+
+
+class ErroresOrdenTest(unittest.TestCase):
+    def test_orden_duplicada(self):
+        from inventario.domain.errors import OrdenDuplicada
+
+        e = OrdenDuplicada("OT-0001")
+        self.assertIsInstance(e, InventarioError)
+        self.assertEqual(e.numero, "OT-0001")
+        self.assertEqual(str(e), "Ya existe una orden con número 'OT-0001'.")
+
+    def test_productos_no_encontrados_uno_y_varios(self):
+        from inventario.domain.errors import ProductosNoEncontrados
+
+        uno = ProductosNoEncontrados(("X-00",))
+        self.assertIsInstance(uno, InventarioError)
+        self.assertEqual(uno.codigos, ("X-00",))
+        self.assertEqual(str(uno), "No existe un producto activo con código 'X-00'.")
+        varios = ProductosNoEncontrados(("X-00", "C-99"))
+        self.assertEqual(
+            str(varios), "No existen productos activos con código: 'X-00', 'C-99'."
+        )
+
+    def test_stock_insuficiente_orden_uno_y_varios(self):
+        from inventario.domain.entities import Faltante
+        from inventario.domain.errors import StockInsuficienteOrden
+
+        uno = StockInsuficienteOrden((Faltante("A-01", 1, 2),))
+        self.assertIsInstance(uno, InventarioError)
+        self.assertEqual(
+            str(uno), "Stock insuficiente para la orden: 'A-01' (disponible 1, solicitado 2)."
+        )
+        varios = StockInsuficienteOrden((Faltante("A-01", 1, 2), Faltante("B-02", 0, 1)))
+        self.assertEqual(varios.faltantes[1], Faltante("B-02", 0, 1))
+        self.assertEqual(
+            str(varios),
+            "Stock insuficiente para la orden: 'A-01' (disponible 1, solicitado 2); "
+            "'B-02' (disponible 0, solicitado 1).",
+        )

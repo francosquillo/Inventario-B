@@ -10,6 +10,14 @@ _MENSAJES_CUERPO = {
     "dict_type": "El cuerpo de la petición debe ser un objeto JSON.",
 }
 _CAMPOS_FECHA = ("desde", "hasta")
+_MENSAJES_COMPONENTES = {
+    "too_short": "La orden requiere al menos un componente.",
+    "too_long": "La orden admite hasta 100 componentes.",
+    "list_type": "El campo componentes debe ser una lista.",
+}
+_TIPOS_TIPO_INCORRECTO = ("string_type", "list_type")
+_MENSAJE_LINEA_TIPO = "debe ser un objeto con codigo y cantidad."
+_TIPOS_LINEA_NO_OBJETO = ("model_type", "model_attributes_type", "dict_type")
 _UBICACIONES = ("body", "query")
 
 
@@ -21,7 +29,24 @@ def _campo(loc):
     return None
 
 
+def _linea(loc):
+    """Numero de componente (desde 1) si el error cae dentro de `componentes`, si no None."""
+    for i, parte in enumerate(loc[:-1]):
+        if parte == "componentes" and isinstance(loc[i + 1], int):
+            return loc[i + 1] + 1
+    return None
+
+
 def _mensaje_de(error):
+    linea = _linea(tuple(error.get("loc", ())))
+    if linea is None:
+        return _mensaje_campo(error)
+    if error.get("type") in _TIPOS_LINEA_NO_OBJETO and isinstance(error["loc"][-1], int):
+        return f"Componente {linea}: {_MENSAJE_LINEA_TIPO}"
+    return f"Componente {linea}: {_mensaje_campo(error)}"
+
+
+def _mensaje_campo(error):
     tipo = error.get("type")
     loc = tuple(error.get("loc", ()))
     if tipo in _MENSAJES_CUERPO:
@@ -31,6 +56,10 @@ def _mensaje_de(error):
         return "El cuerpo de la petición es obligatorio."
     if campo is None:
         return MENSAJE_GENERICO
+    if tipo in _TIPOS_TIPO_INCORRECTO and error.get("input") is None:
+        return f"El campo {campo} es obligatorio."  # null equivale a no enviado
+    if campo == "componentes" and tipo in _MENSAJES_COMPONENTES:
+        return _MENSAJES_COMPONENTES[tipo]
     if campo in _CAMPOS_FECHA:
         return MENSAJE_FECHA
     if campo == "cantidad" and tipo != "missing":

@@ -46,7 +46,7 @@ La fuente de verdad del dominio vive en `knowledge-base/`. **Leé el archivo rel
 | [10_preguntas_abiertas.md](knowledge-base/10_preguntas_abiertas.md) | Inconsistencias y preguntas abiertas |
 | [11_plan_de_pasos_y_despliegue.md](knowledge-base/11_plan_de_pasos_y_despliegue.md) | Fases, pasos 1-6 y ciclo OpenSpec con pausa |
 
-> Estado de `10_preguntas_abiertas.md`: no quedan preguntas de prioridad **Alta** abiertas (quedan PA-03 Media y PA-06/07/08 Baja). Revisar la columna "Bloquea" antes de cada change.
+> Estado de `10_preguntas_abiertas.md`: no quedan preguntas de prioridad **Alta** abiertas (quedan PA-03 Media y PA-07/08 Baja). Revisar la columna "Bloquea" antes de cada change.
 
 ---
 

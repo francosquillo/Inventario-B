@@ -1,8 +1,8 @@
 """Modelos Pydantic estrictos (D10). Pydantic solo vive en inventario/api/."""
-from datetime import datetime
-from typing import Annotated, Optional
+from datetime import date, datetime
+from typing import Annotated, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 
 class LoginRequest(BaseModel):
@@ -86,4 +86,62 @@ def movimiento_out(movimiento):
         tipo=movimiento.tipo,
         cantidad=movimiento.cantidad,
         usuario=movimiento.usuario,
+    )
+
+
+# `fecha` NO se recorta: el formato AAAA-MM-DD es estricto y lo valida el service;
+# el recorte solo aplica a numero y codigo (que el service normaliza igual).
+TextoRecortado = Annotated[str, StringConstraints(strip_whitespace=True)]
+
+
+class ComponenteRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    codigo: TextoRecortado = Field(min_length=1, max_length=50)
+    cantidad: Cantidad
+
+
+class OrdenRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    numero: TextoRecortado = Field(min_length=1, max_length=30)
+    fecha: str = Field(min_length=1)
+    componentes: List[ComponenteRequest] = Field(min_length=1, max_length=100)
+
+
+class ComponenteOut(BaseModel):
+    codigo: str
+    nombre: str
+    cantidad: int
+
+
+class OrdenOut(BaseModel):
+    id: int
+    numero: str
+    fecha: date
+    usuario: str
+    componentes: List[ComponenteOut]
+
+
+class FaltanteOut(BaseModel):
+    codigo: str
+    disponible: int
+    solicitado: int
+
+
+class StockInsuficienteOut(BaseModel):
+    detail: str
+    faltantes: Optional[List[FaltanteOut]] = None
+
+
+def orden_out(orden):
+    return OrdenOut(
+        id=orden.id,
+        numero=orden.numero,
+        fecha=orden.fecha,
+        usuario=orden.usuario,
+        componentes=[
+            ComponenteOut(codigo=i.codigo, nombre=i.nombre, cantidad=i.cantidad)
+            for i in orden.items
+        ],
     )
