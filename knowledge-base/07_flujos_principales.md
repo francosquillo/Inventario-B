@@ -10,7 +10,7 @@ Cada flujo describe la interacción entre el adaptador (API FastAPI), services y
 1. El adaptador recibe usuario y contraseña en el cuerpo JSON.
 2. AuthService busca el usuario en el repositorio.
 3. Recalcula PBKDF2 con el salt almacenado y compara en tiempo constante.
-4. Éxito: FastAPI (`POST /api/login`) guarda `usuario_id` en la cookie firmada (`SessionMiddleware`); en `/docs` el navegador reenvía la cookie same-origin, así los demás endpoints funcionan; en Fase 2 el JS de `static/login.html` redirige a `static/index.html` (inventario). Sin sesión, los endpoints responden 401 (`Depends(get_current_user)`) y el JS redirige al login.
+4. Éxito: FastAPI (`POST /api/login`) guarda `usuario_id` en la cookie firmada (`SessionMiddleware`); en `/docs` el navegador reenvía la cookie same-origin, así los demás endpoints funcionan; en Fase 2 el JS de `static/login.html` redirige a `/inventario` (sirve `static/index.html`). Sin sesión, los endpoints responden 401 (`Depends(get_current_user)`) y el JS redirige al login.
 
 ```
 Usuario → Adaptador → AuthService → UsuarioRepo
@@ -103,7 +103,7 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 
 **Pasos**:
 1. Usuario indica la orden por su número; en Fase 2 el frontend pide confirmación (modal). La API no tiene confirmación propia.
-2. La llamada debe traer `reintegrar=true|false` explícito (en Fase 2 el modal pregunta "¿Reintegrar el stock al inventario?" cada vez).
+2. La llamada debe traer `reintegrar=true|false` explícito (en Fase 2 el modal muestra la casilla "Devolver stock", marcada por defecto; el botón dice "Borrar y devolver stock" o "Borrar sin devolver stock").
 3. Todo ocurre en una sola transacción (todo o nada):
    - Si `reintegrar=true`: suma la cantidad de cada ítem a su producto. Si el producto estaba dado de baja, lo reactiva (`activo = 1`) (RN-OR-12).
    - Borra explícitamente los ítems de la orden (`orden_items`) y luego la orden. El `ON DELETE CASCADE` queda solo como respaldo.

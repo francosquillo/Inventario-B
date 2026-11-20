@@ -1,25 +1,28 @@
-/* Inventario-B — tokens. Revision 1, "Industrial sobrio". Solo fuentes del sistema. */
+/* Inventario-B — tokens. Revision 2, "Industrial sobrio", tema oscuro único. Solo fuentes del sistema. */
 :root {
-  color-scheme: light dark;
+  /* Tema oscuro único (decisión del usuario 2026-11-20): no hay tema claro ni se sigue prefers-color-scheme.
+     color-scheme: dark hace que los controles nativos (fecha, select, casillas, scrollbars, autofill) se vean oscuros. */
+  color-scheme: dark;
 
-  --color-bg: #eef0f2;
-  --color-surface: #ffffff;
-  --color-surface-2: #e6e9ec;
-  --color-border: #c3c9d0;
-  --color-text: #1c2127;
-  --color-text-muted: #4a5460;
+  --color-bg: #121518;
+  --color-surface: #1b1f24;
+  --color-surface-2: #252a31;
+  --color-border: #3a424c;         /* divisores y bordes decorativos (filas, cabeceras, tarjetas) */
+  --color-border-strong: #66707d;  /* bordes de controles (campos, botón secundario, modal): >= 3:1 sobre surface y bg */
+  --color-text: #e8ebee;
+  --color-text-muted: #a4aeb9;
 
-  --color-accent: #f59e0b;
-  --color-accent-hover: #d98a06;
+  --color-accent: #fbbf24;
+  --color-accent-hover: #fcd34d;
   --color-accent-contrast: #1c1400;
-  --color-accent-text: #8a4a05;
+  --color-accent-text: #fbbf24;
 
-  --color-success: #15803d;  --color-success-fg: #166534;  --color-success-subtle: #dcfce7;
-  --color-danger: #b91c1c;   --color-on-danger: #ffffff;    --color-danger-fg: #991b1b;   --color-danger-subtle: #fee2e2;
-  --color-warning-fg: #8a4a05; --color-warning-subtle: #fef3c7;
-  --color-info-fg: #1e40af;  --color-info-subtle: #dbeafe;
+  --color-success: #16a34a;  --color-success-fg: #86efac;  --color-success-subtle: #12301d;
+  --color-danger: #dc2626;   --color-on-danger: #ffffff;   --color-danger-fg: #fca5a5;   --color-danger-subtle: #3a1618;
+  --color-warning-fg: #fcd34d; --color-warning-subtle: #3a2a0a;
+  --color-info-fg: #93c5fd;  --color-info-subtle: #14264a;
 
-  --color-overlay: rgba(17, 20, 24, 0.6);
+  --color-overlay: rgba(0, 0, 0, 0.7);
 
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -46,41 +49,15 @@
   --radius-md: 4px;
   --radius-lg: 6px;
 
-  --shadow-sm: 0 1px 2px rgba(17, 20, 24, 0.08);
-  --shadow-lg: 0 12px 32px rgba(17, 20, 24, 0.22);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
 
-  --focus-ring-color: #1d4ed8;
+  --focus-ring-color: #93c5fd;
   --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--focus-ring-color);
 
   --duration-fast: 100ms;
   --duration-base: 160ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #121518;
-    --color-surface: #1b1f24;
-    --color-surface-2: #252a31;
-    --color-border: #3a424c;
-    --color-text: #e8ebee;
-    --color-text-muted: #a4aeb9;
-
-    --color-accent: #fbbf24;
-    --color-accent-hover: #fcd34d;
-    --color-accent-contrast: #1c1400;
-    --color-accent-text: #fbbf24;
-
-    --color-success: #16a34a;  --color-success-fg: #86efac;  --color-success-subtle: #12301d;
-    --color-danger: #dc2626;   --color-on-danger: #ffffff;   --color-danger-fg: #fca5a5;   --color-danger-subtle: #3a1618;
-    --color-warning-fg: #fcd34d; --color-warning-subtle: #3a2a0a;
-    --color-info-fg: #93c5fd;  --color-info-subtle: #14264a;
-
-    --color-overlay: rgba(0, 0, 0, 0.7);
-    --focus-ring-color: #93c5fd;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

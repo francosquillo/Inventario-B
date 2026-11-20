@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login — maqueta</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Login (/)">
+
+<!-- Barra de la maqueta (no es parte de la app; ?captura la oculta) -->
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta">
+  <div class="mk-bar-in">
+    <span class="mk-tag">Maqueta</span>
+    <label class="sr-only" for="mk-state">Estado</label>
+    <select id="mk-state">
+      <option value="L1" data-desc="Login vacío (GET /). Sin aviso de sesión.">L1 · vacío</option>
+      <option value="L2" data-desc="401: alerta 'Usuario o contraseña incorrectos.', usuario conservado, contraseña vaciada y con foco.">L2 · error 401</option>
+      <option value="L3" data-desc="Validación del navegador: campos vacíos, sin llamar a la API.">L3 · campos vacíos</option>
+      <option value="L4" data-desc="Enviando: botón deshabilitado 'Ingresando…'; un segundo clic no envía.">L4 · enviando</option>
+      <option value="L5" data-desc="/?sesion=expirada: aviso 'Tu sesión expiró. Ingresá de nuevo.'">L5 · sesión expirada</option>
+    </select>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-prev" aria-label="Estado anterior">&larr;</button>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-next" aria-label="Estado siguiente">&rarr;</button>
+    <span>Pantallas: <a href="login.html#L1">Login</a> · <a href="inventario.html#I1">Inventario</a> · <a href="ordenes.html#O1">Órdenes</a></span>
+    <p class="mk-desc" id="mk-desc"></p>
+  </div>
+</div>
+
+<main class="min-h-[80vh] flex items-center justify-center px-4 py-10">
+  <div class="w-full max-w-sm bg-surface border border-line rounded-lg shadow-lg p-6">
+    <h1 class="text-xl font-bold text-center">Inventario</h1>
+    <p class="text-sm text-muted text-center mt-1">Ingresá con tu usuario para continuar.</p>
+
+    <form class="mt-5 space-y-4" novalidate onsubmit="return false">
+
+      <!-- L5: aviso de sesión expirada (solo con ?sesion=expirada) -->
+      <div data-show="L5" role="status" class="p-3 rounded-md border border-line bg-info-subtle text-info-fg text-sm">Tu sesión expiró. Ingresá de nuevo.</div>
+
+      <!-- L2: error 401 de la API (texto tal cual) -->
+      <div data-show="L2" role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">Usuario o contraseña incorrectos.</div>
+
+      <!-- Usuario -->
+      <div data-show="L1 L5">
+        <label class="label" for="l1-u">Usuario</label>
+        <input class="field" id="l1-u" name="username" autocomplete="username" maxlength="64" data-autofocus>
+      </div>
+      <div data-show="L2 L4">
+        <label class="label" for="l2-u">Usuario</label>
+        <input class="field" id="l2-u" name="username" autocomplete="username" maxlength="64" value="admin">
+      </div>
+      <div data-show="L3">
+        <label class="label" for="l3-u">Usuario</label>
+        <input class="field" id="l3-u" name="username" autocomplete="username" maxlength="64" aria-invalid="true" aria-describedby="l3-u-e" data-autofocus>
+        <p class="err" id="l3-u-e" role="alert">El usuario es obligatorio.</p>
+      </div>
+
+      <!-- Contraseña -->
+      <div data-show="L1 L5">
+        <label class="label" for="l1-p">Contraseña</label>
+        <div class="relative">
+          <input class="field pr-24" id="l1-p" name="password" type="password" autocomplete="current-password" maxlength="128">
+          <button type="button" class="absolute right-1 top-1 bottom-1 px-3 text-sm font-semibold text-accent-text rounded-md hover:bg-surface2" data-toggle="l1-p" aria-controls="l1-p" aria-pressed="false">Mostrar</button>
+        </div>
+      </div>
+      <div data-show="L2">
+        <label class="label" for="l2-p">Contraseña</label>
+        <div class="relative">
+          <input class="field pr-24" id="l2-p" name="password" type="password" autocomplete="current-password" maxlength="128" data-autofocus>
+          <button type="button" class="absolute right-1 top-1 bottom-1 px-3 text-sm font-semibold text-accent-text rounded-md hover:bg-surface2" data-toggle="l2-p" aria-controls="l2-p" aria-pressed="false">Mostrar</button>
+        </div>
+      </div>
+      <div data-show="L3">
+        <label class="label" for="l3-p">Contraseña</label>
+        <div class="relative">
+          <input class="field pr-24" id="l3-p" name="password" type="password" autocomplete="current-password" maxlength="128" aria-invalid="true" aria-describedby="l3-p-e">
+          <button type="button" class="absolute right-1 top-1 bottom-1 px-3 text-sm font-semibold text-accent-text rounded-md hover:bg-surface2" data-toggle="l3-p" aria-controls="l3-p" aria-pressed="false">Mostrar</button>
+        </div>
+        <p class="err" id="l3-p-e" role="alert">La contraseña es obligatoria.</p>
+      </div>
+      <div data-show="L4">
+        <label class="label" for="l4-p">Contraseña</label>
+        <div class="relative">
+          <input class="field pr-24" id="l4-p" name="password" type="password" autocomplete="current-password" maxlength="128" value="••••••••">
+          <button type="button" class="absolute right-1 top-1 bottom-1 px-3 text-sm font-semibold text-accent-text rounded-md hover:bg-surface2" data-toggle="l4-p" aria-controls="l4-p" aria-pressed="false">Mostrar</button>
+        </div>
+      </div>
+
+      <button data-hide="L4" class="btn btn-primary w-full" type="submit" data-goto="inventario.html#I1">Ingresar</button>
+      <button data-show="L4" class="btn btn-primary w-full" type="submit" disabled aria-busy="true">Ingresando…</button>
+    </form>
+  </div>
+</main>
+
+<script src="assets/mockup.js"></script>
+</body>
+</html>

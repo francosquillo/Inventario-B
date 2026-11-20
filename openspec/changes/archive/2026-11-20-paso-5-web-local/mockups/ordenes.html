@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Órdenes — maqueta</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Órdenes (/ordenes)">
+
+<!-- Barra de la maqueta (no es parte de la app; ?captura la oculta) -->
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta">
+  <div class="mk-bar-in">
+    <span class="mk-tag">Maqueta</span>
+    <label class="sr-only" for="mk-state">Estado</label>
+    <select id="mk-state">
+      <optgroup label="Órdenes">
+        <option value="O1" data-desc="Filtros Desde/Hasta/Número vacíos + lista de órdenes con componentes (código, nombre, cantidad), en el orden de la API.">O1 · lista</option>
+        <option value="O2" data-desc="El filtro no coincide: cartel 'No hay órdenes en ese período', sin lista.">O2 · período vacío</option>
+        <option value="O3" data-desc="404 por número: 'No existe una orden con número 'OT-9999'.' (número normalizado por la API).">O3 · número inexistente</option>
+        <option value="O4" data-desc="Validación del navegador: Desde posterior a Hasta; no se envía. La lista anterior se conserva.">O4 · rango invertido</option>
+        <option value="O4b" data-desc="422 de la API mostrado tal cual junto a los filtros (el backend es la autoridad; caso en que el dato pasó la validación del navegador).">O4b · 422 de la API</option>
+        <option value="O5" data-desc="GET /api/ordenes sin respuesta: 'Cargando órdenes…'.">O5 · cargando</option>
+        <option value="O6" data-desc="Fallo de red: mensaje de conexión + 'Reintentar'.">O6 · error de red</option>
+      </optgroup>
+      <optgroup label="Modal Borrar orden">
+        <option value="MD1" data-base="O1" data-desc="Casilla 'Devolver stock' marcada por defecto → botón 'Borrar y devolver stock'. La casilla cambia el botón en vivo.">MD1 · devolver (por defecto)</option>
+        <option value="MD2" data-base="O1" data-desc="Casilla desmarcada → botón 'Borrar sin devolver stock'.">MD2 · sin devolver</option>
+        <option value="MD3" data-desc="Éxito con reintegro: resumen por producto (cantidad devuelta, stock final, reactivado). OT-0001 ya no está en la lista.">MD3 · resumen con reintegro</option>
+        <option value="MD3b" data-desc="Éxito sin reintegro: 'Orden OT-0001 borrada sin devolver stock.'">MD3b · resumen sin reintegro</option>
+        <option value="MD4" data-desc="404 al confirmar (borrada en otra pestaña): detail y lista recargada sin la orden.">MD4 · 404</option>
+      </optgroup>
+      <optgroup label="Transversal">
+        <option value="T2" data-base="O1" data-desc="Igual que O1 con el SO en modo claro (emulateMedia colorScheme 'light'): debe verse con el tema oscuro único.">T2 · SO claro → tema oscuro</option>
+        <option value="T1c" data-base="O1" data-desc="Foco visible en un campo de filtro y en el enlace de navegación.">T1c · foco filtros</option>
+      </optgroup>
+    </select>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-prev" aria-label="Estado anterior">&larr;</button>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-next" aria-label="Estado siguiente">&rarr;</button>
+    <span>Pantallas: <a href="login.html#L1">Login</a> · <a href="inventario.html#I1">Inventario</a> · <a href="ordenes.html#O1">Órdenes</a></span>
+    <p class="mk-desc" id="mk-desc"></p>
+  </div>
+</div>
+
+<header class="bg-surface border-b border-line">
+  <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+    <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+    <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+      <a class="navlink" href="inventario.html#I1" data-mkfocus="T1c">Inventario</a>
+      <a class="navlink" href="ordenes.html#O1" aria-current="page">Órdenes</a>
+    </nav>
+    <div class="ml-auto flex items-center gap-3 text-sm">
+      <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">admin</strong></span>
+      <button class="btn btn-secondary" type="button" data-goto="login.html#L1">Cerrar sesión</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+  <div>
+    <a href="inventario.html#I1" class="text-sm font-semibold text-accent-text underline">&larr; Inventario</a>
+    <h1 class="text-2xl font-bold mt-1">Órdenes</h1>
+  </div>
+
+  <!-- MD3: resumen con reintegro (persistente hasta cerrarlo o la próxima acción) -->
+  <div data-show="MD3" role="status" class="flex items-start gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm">
+    <div class="flex-1 py-2">
+      <p><strong>Orden <span class="num">OT-0001</span> borrada.</strong> Stock devuelto:</p>
+      <ul class="mt-1 space-y-0.5 list-disc pl-5">
+        <li><span class="num">A-01</span> +2 (stock 9)</li>
+        <li><span class="num">C-99</span> +4 (stock 4, <strong>reactivado</strong>)</li>
+      </ul>
+    </div>
+    <button class="icon-btn" type="button" aria-label="Cerrar aviso" data-goto="#O1">&times;</button>
+  </div>
+  <!-- MD3b: sin reintegro -->
+  <div data-show="MD3b" role="status" class="flex items-center gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm">
+    <p class="flex-1 py-2"><strong>Orden <span class="num">OT-0001</span> borrada sin devolver stock.</strong></p>
+    <button class="icon-btn" type="button" aria-label="Cerrar aviso" data-goto="#O1">&times;</button>
+  </div>
+
+  <section class="bg-surface border border-line rounded-lg" aria-labelledby="t-ord">
+    <h2 id="t-ord" class="sr-only">Lista de órdenes</h2>
+
+    <!-- Filtros: los vacíos no se envían -->
+    <form class="p-3 border-b border-line space-y-3" novalidate onsubmit="return false" aria-label="Filtros de órdenes">
+      <div class="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-start">
+        <!-- Desde -->
+        <div class="sm:w-44" data-hide="O2 O4 O4b"><label class="label" for="f1-d">Desde</label><input class="field num" id="f1-d" type="date" data-mkfocus="T1c"></div>
+        <div class="sm:w-44" data-show="O2"><label class="label" for="f2-d">Desde</label><input class="field num" id="f2-d" type="date" value="2026-10-01"></div>
+        <div class="sm:w-44" data-show="O4"><label class="label" for="f4-d">Desde</label><input class="field num" id="f4-d" type="date" value="2026-11-20" aria-invalid="true" aria-describedby="f4-e" data-autofocus></div>
+        <div class="sm:w-44" data-show="O4b"><label class="label" for="f4b-d">Desde</label><input class="field num" id="f4b-d" type="date" value="2026-11-20" aria-describedby="f4b-a"></div>
+        <!-- Hasta -->
+        <div class="sm:w-44" data-hide="O2 O4 O4b"><label class="label" for="f1-h">Hasta</label><input class="field num" id="f1-h" type="date"></div>
+        <div class="sm:w-44" data-show="O2"><label class="label" for="f2-h">Hasta</label><input class="field num" id="f2-h" type="date" value="2026-10-31"></div>
+        <div class="sm:w-44" data-show="O4"><label class="label" for="f4-h">Hasta</label><input class="field num" id="f4-h" type="date" value="2026-11-01" aria-invalid="true" aria-describedby="f4-e"><p class="err" id="f4-e" role="alert">Desde no puede ser posterior a Hasta.</p></div>
+        <div class="sm:w-44" data-show="O4b"><label class="label" for="f4b-h">Hasta</label><input class="field num" id="f4b-h" type="date" value="2026-11-19" aria-describedby="f4b-a"></div>
+        <!-- Número -->
+        <div class="col-span-2 sm:w-48" data-hide="O3"><label class="label" for="f1-n">Número</label><input class="field num" id="f1-n" maxlength="30" autocomplete="off" placeholder="OT-0001"></div>
+        <div class="col-span-2 sm:w-48" data-show="O3"><label class="label" for="f3-n">Número</label><input class="field num" id="f3-n" maxlength="30" autocomplete="off" value="ot-9999"></div>
+        <!-- Acciones (alineadas con los campos en escritorio) -->
+        <div class="col-span-2 flex gap-2 sm:pt-6">
+          <button class="btn btn-primary" type="submit" data-goto="#O5">Filtrar</button>
+          <button class="btn btn-secondary" type="button" data-goto="#O1">Ver todas</button>
+        </div>
+      </div>
+      <!-- O4b: 422 de la API, junto a los filtros -->
+      <div data-show="O4b" id="f4b-a" role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">La fecha 'desde' (2026-11-20) no puede ser posterior a 'hasta' (2026-11-19).</div>
+    </form>
+
+    <!-- Conteo -->
+    <p class="px-3 pt-3 text-sm text-muted" data-show="O1 O4 O4b">3 órdenes</p>
+    <p class="px-3 pt-3 text-sm text-muted" data-show="MD3 MD3b MD4">2 órdenes</p>
+
+    <!-- O5 / O6 / O2 / O3 -->
+    <div data-show="O5" role="status" aria-live="polite" class="p-8 text-center text-sm text-muted">Cargando órdenes…</div>
+    <div data-show="O6" class="p-3">
+      <div role="alert" class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">
+        <p class="flex-1 min-w-[12rem]">No se pudo conectar con el servidor. Revisá que esté en marcha y probá de nuevo.</p>
+        <button class="btn btn-secondary" type="button" data-goto="#O5">Reintentar</button>
+      </div>
+    </div>
+    <div data-show="O2" role="status" class="m-3 border border-dashed border-line rounded-lg p-8 text-center">
+      <p class="font-semibold">No hay órdenes en ese período</p>
+      <p class="text-sm text-muted mt-1">Probá con otras fechas o elegí "Ver todas".</p>
+    </div>
+    <div data-show="O3" role="status" class="m-3 border border-dashed border-line rounded-lg p-8 text-center">
+      <p class="font-semibold">No existe una orden con número 'OT-9999'.</p>
+      <p class="text-sm text-muted mt-1">Revisá el número o elegí "Ver todas".</p>
+    </div>
+
+    <!-- Lista de órdenes -->
+    <div data-show="O1 O4 O4b MD3 MD3b MD4" class="pt-2">
+      <article class="ord" aria-labelledby="ord-3">
+        <div class="ord-head">
+          <h3 id="ord-3" class="num font-bold">OT-0003</h3>
+          <span class="num text-sm text-muted">2026-11-20</span>
+          <span class="text-sm text-muted">3 componentes</span>
+          <button class="btn btn-secondary btn-sm ml-auto" type="button" data-goto="#MD1" aria-label="Eliminar orden OT-0003">Eliminar</button>
+        </div>
+        <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Componentes de OT-0003">
+          <table class="tbl tbl-fit tbl-comp">
+            <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th></tr></thead>
+            <tbody>
+              <tr><td class="num">A-01</td><td>Tornillo M8</td><td class="num r">2</td></tr>
+              <tr><td class="num">CAJA/10</td><td>Caja de arandelas ×10</td><td class="num r">1</td></tr>
+              <tr><td class="num">JUN-12</td><td>Junta industrial 12"</td><td class="num r">4</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+      <article class="ord" aria-labelledby="ord-2">
+        <div class="ord-head">
+          <h3 id="ord-2" class="num font-bold">OT/3</h3>
+          <span class="num text-sm text-muted">2026-11-18</span>
+          <span class="text-sm text-muted">1 componente</span>
+          <button class="btn btn-secondary btn-sm ml-auto" type="button" data-goto="#MD1" aria-label="Eliminar orden OT/3">Eliminar</button>
+        </div>
+        <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Componentes de OT/3">
+          <table class="tbl tbl-fit tbl-comp">
+            <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th></tr></thead>
+            <tbody>
+              <tr><td class="num">B-02</td><td>Tuerca M8</td><td class="num r">5</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+      <article class="ord" aria-labelledby="ord-1" data-hide="MD3 MD3b MD4">
+        <div class="ord-head">
+          <h3 id="ord-1" class="num font-bold">OT-0001</h3>
+          <span class="num text-sm text-muted">2026-11-15</span>
+          <span class="text-sm text-muted">2 componentes</span>
+          <button class="btn btn-secondary btn-sm ml-auto" type="button" data-goto="#MD1" aria-label="Eliminar orden OT-0001">Eliminar</button>
+        </div>
+        <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Componentes de OT-0001">
+          <table class="tbl tbl-fit tbl-comp">
+            <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th></tr></thead>
+            <tbody>
+              <tr><td class="num">A-01</td><td>Tornillo M8</td><td class="num r">2</td></tr>
+              <tr><td class="num">C-99</td><td>Arandela plana <span class="text-muted">(dado de baja)</span></td><td class="num r">4</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== Modal Borrar orden ===================== -->
+
+<!-- MD1: casilla marcada (por defecto) -->
+<div class="overlay" data-show="MD1" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="md1-t" aria-describedby="md1-d">
+    <div class="modal-head"><h2 id="md1-t">Borrar orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <div class="modal-body space-y-4">
+      <p id="md1-d" class="text-sm">Se borrará la orden <strong class="num">OT-0001</strong> (2026-11-15, 2 componentes). Esta acción no se puede deshacer.</p>
+      <div class="p-3 rounded-md border border-line bg-surface2">
+        <label class="flex items-center gap-3 min-h-10 text-sm font-semibold" for="md1-cb">
+          <input type="checkbox" class="check" id="md1-cb" checked data-devolver="md1-ok" aria-describedby="md1-h" data-autofocus> Devolver stock
+        </label>
+        <p class="help" id="md1-h" data-on="Los componentes vuelven al inventario. Si un producto estaba dado de baja, se reactiva." data-off="El stock no cambia: los componentes no vuelven al inventario.">Los componentes vuelven al inventario. Si un producto estaba dado de baja, se reactiva.</p>
+      </div>
+      <div class="flex flex-wrap justify-end gap-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-danger" type="button" id="md1-ok" data-on="Borrar y devolver stock" data-off="Borrar sin devolver stock" data-goto="#MD3">Borrar y devolver stock</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MD2: casilla desmarcada -->
+<div class="overlay" data-show="MD2" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="md2-t" aria-describedby="md2-d">
+    <div class="modal-head"><h2 id="md2-t">Borrar orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <div class="modal-body space-y-4">
+      <p id="md2-d" class="text-sm">Se borrará la orden <strong class="num">OT-0001</strong> (2026-11-15, 2 componentes). Esta acción no se puede deshacer.</p>
+      <div class="p-3 rounded-md border border-line bg-surface2">
+        <label class="flex items-center gap-3 min-h-10 text-sm font-semibold" for="md2-cb">
+          <input type="checkbox" class="check" id="md2-cb" data-devolver="md2-ok" aria-describedby="md2-h" data-autofocus> Devolver stock
+        </label>
+        <p class="help" id="md2-h" data-on="Los componentes vuelven al inventario. Si un producto estaba dado de baja, se reactiva." data-off="El stock no cambia: los componentes no vuelven al inventario.">El stock no cambia: los componentes no vuelven al inventario.</p>
+      </div>
+      <div class="flex flex-wrap justify-end gap-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-danger" type="button" id="md2-ok" data-on="Borrar y devolver stock" data-off="Borrar sin devolver stock" data-goto="#MD3b">Borrar sin devolver stock</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MD4: 404 orden ya borrada -->
+<div class="overlay" data-show="MD4" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="md4-t" aria-describedby="md4-a">
+    <div class="modal-head"><h2 id="md4-t">Borrar orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <div class="modal-body space-y-4">
+      <div id="md4-a" role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">No existe una orden con número 'OT-0001'.</div>
+      <p class="text-sm text-muted">La lista de órdenes se actualizó.</p>
+      <div class="flex justify-end gap-2"><button class="btn btn-secondary" type="button" data-close data-autofocus>Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/mockup.js"></script>
+</body>
+</html>

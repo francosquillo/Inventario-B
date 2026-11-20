@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Ingresar - Inventario</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/ui.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="/static/js/validacion.js" defer></script>
+  <script src="/static/js/api.js" defer></script>
+  <script src="/static/js/ui.js" defer></script>
+  <script src="/static/js/login.js" defer></script>
+</head>
+<body>
+  <main class="min-h-[80vh] flex items-center justify-center px-4 py-10">
+    <div class="w-full max-w-sm bg-surface border border-line rounded-lg shadow-lg p-6">
+      <h1 class="text-xl font-bold text-center">Inventario</h1>
+      <p class="text-sm text-muted text-center mt-1">Ingresá con tu usuario para continuar.</p>
+
+      <form id="login-form" class="mt-5 space-y-4" novalidate>
+        <div id="aviso-expirada" role="status" hidden class="p-3 rounded-md border border-line bg-info-subtle text-info-fg text-sm">Tu sesión expiró. Ingresá de nuevo.</div>
+        <div id="login-alerta" hidden></div>
+
+        <div>
+          <label class="label" for="username">Usuario</label>
+          <input class="field" id="username" name="username" autocomplete="username" maxlength="64" autofocus>
+        </div>
+
+        <div>
+          <label class="label" for="password">Contraseña</label>
+          <div class="relative">
+            <input class="field pr-24" id="password" name="password" type="password" autocomplete="current-password" maxlength="128">
+            <button type="button" class="absolute right-1 top-1 bottom-1 px-3 text-sm font-semibold text-accent-text rounded-md hover:bg-surface2" data-toggle="password" aria-controls="password" aria-pressed="false">Mostrar</button>
+          </div>
+        </div>
+
+        <button id="login-enviar" class="btn btn-primary w-full" type="submit">Ingresar</button>
+      </form>
+    </div>
+  </main>
+</body>
+</html>

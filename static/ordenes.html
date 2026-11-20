@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Órdenes - Inventario</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/ui.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="/static/js/validacion.js" defer></script>
+  <script src="/static/js/api.js" defer></script>
+  <script src="/static/js/ui.js" defer></script>
+  <script src="/static/js/sesion.js" defer></script>
+  <script src="/static/js/ordenes.js" defer></script>
+</head>
+<body>
+  <header class="bg-surface border-b border-line">
+    <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+      <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+      <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+        <a class="navlink" href="/inventario">Inventario</a>
+        <a class="navlink" href="/ordenes" aria-current="page">Órdenes</a>
+      </nav>
+      <div class="ml-auto flex items-center gap-3 text-sm">
+        <span class="hidden sm:inline text-muted">Usuario: <strong id="usuario-nombre" class="text-ink font-semibold"></strong></span>
+        <button id="btn-logout" class="btn btn-secondary" type="button">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+    <div>
+      <a href="/inventario" class="text-sm font-semibold text-accent-text underline">&larr; Inventario</a>
+      <h1 class="text-2xl font-bold mt-1">Órdenes</h1>
+    </div>
+
+    <!-- Resumen del borrado: persistente hasta cerrarlo o hasta la próxima acción -->
+    <div id="aviso-exito" role="status" hidden class="flex items-start gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm"></div>
+
+    <section class="bg-surface border border-line rounded-lg" aria-labelledby="t-ord">
+      <h2 id="t-ord" class="sr-only">Lista de órdenes</h2>
+
+      <!-- Filtros: los vacíos no se envían -->
+      <form id="form-filtros" class="p-3 border-b border-line space-y-3" novalidate aria-label="Filtros de órdenes">
+        <div class="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-start">
+          <div class="sm:w-44"><label class="label" for="f-desde">Desde</label><input class="field num" id="f-desde" type="date"></div>
+          <div class="sm:w-44"><label class="label" for="f-hasta">Hasta</label><input class="field num" id="f-hasta" type="date"></div>
+          <div class="col-span-2 sm:w-48"><label class="label" for="f-numero">Número</label><input class="field num" id="f-numero" maxlength="30" autocomplete="off" placeholder="OT-0001"></div>
+          <div class="col-span-2 flex gap-2 sm:pt-6">
+            <button id="f-filtrar" class="btn btn-primary" type="submit">Filtrar</button>
+            <button id="f-limpiar" class="btn btn-secondary" type="button">Ver todas</button>
+          </div>
+        </div>
+        <div id="filtros-alerta" hidden></div>
+      </form>
+
+      <p id="ord-conteo" class="px-3 pt-3 text-sm text-muted" hidden></p>
+
+      <div id="ord-cargando" role="status" aria-live="polite" class="p-8 text-center text-sm text-muted">Cargando órdenes…</div>
+
+      <div id="ord-error" hidden class="p-3">
+        <div role="alert" class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">
+          <p id="ord-error-texto" class="flex-1 min-w-[12rem]"></p>
+          <button id="ord-reintentar" class="btn btn-secondary" type="button">Reintentar</button>
+        </div>
+      </div>
+
+      <div id="ord-vacio" role="status" hidden class="m-3 border border-dashed border-line rounded-lg p-8 text-center">
+        <p id="ord-vacio-titulo" class="font-semibold"></p>
+        <p id="ord-vacio-ayuda" class="text-sm text-muted mt-1"></p>
+      </div>
+
+      <div id="ord-lista" hidden class="pt-2"></div>
+    </section>
+  </main>
+
+  <!-- ===================== Modal Borrar orden ===================== -->
+  <div class="overlay" id="modal-borrar" hidden>
+    <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="del-titulo" aria-describedby="del-desc">
+      <div class="modal-head"><h2 id="del-titulo">Borrar orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+      <div class="modal-body space-y-4">
+        <div id="del-alerta" hidden></div>
+        <p id="del-desc" class="text-sm"></p>
+        <div id="del-opcion" class="p-3 rounded-md border border-line bg-surface2">
+          <label class="flex items-center gap-3 min-h-10 text-sm font-semibold" for="del-devolver">
+            <input type="checkbox" class="check" id="del-devolver" checked aria-describedby="del-ayuda" data-autofocus> Devolver stock
+          </label>
+          <p class="help" id="del-ayuda">Los componentes vuelven al inventario. Si un producto estaba dado de baja, se reactiva.</p>
+        </div>
+        <p id="del-nota" class="text-sm text-muted" hidden>La lista de órdenes se actualizó.</p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <button id="del-cancelar" class="btn btn-secondary" type="button" data-close>Cancelar</button>
+          <button id="del-confirmar" class="btn btn-danger" type="button">Borrar y devolver stock</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

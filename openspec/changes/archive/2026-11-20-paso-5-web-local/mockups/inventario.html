@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventario — maqueta</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Inventario (/inventario)">
+
+<!-- Barra de la maqueta (no es parte de la app; ?captura la oculta) -->
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta">
+  <div class="mk-bar-in">
+    <span class="mk-tag">Maqueta</span>
+    <label class="sr-only" for="mk-state">Estado</label>
+    <select id="mk-state">
+      <optgroup label="Inventario">
+        <option value="I1" data-desc="Con datos: cabecera, barra de acciones, conteo, stock 0 resaltado (B-02), acción Eliminar.">I1 · con datos</option>
+        <option value="I2" data-desc="Inventario vacío: cartel 'Todavía no hay productos', sin tabla.">I2 · vacío</option>
+        <option value="I3" data-desc="GET /api/inventario sin respuesta: 'Cargando inventario…'.">I3 · cargando</option>
+        <option value="I4" data-desc="Fallo de red al cargar: mensaje de conexión + 'Reintentar'.">I4 · error de red</option>
+        <option value="I5" data-desc="Alerta de éxito persistente (role=status) tras un ingreso; queda hasta cerrarla o la próxima acción.">I5 · éxito (ingreso)</option>
+        <option value="I5b" data-desc="Éxito tras crear una orden: 'Orden OT-0003 creada.' con enlace a /ordenes.">I5b · éxito (orden)</option>
+        <option value="I5c" data-desc="Éxito tras una baja: 'Producto B-02 dado de baja.'; la fila desaparece.">I5c · éxito (baja)</option>
+      </optgroup>
+      <optgroup label="Modal Ingreso">
+        <option value="MI1" data-base="I1" data-desc="Ingreso vacío: código libre con sugerencias, nombre 'solo si el código es nuevo', cantidad.">MI1 · vacío</option>
+        <option value="MI2" data-base="I1" data-desc="Código fuera del inventario cargado: aviso no bloqueante.">MI2 · aviso código nuevo</option>
+        <option value="MI3" data-base="I1" data-desc="Validación del navegador: código vacío y cantidad fuera de 1..10.000; no se envía.">MI3 · validación</option>
+        <option value="MI4" data-base="I1" data-desc="422 de la API: detail solo en la alerta superior; Nombre inválido (aria-describedby → alerta) y con foco; modal abierto con los datos.">MI4 · 422 nombre</option>
+      </optgroup>
+      <optgroup label="Modal Egreso">
+        <option value="ME1" data-base="I1" data-desc="Desplegable de productos activos con su stock; stock actual bajo el campo.">ME1 · selector</option>
+        <option value="ME2" data-base="I1" data-desc="409 stock insuficiente: detail tal cual, modal abierto.">ME2 · 409</option>
+        <option value="ME3" data-base="I1" data-desc="404 producto ya no activo: detail, lista recargada sin B-02.">ME3 · 404</option>
+      </optgroup>
+      <optgroup label="Modal Nueva orden">
+        <option value="MO1" data-base="I1" data-desc="Varias líneas, fecha de hoy editable, contador de líneas. Agregar/Quitar funcionan.">MO1 · varias líneas</option>
+        <option value="MO2" data-base="I1" data-desc="Validación del navegador por campo y por línea; no se envía.">MO2 · validación</option>
+        <option value="MO3" data-base="I1" data-desc="409 con faltantes: alerta + 'Disponible D, solicitado S' en cada línea afectada.">MO3 · 409 faltantes</option>
+        <option value="MO4" data-base="I1" data-desc="404: producto que dejó de estar activo; su línea marcada.">MO4 · 404 código</option>
+        <option value="MO5" data-base="I1" data-desc="422 'Componente 2: …' de la API: línea 2 marcada.">MO5 · 422 componente</option>
+        <option value="MO6" data-base="I1" data-desc="409 número duplicado: detail solo en la alerta superior; Número inválido (aria-describedby → alerta) y con foco.">MO6 · 409 número</option>
+        <option value="MO7" data-base="I1" data-desc="Enviando: 'Creando orden…' deshabilitado; un segundo clic no envía.">MO7 · enviando</option>
+        <option value="MO7b" data-base="I1" data-desc="100 líneas: 'Agregar componente' deshabilitado (vista desplazada al final).">MO7b · 100 líneas</option>
+      </optgroup>
+      <optgroup label="Modal Baja de producto">
+        <option value="MB1" data-base="I1" data-desc="Confirmación de baja con código y nombre; explica órdenes anteriores y reactivación.">MB1 · confirmación</option>
+        <option value="MB2" data-base="I1" data-desc="404 al confirmar (ya dado de baja en otra pestaña): detail y lista recargada.">MB2 · 404</option>
+      </optgroup>
+      <optgroup label="Transversal">
+        <option value="T1" data-base="I1" data-desc="Foco visible en un botón (anillo congelado en 'Ingreso de stock').">T1 · foco botón</option>
+        <option value="T1b" data-base="I1" data-desc="Foco visible en un campo dentro de un modal.">T1b · foco campo/modal</option>
+        <option value="T2" data-base="I1" data-desc="Igual que I1 con el SO en modo claro (emulateMedia colorScheme 'light'): debe verse con el tema oscuro único.">T2 · SO claro → tema oscuro</option>
+      </optgroup>
+    </select>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-prev" aria-label="Estado anterior">&larr;</button>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-next" aria-label="Estado siguiente">&rarr;</button>
+    <span>Pantallas: <a href="login.html#L1">Login</a> · <a href="inventario.html#I1">Inventario</a> · <a href="ordenes.html#O1">Órdenes</a></span>
+    <p class="mk-desc" id="mk-desc"></p>
+  </div>
+</div>
+
+<!-- Opciones compartidas de los desplegables de producto (en la app: productos activos del último GET /api/inventario) -->
+<template id="tpl-opts">
+  <option value="">Elegí un producto…</option>
+  <option value="A-01">A-01 · Tornillo M8 (stock 7)</option>
+  <option value="B-02">B-02 · Tuerca M8 (stock 0)</option>
+  <option value="CAJA/10">CAJA/10 · Caja de arandelas ×10 (stock 4)</option>
+  <option value="JUN-12">JUN-12 · Junta industrial 12" (stock 30)</option>
+</template>
+<datalist id="dl-codigos">
+  <option value="A-01">Tornillo M8</option>
+  <option value="B-02">Tuerca M8</option>
+  <option value="CAJA/10">Caja de arandelas ×10</option>
+  <option value="JUN-12">Junta industrial 12"</option>
+</datalist>
+
+<header class="bg-surface border-b border-line">
+  <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+    <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+    <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+      <a class="navlink" href="inventario.html#I1" aria-current="page">Inventario</a>
+      <a class="navlink" href="ordenes.html#O1">Órdenes</a>
+    </nav>
+    <div class="ml-auto flex items-center gap-3 text-sm">
+      <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">admin</strong></span>
+      <button class="btn btn-secondary" type="button" data-goto="login.html#L1">Cerrar sesión</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+  <h1 class="sr-only">Inventario</h1>
+
+  <!-- Avisos de éxito: persistentes hasta cerrarlos o hasta la próxima acción -->
+  <div data-show="I5" role="status" class="flex items-center gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm">
+    <p class="flex-1 py-2"><strong>Listo.</strong> Ingreso registrado: <span class="num">JUN-12</span> +5 (stock 30).</p>
+    <button class="icon-btn" type="button" aria-label="Cerrar aviso" data-goto="#I1">&times;</button>
+  </div>
+  <div data-show="I5b" role="status" class="flex items-center gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm">
+    <p class="flex-1 py-2"><strong>Listo.</strong> Orden <span class="num">OT-0003</span> creada. <a class="font-semibold underline" href="ordenes.html#O1">Ver órdenes</a></p>
+    <button class="icon-btn" type="button" aria-label="Cerrar aviso" data-goto="#I1">&times;</button>
+  </div>
+  <div data-show="I5c" role="status" class="flex items-center gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm">
+    <p class="flex-1 py-2"><strong>Listo.</strong> Producto <span class="num">B-02</span> dado de baja.</p>
+    <button class="icon-btn" type="button" aria-label="Cerrar aviso" data-goto="#I1">&times;</button>
+  </div>
+
+  <!-- Barra de acciones -->
+  <div class="flex flex-wrap gap-2">
+    <button class="btn btn-primary" type="button" data-goto="#MI1" data-mkfocus="T1">Ingreso de stock</button>
+    <button class="btn btn-primary" type="button" data-goto="#ME1">Egreso de stock</button>
+    <button class="btn btn-primary" type="button" data-goto="#MO1">Nueva orden</button>
+    <a class="btn btn-secondary" href="ordenes.html#O1">Ver órdenes</a>
+  </div>
+
+  <!-- I2: vacío -->
+  <div data-show="I2" class="bg-surface border border-dashed border-line rounded-lg p-8 text-center">
+    <h2 class="font-semibold">Todavía no hay productos</h2>
+    <p class="text-sm text-muted mt-1">Registrá un ingreso con un código nuevo para dar de alta el primero.</p>
+  </div>
+
+  <!-- Panel de inventario -->
+  <section data-hide="I2" class="bg-surface border border-line rounded-lg" aria-labelledby="t-inv">
+    <div class="flex items-center justify-between gap-3 p-3 border-b border-line">
+      <h2 id="t-inv" class="font-bold">Inventario</h2>
+      <span class="text-sm text-muted" data-hide="I3 I4 ME3 MB2 I5c">4 productos</span>
+      <span class="text-sm text-muted" data-show="ME3 MB2 I5c">3 productos</span>
+    </div>
+
+    <div data-show="I3" role="status" aria-live="polite" class="p-8 text-center text-sm text-muted">Cargando inventario…</div>
+
+    <div data-show="I4" class="p-3">
+      <div role="alert" class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">
+        <p class="flex-1 min-w-[12rem]">No se pudo conectar con el servidor. Revisá que esté en marcha y probá de nuevo.</p>
+        <button class="btn btn-secondary" type="button" data-goto="#I3">Reintentar</button>
+      </div>
+    </div>
+
+    <div data-hide="I3 I4" class="overflow-x-auto" tabindex="0" role="region" aria-label="Tabla de inventario">
+      <table class="tbl tbl-fit tbl-inv">
+        <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Stock</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+        <tbody>
+          <tr><td class="num">A-01</td><td>Tornillo M8</td><td class="num r">7</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" data-goto="#MB1" aria-label="Eliminar A-01">Eliminar</button></td></tr>
+          <tr data-hide="ME3 MB2 I5c"><td class="num">B-02</td><td>Tuerca M8</td><td class="num r"><span class="badge bg-warning-subtle text-warning-fg">0<span class="sr-only">, sin stock</span></span></td><td class="r"><button class="btn btn-secondary btn-sm" type="button" data-goto="#MB2" aria-label="Eliminar B-02">Eliminar</button></td></tr>
+          <tr><td class="num">CAJA/10</td><td>Caja de arandelas ×10</td><td class="num r">4</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" data-goto="#MB1" aria-label="Eliminar CAJA/10">Eliminar</button></td></tr>
+          <tr><td class="num">JUN-12</td><td>Junta industrial 12"</td><td class="num r">30</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" data-goto="#MB1" aria-label="Eliminar JUN-12">Eliminar</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== Modal Ingreso ===================== -->
+
+<!-- MI1 / T1b -->
+<div class="overlay" data-show="MI1 T1b" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mi1-t">
+    <div class="modal-head"><h2 id="mi1-t">Ingreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <div><label class="label" for="mi1-cod">Código</label><input class="field num" id="mi1-cod" list="dl-codigos" maxlength="50" autocomplete="off" data-mkfocus="T1b"></div>
+      <div><label class="label" for="mi1-nom">Nombre</label><input class="field" id="mi1-nom" maxlength="120" aria-describedby="mi1-nom-h"><p class="help" id="mi1-nom-h">Solo si el código es nuevo.</p></div>
+      <div><label class="label" for="mi1-cant">Cantidad</label><input class="field num" id="mi1-cant" inputmode="numeric" autocomplete="off"></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#I5">Registrar ingreso</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MI2: aviso no bloqueante -->
+<div class="overlay" data-show="MI2" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mi2-t">
+    <div class="modal-head"><h2 id="mi2-t">Ingreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <div>
+        <label class="label" for="mi2-cod">Código</label>
+        <input class="field num" id="mi2-cod" list="dl-codigos" maxlength="50" autocomplete="off" value="C-99" aria-describedby="mi2-cod-h">
+        <p class="hint" id="mi2-cod-h" aria-live="polite">Código nuevo o dado de baja: si es nuevo, indicá un nombre.</p>
+      </div>
+      <div><label class="label" for="mi2-nom">Nombre</label><input class="field" id="mi2-nom" maxlength="120" aria-describedby="mi2-nom-h" data-autofocus><p class="help" id="mi2-nom-h">Solo si el código es nuevo.</p></div>
+      <div><label class="label" for="mi2-cant">Cantidad</label><input class="field num" id="mi2-cant" inputmode="numeric" autocomplete="off" value="4"></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#MI4">Registrar ingreso</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MI3: validación del navegador -->
+<div class="overlay" data-show="MI3" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mi3-t">
+    <div class="modal-head"><h2 id="mi3-t">Ingreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <div><label class="label" for="mi3-cod">Código</label><input class="field num" id="mi3-cod" list="dl-codigos" maxlength="50" autocomplete="off" aria-invalid="true" aria-describedby="mi3-cod-e" data-autofocus><p class="err" id="mi3-cod-e" role="alert">El código es obligatorio.</p></div>
+      <div><label class="label" for="mi3-nom">Nombre</label><input class="field" id="mi3-nom" maxlength="120" aria-describedby="mi3-nom-h"><p class="help" id="mi3-nom-h">Solo si el código es nuevo.</p></div>
+      <div><label class="label" for="mi3-cant">Cantidad</label><input class="field num" id="mi3-cant" inputmode="numeric" autocomplete="off" value="2.5" aria-invalid="true" aria-describedby="mi3-cant-e"><p class="err" id="mi3-cant-e" role="alert">La cantidad debe ser un entero entre 1 y 10.000.</p></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Registrar ingreso</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MI4: 422 de la API (nombre requerido) -->
+<div class="overlay" data-show="MI4" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mi4-t">
+    <div class="modal-head"><h2 id="mi4-t">Ingreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <div id="mi4-a" role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">El producto 'C-99' no existe: indicá un nombre para crearlo.</div>
+      <div><label class="label" for="mi4-cod">Código</label><input class="field num" id="mi4-cod" list="dl-codigos" maxlength="50" autocomplete="off" value="C-99"></div>
+      <div><label class="label" for="mi4-nom">Nombre</label><input class="field" id="mi4-nom" maxlength="120" aria-invalid="true" aria-describedby="mi4-a" data-autofocus></div>
+      <div><label class="label" for="mi4-cant">Cantidad</label><input class="field num" id="mi4-cant" inputmode="numeric" autocomplete="off" value="4"></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Registrar ingreso</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== Modal Egreso ===================== -->
+
+<!-- ME1 -->
+<div class="overlay" data-show="ME1" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="me1-t">
+    <div class="modal-head"><h2 id="me1-t">Egreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <div><label class="label" for="me1-prod">Producto</label><select class="field" id="me1-prod" data-opts="A-01" aria-describedby="me1-prod-h"></select><p class="help" id="me1-prod-h">Stock actual: <span class="num">7</span></p></div>
+      <div><label class="label" for="me1-cant">Cantidad</label><input class="field num" id="me1-cant" inputmode="numeric" autocomplete="off" value="2"></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#ME2">Registrar egreso</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ME2: 409 -->
+<div class="overlay" data-show="ME2" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="me2-t">
+    <div class="modal-head"><h2 id="me2-t">Egreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">Stock insuficiente para 'CAJA/10': disponible 4, solicitado 10.</div>
+      <div><label class="label" for="me2-prod">Producto</label><select class="field" id="me2-prod" data-opts="CAJA/10" aria-describedby="me2-prod-h"></select><p class="help" id="me2-prod-h">Stock actual: <span class="num">4</span></p></div>
+      <div><label class="label" for="me2-cant">Cantidad</label><input class="field num" id="me2-cant" inputmode="numeric" autocomplete="off" value="10" data-autofocus></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Registrar egreso</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ME3: 404, lista recargada -->
+<div class="overlay" data-show="ME3" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="me3-t">
+    <div class="modal-head"><h2 id="me3-t">Egreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">No existe un producto activo con código 'B-02'.</div>
+      <div><label class="label" for="me3-prod">Producto</label><select class="field" id="me3-prod" data-opts="" data-opts-exclude="B-02" data-autofocus></select><p class="help">La lista de productos se actualizó.</p></div>
+      <div><label class="label" for="me3-cant">Cantidad</label><input class="field num" id="me3-cant" inputmode="numeric" autocomplete="off" value="2"></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Registrar egreso</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== Modal Nueva orden ===================== -->
+
+<!-- MO1 -->
+<div class="overlay" data-show="MO1" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="mo1-t">
+    <div class="modal-head"><h2 id="mo1-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="mo1-num">Número de orden</label><input class="field num" id="mo1-num" maxlength="30" autocomplete="off" value="OT-0003"></div>
+          <div><label class="label" for="mo1-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="mo1-fec" type="date" value="2026-11-20" aria-describedby="mo1-fec-h"><p class="help" id="mo1-fec-h">Hoy; se puede cambiar.</p></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol id="mo1-rows" class="space-y-2">
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><input class="field num" inputmode="numeric" value="2"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="CAJA/10"></select><input class="field num" inputmode="numeric" value="1"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">3</span><select class="field" data-opts="JUN-12"></select><input class="field num" inputmode="numeric" value="4"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="mo1-rows">Agregar componente</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#I5b">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MO2: validación del navegador por línea -->
+<div class="overlay" data-show="MO2" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="mo2-t">
+    <div class="modal-head"><h2 id="mo2-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="mo2-num">Número de orden</label><input class="field num" id="mo2-num" maxlength="30" autocomplete="off" aria-invalid="true" aria-describedby="mo2-num-e" data-autofocus><p class="err" id="mo2-num-e" role="alert">El número de orden es obligatorio.</p></div>
+          <div><label class="label" for="mo2-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="mo2-fec" type="date" value="2026-11-20" aria-describedby="mo2-fec-h"><p class="help" id="mo2-fec-h">Hoy; se puede cambiar.</p></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol id="mo2-rows" class="space-y-2">
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><input class="field num" inputmode="numeric" value="2"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+            <li data-row data-invalid><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="" aria-invalid="true" aria-describedby="mo2-l2-e"></select><input class="field num" inputmode="numeric" value="1"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div><p class="err line-err" id="mo2-l2-e" role="alert">El producto es obligatorio.</p></li>
+            <li data-row data-invalid><div class="line"><span class="line-n" aria-hidden="true">3</span><select class="field" data-opts="JUN-12"></select><input class="field num" inputmode="numeric" value="0" aria-invalid="true" aria-describedby="mo2-l3-e"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div><p class="err line-err" id="mo2-l3-e" role="alert">La cantidad debe ser un entero entre 1 y 10.000.</p></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="mo2-rows">Agregar componente</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MO3: 409 con faltantes por línea -->
+<div class="overlay" data-show="MO3" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="mo3-t">
+    <div class="modal-head"><h2 id="mo3-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4">
+        <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">Stock insuficiente para la orden: 'B-02' (disponible 0, solicitado 1); 'JUN-12' (disponible 30, solicitado 40).</div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="mo3-num">Número de orden</label><input class="field num" id="mo3-num" maxlength="30" autocomplete="off" value="OT-0003"></div>
+          <div><label class="label" for="mo3-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="mo3-fec" type="date" value="2026-11-20"></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol id="mo3-rows" class="space-y-2">
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><input class="field num" inputmode="numeric" value="2"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+            <li data-row data-invalid><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="B-02"></select><input class="field num" inputmode="numeric" value="1" aria-invalid="true" aria-describedby="mo3-l2-e" data-autofocus><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div><p class="err line-err" id="mo3-l2-e">Disponible 0, solicitado 1</p></li>
+            <li data-row data-invalid><div class="line"><span class="line-n" aria-hidden="true">3</span><select class="field" data-opts="JUN-12"></select><input class="field num" inputmode="numeric" value="40" aria-invalid="true" aria-describedby="mo3-l3-e"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div><p class="err line-err" id="mo3-l3-e">Disponible 30, solicitado 40</p></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="mo3-rows">Agregar componente</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MO4: 404 producto que dejó de estar activo -->
+<div class="overlay" data-show="MO4" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="mo4-t">
+    <div class="modal-head"><h2 id="mo4-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4">
+        <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">No existe un producto activo con código 'CAJA/10'.</div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="mo4-num">Número de orden</label><input class="field num" id="mo4-num" maxlength="30" autocomplete="off" value="OT-0003"></div>
+          <div><label class="label" for="mo4-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="mo4-fec" type="date" value="2026-11-20"></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol id="mo4-rows" class="space-y-2">
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><input class="field num" inputmode="numeric" value="2"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+            <li data-row data-invalid><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="CAJA/10" aria-invalid="true" aria-describedby="mo4-l2-e" data-autofocus></select><input class="field num" inputmode="numeric" value="1"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div><p class="err line-err" id="mo4-l2-e">Este producto ya no está activo: elegí otro o quitá la línea.</p></li>
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">3</span><select class="field" data-opts="JUN-12"></select><input class="field num" inputmode="numeric" value="4"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="mo4-rows">Agregar componente</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MO5: 422 "Componente 2: …" -->
+<div class="overlay" data-show="MO5" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="mo5-t">
+    <div class="modal-head"><h2 id="mo5-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4">
+        <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">Componente 2: La cantidad debe ser un entero entre 1 y 10.000.</div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="mo5-num">Número de orden</label><input class="field num" id="mo5-num" maxlength="30" autocomplete="off" value="OT-0003"></div>
+          <div><label class="label" for="mo5-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="mo5-fec" type="date" value="2026-11-20"></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol id="mo5-rows" class="space-y-2">
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><input class="field num" inputmode="numeric" value="2"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+            <li data-row data-invalid><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="CAJA/10"></select><input class="field num" inputmode="numeric" value="10001" aria-invalid="true" aria-describedby="mo5-l2-e" data-autofocus><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div><p class="err line-err" id="mo5-l2-e">La cantidad debe ser un entero entre 1 y 10.000.</p></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="mo5-rows">Agregar componente</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MO6: 409 número duplicado -->
+<div class="overlay" data-show="MO6" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="mo6-t">
+    <div class="modal-head"><h2 id="mo6-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4">
+        <div id="mo6-a" role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">Ya existe una orden con número 'OT-0001'.</div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="mo6-num">Número de orden</label><input class="field num" id="mo6-num" maxlength="30" autocomplete="off" value="ot-0001" aria-invalid="true" aria-describedby="mo6-a" data-autofocus></div>
+          <div><label class="label" for="mo6-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="mo6-fec" type="date" value="2026-11-20"></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol id="mo6-rows" class="space-y-2">
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><input class="field num" inputmode="numeric" value="2"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="JUN-12"></select><input class="field num" inputmode="numeric" value="4"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="mo6-rows">Agregar componente</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MO7: enviando -->
+<div class="overlay" data-show="MO7" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="mo7-t" aria-busy="true">
+    <div class="modal-head"><h2 id="mo7-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="mo7-num">Número de orden</label><input class="field num" id="mo7-num" maxlength="30" autocomplete="off" value="OT-0003"></div>
+          <div><label class="label" for="mo7-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="mo7-fec" type="date" value="2026-11-20"></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol id="mo7-rows" class="space-y-2">
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><input class="field num" inputmode="numeric" value="2"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="CAJA/10"></select><input class="field num" inputmode="numeric" value="1"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">3</span><select class="field" data-opts="JUN-12"></select><input class="field num" inputmode="numeric" value="4"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="mo7-rows" data-keep disabled>Agregar componente</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" disabled>Creando orden…</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- MO7b: 100 líneas (se generan por JS desde la primera) -->
+<div class="overlay" data-show="MO7b" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="mo7b-t">
+    <div class="modal-head"><h2 id="mo7b-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4" data-scroll-end>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="mo7b-num">Número de orden</label><input class="field num" id="mo7b-num" maxlength="30" autocomplete="off" value="OT-0004"></div>
+          <div><label class="label" for="mo7b-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="mo7b-fec" type="date" value="2026-11-20"></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol id="mo7b-rows" class="space-y-2" data-fill-rows="100">
+            <li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><input class="field num" inputmode="numeric" value="1"><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="mo7b-rows" aria-describedby="mo7b-max">Agregar componente</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+          <p class="help" id="mo7b-max">Una orden admite hasta 100 componentes.</p>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close data-autofocus>Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== Modal Baja de producto ===================== -->
+
+<!-- MB1 -->
+<div class="overlay" data-show="MB1" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="mb1-t" aria-describedby="mb1-d">
+    <div class="modal-head"><h2 id="mb1-t">Eliminar producto</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <div class="modal-body space-y-4">
+      <p id="mb1-d" class="text-sm">Se dará de baja <strong class="num">A-01 — Tornillo M8</strong>. Las órdenes anteriores lo seguirán mostrando y un ingreso posterior con el mismo código lo reactiva.</p>
+      <div class="flex justify-end gap-2"><button class="btn btn-secondary" type="button" data-close data-autofocus>Cancelar</button><button class="btn btn-danger" type="button" data-goto="#I5c">Eliminar producto</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- MB2: 404 -->
+<div class="overlay" data-show="MB2" hidden>
+  <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="mb2-t" aria-describedby="mb2-a">
+    <div class="modal-head"><h2 id="mb2-t">Eliminar producto</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <div class="modal-body space-y-4">
+      <div id="mb2-a" role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">No existe un producto activo con código 'B-02'.</div>
+      <p class="text-sm text-muted">El inventario se actualizó.</p>
+      <div class="flex justify-end gap-2"><button class="btn btn-secondary" type="button" data-close data-autofocus>Cerrar</button></div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/mockup.js"></script>
+</body>
+</html>

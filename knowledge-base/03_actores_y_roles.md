@@ -23,5 +23,6 @@ Decisión del usuario (2026-11-20): **solo el `admin` logueado puede hacer cosas
 ## Rutas públicas
 
 - `GET /` (página de login) y los estáticos necesarios (`/static/*`).
+- `GET /inventario` y `GET /ordenes`: sin sesión redirigen (303) a `/`; `GET /` con sesión redirige a `/inventario` (Paso 5, C-06).
 - `POST /api/login`.
 - Todo lo demás requiere sesión válida (RN-AU-03). En Fase 1 (sin CLI), los endpoints protegidos responden 401 sin sesión, también en `/docs`.

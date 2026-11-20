@@ -16,7 +16,8 @@
         accent: { DEFAULT: "var(--color-accent)", hover: "var(--color-accent-hover)", contrast: "var(--color-accent-contrast)", text: "var(--color-accent-text)" },
         success: { DEFAULT: "var(--color-success)", fg: "var(--color-success-fg)", subtle: "var(--color-success-subtle)" },
         danger: { DEFAULT: "var(--color-danger)", on: "var(--color-on-danger)", fg: "var(--color-danger-fg)", subtle: "var(--color-danger-subtle)" },
-        warning: { fg: "var(--color-warning-fg)", subtle: "var(--color-warning-subtle)" }
+        warning: { fg: "var(--color-warning-fg)", subtle: "var(--color-warning-subtle)" },
+        info: { fg: "var(--color-info-fg)", subtle: "var(--color-info-subtle)" }
       },
       fontFamily: { sans: "var(--font-sans)", mono: "var(--font-mono)" },
       borderRadius: { sm: "var(--radius-sm)", md: "var(--radius-md)", lg: "var(--radius-lg)" },
@@ -85,10 +86,12 @@
     <div>
       <h3 class="sec-title">Campos</h3>
       <div class="bg-surface border border-line rounded-lg p-4 grid gap-4 sm:grid-cols-2">
-        <div><label class="label" for="r-n">Nombre</label><input class="field" id="r-n" type="text"><p class="help">Texto de ayuda.</p></div>
+        <div><label class="label" for="r-n">Nombre</label><input class="field" id="r-n" type="text" placeholder="Ej.: Rodamiento 6204"><p class="help">Texto de ayuda.</p></div>
         <div><label class="label" for="r-d">Fecha (AAAA-MM-DD)</label><input class="field num" id="r-d" type="date" value="2026-11-19"></div>
         <div><label class="label" for="r-c">Cantidad</label><input class="field num" id="r-c" type="number" min="1" step="1" value="-3" aria-invalid="true" aria-describedby="r-c-e"><p class="err" id="r-c-e" role="alert">La cantidad debe ser un entero mayor a 0.</p></div>
         <div><label class="label" for="r-o">Campo obligatorio</label><input class="field" id="r-o" aria-invalid="true" aria-describedby="r-o-e"><p class="err" id="r-o-e" role="alert">Este campo es obligatorio.</p></div>
+        <div><label class="label" for="r-s">Producto</label><select class="field" id="r-s"><option value="">Producto…</option><option>RD-6204 · Rodamiento 6204 (stock 25)</option></select></div>
+        <div><label class="label" for="r-x">Deshabilitado</label><input class="field" id="r-x" value="No editable" disabled></div>
       </div>
     </div>
 
@@ -97,6 +100,8 @@
       <div class="space-y-3">
         <div role="status" class="p-3 rounded-md border border-success bg-success-subtle text-success-fg text-sm"><strong>Listo.</strong> Ingreso registrado: RD-6204 +10 (stock 25).</div>
         <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm"><strong>Error.</strong> Stock insuficiente para RD-6204: disponible 4, solicitado 10.</div>
+        <div role="status" class="p-3 rounded-md border border-info-fg bg-info-subtle text-info-fg text-sm"><strong>Aviso.</strong> Tu sesión expiró. Ingresá de nuevo.</div>
+        <div role="status" class="p-3 rounded-md border border-warning-fg bg-warning-subtle text-warning-fg text-sm"><strong>Atención.</strong> JUN-IND-12 sin stock.</div>
       </div>
     </div>
 

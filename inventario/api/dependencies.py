@@ -1,4 +1,6 @@
 """Dependencias de FastAPI: conexion por request, services y usuario actual (D8/D9)."""
+import sqlite3
+
 from fastapi import Depends, HTTPException, Request
 
 from inventario.domain.entities import UsuarioAutenticado
@@ -8,7 +10,6 @@ from inventario.repositories.sqlite_repo import (
     SqliteProductoRepository,
     SqliteStockRepository,
     SqliteUsuarioRepository,
-    conectar,
 )
 from inventario.services.auth_service import AuthService
 from inventario.services.inventario_service import InventarioService
@@ -22,8 +23,18 @@ SESSION_USERNAME = "username"
 MENSAJE_NO_AUTENTICADO = "No autenticado."
 
 
+def _abrir_conexion(ruta):
+    # FastAPI corre las dependencias y endpoints sincronicos en hilos del pool, y la conexion
+    # de un request puede crearse en un hilo y usarse en otro. Se usa de a una por vez dentro
+    # de un unico request, asi que desactivar el chequeo de hilo es seguro; mismos row_factory y PRAGMA que `conectar`.
+    conn = sqlite3.connect(ruta, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
 def get_conexion(request: Request):
-    conn = conectar(request.app.state.ruta_db)
+    conn = _abrir_conexion(request.app.state.ruta_db)
     try:
         yield conn
     finally:
@@ -54,15 +65,23 @@ def get_producto_service(conn=Depends(get_conexion)):
     return ProductoService(SqliteProductoRepository(conn))
 
 
-def get_current_user(request: Request, conn=Depends(get_conexion)) -> UsuarioAutenticado:
+def usuario_de_sesion(request: Request, conn):
+    """Usuario de la sesion, o None sin sesion o si ya no existe (limpia la sesion)."""
     usuario_id = request.session.get(SESSION_USUARIO_ID)
     username = request.session.get(SESSION_USERNAME)
     if usuario_id is None or username is None:
-        raise HTTPException(status_code=401, detail=MENSAJE_NO_AUTENTICADO)
+        return None
     # La cookie esta firmada pero puede sobrevivir al usuario (base reseteada o
     # usuario borrado): se confirma contra `usuarios` antes de operar.
     usuario = SqliteUsuarioRepository(conn).obtener_por_id(usuario_id)
     if usuario is None:
         request.session.clear()
-        raise HTTPException(status_code=401, detail=MENSAJE_NO_AUTENTICADO)
+        return None
     return UsuarioAutenticado(id=usuario.id, username=usuario.username)
+
+
+def get_current_user(request: Request, conn=Depends(get_conexion)) -> UsuarioAutenticado:
+    usuario = usuario_de_sesion(request, conn)
+    if usuario is None:
+        raise HTTPException(status_code=401, detail=MENSAJE_NO_AUTENTICADO)
+    return usuario

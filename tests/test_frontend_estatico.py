@@ -1,0 +1,270 @@
+"""Guardas estaticas del frontend (C-06, design D8). No ejecutan JS: fijan reglas de
+seguridad y de coherencia con el design system sobre los archivos de static/."""
+import re
+import unittest
+from pathlib import Path
+
+from tests.helpers import cliente_de_test
+
+RAIZ = Path(__file__).resolve().parents[1]
+STATIC = RAIZ / "static"
+DESIGN = RAIZ / "design-system"
+PAGINAS = ("login.html", "index.html", "ordenes.html")
+
+PROHIBIDOS_JS = ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval(")
+PALETA_TAILWIND = re.compile(
+    r"\b(?:bg|text|border|ring|divide|from|to|via|fill|stroke|outline|decoration|placeholder)"
+    r"-(?:gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan"
+    r"|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b"
+    r"|\b(?:bg|text|border)-(?:white|black)\b"
+)
+ATRIBUTO_LOCAL = re.compile(r'(?:src|href)="(/[^"/][^"]*)"')
+
+
+def leer(ruta):
+    return Path(ruta).read_text(encoding="utf-8")
+
+
+class CopiasDelDesignSystemTest(unittest.TestCase):
+    def test_css_identico_al_design_system(self):
+        for nombre in ("tokens.css", "ui.css"):
+            with self.subTest(nombre=nombre):
+                self.assertEqual(
+                    (STATIC / "css" / nombre).read_bytes(),
+                    (DESIGN / nombre).read_bytes(),
+                )
+
+
+class PaginasTest(unittest.TestCase):
+    def test_estructura_comun(self):
+        for nombre in PAGINAS:
+            html = leer(STATIC / nombre)
+            with self.subTest(pagina=nombre):
+                self.assertIn('<html lang="es">', html)
+                self.assertIn('<meta name="viewport"', html)
+                self.assertIn("/static/css/tokens.css", html)
+                self.assertIn("/static/css/ui.css", html)
+                self.assertIn("/static/js/tailwind-config.js", html)
+                self.assertRegex(html, r"https://cdn\.tailwindcss\.com/3\.4\.\d+\"")
+
+    def test_tailwind_con_version_exacta_en_todas(self):
+        for nombre in PAGINAS:
+            with self.subTest(pagina=nombre):
+                self.assertNotRegex(leer(STATIC / nombre), r"cdn\.tailwindcss\.com/?\"")
+
+    def test_recursos_locales_responden_200(self):
+        client, _ = cliente_de_test(self.addCleanup)
+        for nombre in PAGINAS:
+            for ruta in ATRIBUTO_LOCAL.findall(leer(STATIC / nombre)):
+                with self.subTest(pagina=nombre, ruta=ruta):
+                    if ruta in ("/", "/inventario", "/ordenes"):
+                        continue  # paginas: dependen de la sesion
+                    self.assertEqual(client.get(ruta).status_code, 200)
+
+    def test_tailwind_config_cargado_antes_de_los_scripts_de_la_pagina(self):
+        for nombre in PAGINAS:
+            html = leer(STATIC / nombre)
+            with self.subTest(pagina=nombre):
+                self.assertLess(
+                    html.index("cdn.tailwindcss.com"), html.index("tailwind-config.js")
+                )
+
+    def test_sin_clases_de_la_paleta_de_tailwind(self):
+        for nombre in PAGINAS:
+            with self.subTest(pagina=nombre):
+                self.assertEqual(PALETA_TAILWIND.findall(leer(STATIC / nombre)), [])
+
+    def test_hidden_gana_a_las_utilidades_de_display(self):
+        # Hallazgo del verify: `class="flex" hidden` se veia igual (Tailwind pisa [hidden]).
+        css = leer(STATIC / "css" / "app.css")
+        self.assertRegex(css, r"\[hidden\]\s*\{\s*display:\s*none\s*!important")
+        for nombre in PAGINAS:
+            self.assertIn("/static/css/app.css", leer(STATIC / nombre))
+
+    def test_el_detector_de_paleta_detecta(self):
+        # Triangulacion de la guarda: debe saltar ante clases prohibidas y no ante tokens.
+        self.assertTrue(PALETA_TAILWIND.search('class="bg-gray-100"'))
+        self.assertTrue(PALETA_TAILWIND.search('class="text-red-600 p-2"'))
+        self.assertTrue(PALETA_TAILWIND.search('class="bg-white"'))
+        self.assertFalse(PALETA_TAILWIND.search('class="bg-surface text-accent-text border-line"'))
+
+
+class JavaScriptTest(unittest.TestCase):
+    def test_hay_scripts(self):
+        nombres = {p.name for p in (STATIC / "js").glob("*.js")}
+        for esperado in ("tailwind-config.js", "validacion.js", "api.js", "ui.js", "sesion.js"):
+            self.assertIn(esperado, nombres)
+
+    def test_sin_apis_que_interpretan_html(self):
+        for js in sorted((STATIC / "js").glob("*.js")):
+            codigo = leer(js)
+            for prohibido in PROHIBIDOS_JS:
+                with self.subTest(archivo=js.name, prohibido=prohibido):
+                    self.assertNotIn(prohibido, codigo)
+
+
+class LoginTest(unittest.TestCase):
+    def setUp(self):
+        self.html = leer(STATIC / "login.html")
+
+    def test_contrasena_oculta_con_autocomplete(self):
+        campo = re.search(r'<input[^>]*id="password"[^>]*>', self.html).group(0)
+        self.assertIn('type="password"', campo)
+        self.assertIn('autocomplete="current-password"', campo)
+
+    def test_boton_mostrar_asociado_a_la_contrasena(self):
+        self.assertRegex(self.html, r'<button[^>]*data-toggle="password"[^>]*>Mostrar</button>')
+
+    def test_usuario_con_autocomplete_y_limites(self):
+        campo = re.search(r'<input[^>]*id="username"[^>]*>', self.html).group(0)
+        self.assertIn('autocomplete="username"', campo)
+        self.assertIn('maxlength="64"', campo)
+
+    def test_aviso_de_sesion_expirada_oculto_por_defecto(self):
+        aviso = re.search(r'<div[^>]*id="aviso-expirada"[^>]*>[^<]*</div>', self.html).group(0)
+        self.assertIn("hidden", aviso)
+        self.assertIn("Tu sesión expiró. Ingresá de nuevo.", aviso)
+
+    def test_formulario_sin_envio_nativo(self):
+        form = re.search(r"<form[^>]*>", self.html).group(0)
+        self.assertIn("novalidate", form)
+        self.assertNotIn("action=", form)
+
+    def test_login_js_implementa_el_flujo(self):
+        js = leer(STATIC / "js" / "login.js")
+        for fragmento in ("/api/login", "/inventario", "sesion", "Ingresando…", "Validacion.requerido"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, js)
+
+
+def ids_de(html):
+    return set(re.findall(r'\bid="([^"]+)"', html))
+
+
+class CamposEtiquetadosMixin:
+    """Spec 'Etiquetas': todo campo estatico tiene <label for> o aria-label."""
+
+    def comprobar_etiquetas(self, html):
+        etiquetados = set(re.findall(r'<label[^>]*\bfor="([^"]+)"', html))
+        for campo in re.findall(r"<(?:input|select|textarea)\b[^>]*>", html):
+            if 'type="hidden"' in campo:
+                continue
+            with self.subTest(campo=campo[:60]):
+                ident = re.search(r'\bid="([^"]+)"', campo)
+                self.assertTrue(
+                    "aria-label=" in campo or (ident and ident.group(1) in etiquetados),
+                    "campo sin etiqueta: " + campo,
+                )
+
+    def comprobar_modales(self, html, esperados):
+        ids = ids_de(html)
+        for modal in esperados:
+            with self.subTest(modal=modal):
+                m = re.search(r'<div[^>]*id="%s"[^>]*>' % modal, html)
+                self.assertIsNotNone(m, "falta el modal " + modal)
+                self.assertIn('class="overlay"', m.group(0))
+                self.assertIn("hidden", m.group(0))
+                bloque = html[m.end(): m.end() + 400]
+                dialogo = re.search(r'<div[^>]*role="(?:dialog|alertdialog)"[^>]*>', bloque).group(0)
+                self.assertIn('aria-modal="true"', dialogo)
+                self.assertIn(re.search(r'aria-labelledby="([^"]+)"', dialogo).group(1), ids)
+
+
+class InventarioPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):
+    def setUp(self):
+        self.html = leer(STATIC / "index.html")
+        self.js = leer(STATIC / "js" / "inventario.js")
+
+    def test_cabecera_y_acciones(self):
+        for texto in ("Cerrar sesión", "Usuario:", "Ingreso de stock", "Egreso de stock",
+                      "Nueva orden", "Ver órdenes", 'href="/ordenes"'):
+            with self.subTest(texto=texto):
+                self.assertIn(texto, self.html)
+
+    def test_estados_de_la_lista(self):
+        for ident in ("inv-cargando", "inv-error", "inv-reintentar", "inv-vacio", "inv-conteo",
+                      "inv-cuerpo", "aviso-exito"):
+            with self.subTest(ident=ident):
+                self.assertIn('id="%s"' % ident, self.html)
+        self.assertIn("Todavía no hay productos", self.html)
+        self.assertIn("Cargando inventario…", self.html)
+
+    def test_cuatro_modales_accesibles(self):
+        self.comprobar_modales(self.html, ("modal-ingreso", "modal-egreso", "modal-orden", "modal-baja"))
+
+    def test_campos_con_etiqueta(self):
+        self.comprobar_etiquetas(self.html)
+
+    def test_aviso_de_codigo_nuevo_no_bloqueante(self):
+        self.assertIn("Código nuevo o dado de baja: si es nuevo, indicá un nombre.", self.html)
+        self.assertNotRegex(self.html, r'id="ing-nombre"[^>]*\b(?:required|disabled|readonly)\b')
+
+    def test_cantidades_con_inputmode_numerico(self):
+        for ident in ("ing-cantidad", "egr-cantidad"):
+            campo = re.search(r'<input[^>]*id="%s"[^>]*>' % ident, self.html).group(0)
+            with self.subTest(ident=ident):
+                self.assertIn('inputmode="numeric"', campo)
+
+    def test_js_usa_los_endpoints_y_codifica_codigos(self):
+        for fragmento in ("/api/inventario", "/api/stock/ingreso", "/api/stock/egreso",
+                          "/api/ordenes", "/api/productos/", "encodeURIComponent"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, self.js)
+        self.assertNotRegex(self.js, r"/api/productos/\$\{(?!encodeURIComponent)")
+
+    def test_js_valida_con_el_modulo_puro(self):
+        for fragmento in ("Validacion.cantidad", "Validacion.requerido", "Validacion.componentes",
+                          "Validacion.fecha", "Validacion.hoy"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, self.js)
+
+
+class OrdenesPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):
+    def setUp(self):
+        self.html = leer(STATIC / "ordenes.html")
+        self.js = leer(STATIC / "js" / "ordenes.js")
+
+    def test_enlace_de_regreso_y_filtros(self):
+        self.assertIn("&larr; Inventario", self.html)
+        self.assertIn('href="/inventario"', self.html)
+        for ident in ("f-desde", "f-hasta", "f-numero"):
+            with self.subTest(ident=ident):
+                self.assertIn('id="%s"' % ident, self.html)
+        for texto in ("Filtrar", "Ver todas"):
+            self.assertIn(texto, self.html)
+
+    def test_estados_de_la_lista(self):
+        for ident in ("ord-cargando", "ord-error", "ord-reintentar", "ord-vacio", "ord-lista",
+                      "ord-conteo", "aviso-exito", "filtros-alerta"):
+            with self.subTest(ident=ident):
+                self.assertIn('id="%s"' % ident, self.html)
+        self.assertIn("Cargando órdenes…", self.html)
+
+    def test_casilla_devolver_stock_marcada_por_defecto(self):
+        casilla = re.search(r'<input[^>]*id="del-devolver"[^>]*>', self.html).group(0)
+        self.assertIn('type="checkbox"', casilla)
+        self.assertRegex(casilla, r"\bchecked\b")
+
+    def test_boton_de_borrado_dice_devolver_por_defecto(self):
+        boton = re.search(r'<button[^>]*id="del-confirmar"[^>]*>([^<]*)</button>', self.html)
+        self.assertEqual(boton.group(1), "Borrar y devolver stock")
+
+    def test_modal_accesible_y_campos_con_etiqueta(self):
+        self.comprobar_modales(self.html, ("modal-borrar",))
+        self.comprobar_etiquetas(self.html)
+
+    def test_js_endpoints_y_codificacion(self):
+        for fragmento in ("/api/ordenes", "URLSearchParams", "encodeURIComponent", "reintegrar=",
+                          "Borrar sin devolver stock", "Borrar y devolver stock",
+                          "No hay órdenes en ese período", "Validacion.rango", "reactivado"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, self.js)
+        self.assertNotRegex(self.js, r"/api/ordenes/\$\{(?!encodeURIComponent)")
+
+    def test_vacio_sin_filtros_dice_solo_no_hay_ordenes(self):
+        # Sin filtros (consulta vacia) el cartel es "No hay órdenes" a secas; con filtros, "en ese período".
+        self.assertRegex(self.js, r'consulta\s*\?\s*"No hay órdenes en ese período"\s*:\s*"No hay órdenes"')
+
+
+if __name__ == "__main__":
+    unittest.main()

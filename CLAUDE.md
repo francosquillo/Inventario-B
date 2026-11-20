@@ -24,7 +24,7 @@ Las versiones exactas se fijan en `requirements.txt` durante el Paso 5/6.
 
 Detalle completo: [knowledge-base/02_descripcion_general.md](knowledge-base/02_descripcion_general.md)
 
-**Diseño visual**: política `system-and-mockups`, design system Revision 1 aprobado el 2026-11-19 (`design-system/README.md`). Sin logo ni marca por decisión del usuario (cabecera con el texto "Inventario"). Layout acordado: inventario primero; ingreso, egreso, nueva orden y borrados como modales; órdenes en pantalla aparte (`/ordenes`).
+**Diseño visual**: política `system-and-mockups`, design system Revision 1 aprobado el 2026-11-19; Revision 2 (tema oscuro único) aprobado el 2026-11-20 (`design-system/README.md`). Sin logo ni marca por decisión del usuario (cabecera con el texto "Inventario"). Layout acordado: inventario primero; ingreso, egreso, nueva orden y borrados como modales; órdenes en pantalla aparte (`/ordenes`).
 
 ---
 
@@ -108,6 +108,6 @@ Son contrato; romperlas es un defecto.
 6. /opsx:archive <change> + marcar [x]           → cerrar el change; esperar "Continuar"
 ```
 
-Un change a la vez. Para `paso-5-web-local` (UI nueva) aplica el mockup gate: mockups aprobados por el usuario ANTES de `/opsx:apply`, respetando el design system Revision 1.
+Un change a la vez. Para `paso-5-web-local` (UI nueva) aplica el mockup gate: mockups aprobados por el usuario ANTES de `/opsx:apply`, respetando el design system vigente (Revision 2, tema oscuro único, pendiente de aprobación).
 
 Aplicar TODAS las reglas duras en cada paso. Ante conflicto entre la KB y este archivo, las reglas duras prevalecen.

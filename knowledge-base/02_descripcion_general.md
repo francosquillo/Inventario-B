@@ -52,8 +52,8 @@ Todas las rutas (salvo login y la página de login) exigen sesión. El frontend 
 |---------|------------------------|
 | Auth | `POST /api/login`, `POST /api/logout`, `GET /api/me` |
 | Inventario | `GET /api/inventario` (solo activos), `DELETE /api/productos/{codigo}` (lógico, C-05) |
-| Movimientos | `POST /api/movimientos/ingreso`, `POST /api/movimientos/egreso` |
+| Movimientos | `POST /api/stock/ingreso`, `POST /api/stock/egreso` |
 | Órdenes | `POST /api/ordenes`, `GET /api/ordenes?numero=&desde=&hasta=` (C-04), `DELETE /api/ordenes/{numero}?reintegrar=true|false` (C-05; borrado por número, no por id) |
-| Páginas | `GET /` (login), `GET /dashboard` |
+| Páginas | `GET /` (login), `GET /inventario`, `GET /ordenes` (Paso 5, C-06) |
 
 Los paths exactos se cierran en el change del Paso 5.

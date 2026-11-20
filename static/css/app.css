@@ -1,0 +1,68 @@
+/* Piezas de UI propias de la app (aprobadas en los mockups de paso-5-web-local). Solo usa tokens de tokens.css.
+   Viven aparte de ui.css para que ui.css siga identico al design system. */
+/* ---------- A. Piezas de UI propuestas ---------- */
+
+/* Navegación de la cabecera (Inventario / Órdenes) */
+.navlink { display:inline-flex; align-items:center; min-height:2.5rem; padding:0 .75rem; border-radius:var(--radius-md);
+  font-size:var(--text-sm); font-weight:var(--weight-semibold); color:var(--color-text-muted); text-decoration:none;
+  box-shadow: inset 0 -3px 0 transparent; }
+.navlink:hover { color:var(--color-text); background:var(--color-surface-2); }
+.navlink[aria-current="page"] { color:var(--color-text); box-shadow: inset 0 -3px 0 var(--color-accent); }
+.navlink:focus-visible { box-shadow: var(--focus-ring); }
+
+/* Aviso no bloqueante (código nuevo) */
+.hint { font-size:var(--text-xs); color:var(--color-info-fg); background:var(--color-info-subtle);
+  border-radius:var(--radius-sm); padding:.25rem .5rem; margin-top:.375rem; font-weight:var(--weight-medium); }
+
+/* Tablas que entran en 390 px sin scroll interno: en móvil el nombre se parte y "Eliminar" llega a 40 px;
+   desde 640 px se ven igual que en Revision 1 (min-width original). */
+.tbl-fit { min-width:0; }
+@media (max-width: 639.98px) {
+  .tbl-fit td, .tbl-fit th { padding-left:.5rem; padding-right:.5rem; }
+  .tbl-fit td { overflow-wrap:anywhere; }
+  .tbl-fit .num { overflow-wrap:normal; }
+  .tbl-fit .btn-sm { min-height:2.5rem; padding:0 .625rem; white-space:nowrap; overflow-wrap:normal; }
+}
+@media (min-width: 640px) {
+  .tbl-fit.tbl-inv { min-width:26rem; }
+  .tbl-fit.tbl-comp { min-width:18rem; }
+}
+
+/* Línea de componente de la nueva orden.
+   Móvil: [n | producto a todo el ancho] / [  | cantidad | Quitar]. Desde 640 px: una sola fila. */
+.line { display:grid; grid-template-columns: 1.5rem minmax(0,1fr) auto; grid-template-areas: "n sel sel" ". cant quitar"; gap:.5rem; align-items:center; }
+.line > .line-n { grid-area:n; }
+.line > select { grid-area:sel; }
+.line > input { grid-area:cant; }
+.line > button { grid-area:quitar; }
+@media (max-width: 639.98px) {
+  [data-row] + [data-row] { border-top:1px solid var(--color-border); padding-top:.5rem; }
+  .line { grid-template-columns: 1rem minmax(0,1fr) auto; column-gap:.375rem; }
+  .line-err { padding-left:1.375rem; }
+  /* Modales en móvil: márgenes más chicos para que el desplegable "CÓDIGO · Nombre (stock N)" se lea completo */
+  .overlay { padding:.5rem; }
+  .modal-head, .modal-body, .modal-foot { padding-left:.75rem; padding-right:.75rem; }
+  /* Desplegables de producto: a 16 px "CAJA/10 · Caja de arandelas ×10 (stock 4)" no entra en 390 px. */
+  select[data-opts] { font-size:var(--text-sm); padding-left:.5rem; }
+}
+@media (min-width: 640px) {
+  .line { grid-template-columns: 1.5rem minmax(0,1fr) 4.5rem auto; grid-template-areas: "n sel cant quitar"; }
+}
+.line-n { font-family:var(--font-mono); font-size:var(--text-sm); color:var(--color-text-muted); text-align:right; }
+.line-err { padding-left:2rem; }
+[data-invalid] > .line .line-n { color:var(--color-danger-fg); font-weight:var(--weight-bold); }
+
+/* Pie fijo del modal largo (nueva orden): los botones quedan visibles con muchas líneas */
+.modal-form { display:flex; flex-direction:column; flex:1 1 auto; min-height:0; }
+.modal-form > .modal-body { flex:1 1 auto; min-height:0; }
+.modal-foot { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:.5rem; padding:.75rem 1rem; border-top:1px solid var(--color-border); }
+
+/* Casilla grande */
+.check { width:1.25rem; height:1.25rem; accent-color:var(--color-accent); flex:none; }
+
+/* Lista de órdenes */
+.ord + .ord { border-top:1px solid var(--color-border); }
+.ord-head { display:flex; flex-wrap:wrap; align-items:center; gap:.25rem .75rem; padding:.625rem .75rem; }
+
+/* Las utilidades de Tailwind (flex, grid...) pisan al atributo hidden del navegador. */
+[hidden] { display:none !important; }

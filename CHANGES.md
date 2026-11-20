@@ -160,12 +160,12 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08
 
 ### [C-06] `paso-5-web-local`
 > Nombre histórico: `paso-5-supabase-api-web`. La API ya existe desde C-01..C-05; este change agrega el frontend estático servido por la misma app FastAPI sobre los repositorios SQLite existentes. Ejecutable en local con uvicorn en http://localhost:8000.
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-20)
 - **Scope**:
   - **Cambio visual**: política `system-and-mockups`, design-system Revision 1 aprobado. ANTES de `apply` deben crearse y aprobarse los mockups del change en `openspec/changes/paso-5-web-local/mockups/` (basados en `design-system/components.html` y `design-system/ordenes.html`; inventario primero; modales para ingreso/egreso/nueva orden/borrados; órdenes en pantalla aparte `/ordenes`), con renders 390x844 y 1440x900 y `## UI Mockups` en `design.md`
   - La API FastAPI YA EXISTE (C-01..C-05); aquí se endurece la cookie de sesión (HttpOnly, SameSite=Lax, `SECRET_KEY` por entorno) y se sirve `static/` desde la misma app sin cambiar el contrato de los endpoints `/api/...`
   - Frontend HTML estático en `static/` (`login.html`, `index.html`, `ordenes.html`, `js/`, `css/`) + Tailwind CDN + JS vanilla con `fetch` a la API JSON (redirige al login en 401; sin Jinja2 ni `templates/`): login, inventario, modales, `/ordenes` con filtro de fechas y búsqueda por número; validación en front
-  - Estado vacío en `/ordenes`: si la API devuelve `[]`, mostrar el cartel "No hay órdenes en ese período" (en vez de una tabla vacía); si la búsqueda por número da 404, mostrar su `detail` ("No existe una orden con número 'X'."). Incluir ambos estados en los mockups (decisión del usuario, 2026-11-20)
+  - Estado vacío en `/ordenes`: si la API devuelve `[]`, mostrar el cartel "No hay órdenes en ese período" (con filtros; sin filtros, "No hay órdenes" — decisión del usuario, 2026-11-20) (en vez de una tabla vacía); si la búsqueda por número da 404, mostrar su `detail` ("No existe una orden con número 'X'."). Incluir ambos estados en los mockups (decisión del usuario, 2026-11-20)
   - Modal de borrar orden: casilla "Devolver stock" **marcada por defecto**; el botón de confirmar dice el resultado ("Borrar y devolver stock" / "Borrar sin devolver stock"); el frontend siempre envía `reintegrar=true|false` y codifica el número con `encodeURIComponent` en `DELETE /api/ordenes/{numero}` (decisión del usuario, 2026-11-20)
   - Los services y rutas de C-01..C-05 se reutilizan sin modificarlos
   - Revisar CSRF de login/logout (observación verify C-01)

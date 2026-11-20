@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Inventario</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/ui.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="/static/js/validacion.js" defer></script>
+  <script src="/static/js/api.js" defer></script>
+  <script src="/static/js/ui.js" defer></script>
+  <script src="/static/js/sesion.js" defer></script>
+  <script src="/static/js/inventario.js" defer></script>
+</head>
+<body>
+  <header class="bg-surface border-b border-line">
+    <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+      <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+      <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+        <a class="navlink" href="/inventario" aria-current="page">Inventario</a>
+        <a class="navlink" href="/ordenes">Órdenes</a>
+      </nav>
+      <div class="ml-auto flex items-center gap-3 text-sm">
+        <span class="hidden sm:inline text-muted">Usuario: <strong id="usuario-nombre" class="text-ink font-semibold"></strong></span>
+        <button id="btn-logout" class="btn btn-secondary" type="button">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+    <h1 class="sr-only">Inventario</h1>
+
+    <!-- Aviso de éxito: persistente hasta cerrarlo o hasta la próxima acción -->
+    <div id="aviso-exito" role="status" hidden class="flex items-center gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm"></div>
+
+    <div class="flex flex-wrap gap-2">
+      <button id="btn-ingreso" class="btn btn-primary" type="button">Ingreso de stock</button>
+      <button id="btn-egreso" class="btn btn-primary" type="button">Egreso de stock</button>
+      <button id="btn-orden" class="btn btn-primary" type="button">Nueva orden</button>
+      <a class="btn btn-secondary" href="/ordenes">Ver órdenes</a>
+    </div>
+
+    <div id="inv-vacio" hidden class="bg-surface border border-dashed border-line rounded-lg p-8 text-center">
+      <h2 class="font-semibold">Todavía no hay productos</h2>
+      <p class="text-sm text-muted mt-1">Registrá un ingreso con un código nuevo para dar de alta el primero.</p>
+    </div>
+
+    <section id="inv-panel" class="bg-surface border border-line rounded-lg" aria-labelledby="t-inv">
+      <div class="flex items-center justify-between gap-3 p-3 border-b border-line">
+        <h2 id="t-inv" class="font-bold">Inventario</h2>
+        <span id="inv-conteo" class="text-sm text-muted"></span>
+      </div>
+
+      <div id="inv-cargando" role="status" aria-live="polite" class="p-8 text-center text-sm text-muted">Cargando inventario…</div>
+
+      <div id="inv-error" hidden class="p-3">
+        <div role="alert" class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">
+          <p id="inv-error-texto" class="flex-1 min-w-[12rem]"></p>
+          <button id="inv-reintentar" class="btn btn-secondary" type="button">Reintentar</button>
+        </div>
+      </div>
+
+      <div id="inv-tabla" hidden class="overflow-x-auto" tabindex="0" role="region" aria-label="Tabla de inventario">
+        <table class="tbl tbl-fit tbl-inv">
+          <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Stock</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+          <tbody id="inv-cuerpo"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="dl-codigos"></datalist>
+
+  <!-- ===================== Modal Ingreso ===================== -->
+  <div class="overlay" id="modal-ingreso" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ing-titulo">
+      <div class="modal-head"><h2 id="ing-titulo">Ingreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+      <form id="form-ingreso" class="modal-body space-y-4" novalidate>
+        <div id="ing-alerta" hidden></div>
+        <div>
+          <label class="label" for="ing-codigo">Código</label>
+          <input class="field num" id="ing-codigo" list="dl-codigos" maxlength="50" autocomplete="off">
+          <p class="hint" id="ing-aviso" aria-live="polite" hidden>Código nuevo o dado de baja: si es nuevo, indicá un nombre.</p>
+        </div>
+        <div>
+          <label class="label" for="ing-nombre">Nombre</label>
+          <input class="field" id="ing-nombre" maxlength="120" autocomplete="off" aria-describedby="ing-nombre-h" data-desc-base="ing-nombre-h">
+          <p class="help" id="ing-nombre-h">Solo si el código es nuevo.</p>
+        </div>
+        <div>
+          <label class="label" for="ing-cantidad">Cantidad</label>
+          <input class="field num" id="ing-cantidad" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="ing-enviar" class="btn btn-primary" type="submit">Registrar ingreso</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== Modal Egreso ===================== -->
+  <div class="overlay" id="modal-egreso" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="egr-titulo">
+      <div class="modal-head"><h2 id="egr-titulo">Egreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+      <form id="form-egreso" class="modal-body space-y-4" novalidate>
+        <div id="egr-alerta" hidden></div>
+        <div>
+          <label class="label" for="egr-producto">Producto</label>
+          <select class="field" data-opts id="egr-producto" aria-describedby="egr-ayuda" data-desc-base="egr-ayuda"></select>
+          <p class="help" id="egr-ayuda"></p>
+        </div>
+        <div>
+          <label class="label" for="egr-cantidad">Cantidad</label>
+          <input class="field num" id="egr-cantidad" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="egr-enviar" class="btn btn-primary" type="submit">Registrar egreso</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== Modal Nueva orden ===================== -->
+  <div class="overlay" id="modal-orden" hidden>
+    <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="ord-titulo">
+      <div class="modal-head"><h2 id="ord-titulo">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+      <form id="form-orden" class="modal-form" novalidate>
+        <div class="modal-body space-y-4">
+          <div id="ord-alerta" hidden></div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="label" for="ord-numero">Número de orden</label>
+              <input class="field num" id="ord-numero" maxlength="30" autocomplete="off">
+            </div>
+            <div>
+              <label class="label" for="ord-fecha">Fecha (AAAA-MM-DD)</label>
+              <input class="field num" id="ord-fecha" type="date" aria-describedby="ord-fecha-h" data-desc-base="ord-fecha-h">
+              <p class="help" id="ord-fecha-h">Hoy; se puede cambiar.</p>
+            </div>
+          </div>
+          <fieldset>
+            <legend class="label">Componentes</legend>
+            <p id="ord-general-e" class="err" role="alert" hidden></p>
+            <ol id="ord-lineas" class="space-y-2"></ol>
+            <div class="flex flex-wrap items-center justify-between gap-2 mt-3">
+              <button id="ord-agregar" class="btn btn-secondary" type="button" aria-describedby="ord-max">Agregar componente</button>
+              <span id="ord-contador" class="text-xs text-muted" aria-live="polite"></span>
+            </div>
+            <p class="help" id="ord-max" hidden>Una orden admite hasta 100 componentes.</p>
+          </fieldset>
+        </div>
+        <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="ord-enviar" class="btn btn-primary" type="submit">Crear orden</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================== Modal Baja de producto ===================== -->
+  <div class="overlay" id="modal-baja" hidden>
+    <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="baja-titulo" aria-describedby="baja-desc">
+      <div class="modal-head"><h2 id="baja-titulo">Eliminar producto</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+      <div class="modal-body space-y-4">
+        <div id="baja-alerta" hidden></div>
+        <p id="baja-desc" class="text-sm">Se dará de baja <strong id="baja-producto" class="num"></strong>. Las órdenes anteriores lo seguirán mostrando y un ingreso posterior con el mismo código lo reactiva.</p>
+        <p id="baja-nota" class="text-sm text-muted" hidden>El inventario se actualizó.</p>
+        <div class="flex justify-end gap-2">
+          <button id="baja-cancelar" class="btn btn-secondary" type="button" data-close data-autofocus>Cancelar</button>
+          <button id="baja-confirmar" class="btn btn-danger" type="button">Eliminar producto</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

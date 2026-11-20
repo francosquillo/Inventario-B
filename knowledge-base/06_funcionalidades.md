@@ -1,6 +1,6 @@
 # Funcionalidades
 
-Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea a 11_plan_de_pasos_y_despliegue.md. Los pasos 1-4b entregan la API FastAPI local (Fase 1, sin CLI), verificada en `/docs` y con tests; el Paso 5 migra a Supabase y agrega el frontend web que consume esa API; el Paso 6 la despliega.
+Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea a 11_plan_de_pasos_y_despliegue.md. Los pasos 1-4b entregan la API FastAPI local (Fase 1, sin CLI), verificada en `/docs` y con tests; el Paso 5 agrega el frontend web que consume esa API; el Paso 6 migra a Supabase (C-07); el Paso 7 la despliega.
 
 ## Épica 1: Acceso y base (Paso 1; web en Paso 5)
 
@@ -105,7 +105,7 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 **Quiero** listar órdenes, todas, por rango de fechas o buscar una por su número
 **Para** consultar el historial
 
-**Paso**: 4 (API), 5 (modal de listado)
+**Paso**: 4 (API), 5 (pantalla `/ordenes`)
 
 **Criterios de aceptación**:
 - [ ] `GET /api/ordenes` sin filtro lista todas.

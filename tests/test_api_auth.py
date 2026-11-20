@@ -23,13 +23,13 @@ class LoginTest(ApiAuthBase):
         self.assertIsInstance(cuerpo["id"], int)
         self.assertEqual(cuerpo["username"], "admin")
 
-    def test_cookie_de_sesion_sin_vencimiento(self):
+    def test_cookie_de_sesion_con_vigencia_de_12h(self):
         cabecera = login(self.client).headers["set-cookie"].lower()
         self.assertIn("inventario_session=", cabecera)
         self.assertIn("httponly", cabecera)
         self.assertIn("samesite=lax", cabecera)
         self.assertNotIn("secure", cabecera)
-        self.assertNotIn("max-age", cabecera)
+        self.assertIn("max-age=43200", cabecera)  # C-06 D2 reemplaza la decision 7 de C-01
         self.assertNotIn("expires", cabecera)
 
     def test_rechazos_con_el_mismo_401_generico(self):

@@ -7,10 +7,20 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.staticfiles import StaticFiles
 
 from inventario import config
 from inventario.api.errores_validacion import mensaje_validacion
-from inventario.api.routers import auth, inventario, movimientos, ordenes, productos, stock
+from inventario.api.routers.paginas import STATIC_DIR
+from inventario.api.routers import (
+    auth,
+    inventario,
+    movimientos,
+    ordenes,
+    paginas,
+    productos,
+    stock,
+)
 from inventario.domain.errors import (
     CredencialesInvalidas,
     DatosInvalidos,
@@ -33,6 +43,7 @@ from inventario.services.inicializacion_service import sembrar_admin
 log = logging.getLogger("inventario")
 
 SESSION_COOKIE = "inventario_session"
+SESSION_MAX_AGE = 12 * 60 * 60  # vigencia de la sesion: 12 h (C-06, D2)
 _SIN_VALOR = object()
 
 
@@ -82,7 +93,7 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
         SessionMiddleware,
         secret_key=secret_key,
         session_cookie=SESSION_COOKIE,
-        max_age=None,  # cookie de sesion del navegador (decision 7)
+        max_age=SESSION_MAX_AGE,
         same_site="lax",
         https_only=https_only,
     )
@@ -92,6 +103,8 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
     app.include_router(movimientos.router)
     app.include_router(ordenes.router)
     app.include_router(productos.router)
+    app.include_router(paginas.router)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.exception_handler(CredencialesInvalidas)
     async def credenciales_invalidas(request: Request, exc: CredencialesInvalidas):

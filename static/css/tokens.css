@@ -1,0 +1,72 @@
+/* Inventario-B — tokens. Revision 2, "Industrial sobrio", tema oscuro único. Solo fuentes del sistema. */
+:root {
+  /* Tema oscuro único (decisión del usuario 2026-11-20): no hay tema claro ni se sigue prefers-color-scheme.
+     color-scheme: dark hace que los controles nativos (fecha, select, casillas, scrollbars, autofill) se vean oscuros. */
+  color-scheme: dark;
+
+  --color-bg: #121518;
+  --color-surface: #1b1f24;
+  --color-surface-2: #252a31;
+  --color-border: #3a424c;         /* divisores y bordes decorativos (filas, cabeceras, tarjetas) */
+  --color-border-strong: #66707d;  /* bordes de controles (campos, botón secundario, modal): >= 3:1 sobre surface y bg */
+  --color-text: #e8ebee;
+  --color-text-muted: #a4aeb9;
+
+  --color-accent: #fbbf24;
+  --color-accent-hover: #fcd34d;
+  --color-accent-contrast: #1c1400;
+  --color-accent-text: #fbbf24;
+
+  --color-success: #16a34a;  --color-success-fg: #86efac;  --color-success-subtle: #12301d;
+  --color-danger: #dc2626;   --color-on-danger: #ffffff;   --color-danger-fg: #fca5a5;   --color-danger-subtle: #3a1618;
+  --color-warning-fg: #fcd34d; --color-warning-subtle: #3a2a0a;
+  --color-info-fg: #93c5fd;  --color-info-subtle: #14264a;
+
+  --color-overlay: rgba(0, 0, 0, 0.7);
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+
+  --focus-ring-color: #93c5fd;
+  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--focus-ring-color);
+
+  --duration-fast: 100ms;
+  --duration-base: 160ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+  }
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}
