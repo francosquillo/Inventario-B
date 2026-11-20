@@ -4,12 +4,21 @@ import sqlite3
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from inventario import config
-from inventario.api.routers import auth, inventario
-from inventario.domain.errors import CredencialesInvalidas, MENSAJE_CREDENCIALES_INVALIDAS
+from inventario.api.errores_validacion import mensaje_validacion
+from inventario.api.routers import auth, inventario, movimientos, stock
+from inventario.domain.errors import (
+    CredencialesInvalidas,
+    DatosInvalidos,
+    MENSAJE_CREDENCIALES_INVALIDAS,
+    NombreRequerido,
+    ProductoNoEncontrado,
+    StockInsuficiente,
+)
 from inventario.repositories.sqlite_repo import (
     SqliteUsuarioRepository,
     conectar,
@@ -75,9 +84,31 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
     )
     app.include_router(auth.router)
     app.include_router(inventario.router)
+    app.include_router(stock.router)
+    app.include_router(movimientos.router)
 
     @app.exception_handler(CredencialesInvalidas)
     async def credenciales_invalidas(request: Request, exc: CredencialesInvalidas):
         return JSONResponse(status_code=401, content={"detail": MENSAJE_CREDENCIALES_INVALIDAS})
+
+    def _responder(status):
+        async def handler(request: Request, exc):
+            return JSONResponse(status_code=status, content={"detail": str(exc)})
+
+        return handler
+
+    for tipo, status in (
+        (DatosInvalidos, 422),
+        (NombreRequerido, 422),
+        (ProductoNoEncontrado, 404),
+        (StockInsuficiente, 409),
+    ):
+        app.add_exception_handler(tipo, _responder(status))
+
+    @app.exception_handler(RequestValidationError)
+    async def validacion_en_espanol(request: Request, exc: RequestValidationError):
+        return JSONResponse(
+            status_code=422, content={"detail": mensaje_validacion(exc.errors())}
+        )
 
     return app

@@ -1,17 +1,6 @@
 import unittest
 
-from inventario.repositories.sqlite_repo import conectar
-from tests.helpers import cliente_de_test, insertar_producto, login
-
-
-def sembrar(ruta, productos):
-    conn = conectar(ruta)
-    try:
-        for codigo, nombre, stock, activo in productos:
-            insertar_producto(conn, codigo, nombre, stock, activo)
-        conn.commit()
-    finally:
-        conn.close()
+from tests.helpers import cliente_de_test, login, sembrar
 
 
 class InventarioSinSesionTest(unittest.TestCase):

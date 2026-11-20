@@ -1,5 +1,6 @@
 """Entidades de dominio inmutables."""
 from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass(frozen=True)
@@ -27,3 +28,20 @@ class Producto:
     @property
     def sin_stock(self):
         return self.stock == 0
+
+
+@dataclass(frozen=True)
+class ResultadoIngreso:
+    producto: Producto
+    creado: bool
+    reactivado: bool
+
+
+@dataclass(frozen=True)
+class Movimiento:
+    fecha: datetime
+    codigo: str
+    nombre: str
+    tipo: str
+    cantidad: int
+    usuario: str

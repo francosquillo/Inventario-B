@@ -1,6 +1,6 @@
 # Preguntas Abiertas
 
-Las preguntas del discovery (reactivación de productos, fecha de orden, tipo de clave Supabase, mecanismo de sesión) ya fueron resueltas: ver SU-03, DD-08, DD-05 y DD-04. Cambio de framework Flask a FastAPI resuelto el 2026-11-19 (DD-03, DD-11); pendiente de definir en el Paso 6: servir `static/` con `StaticFiles` y/o ruteo estático de `vercel.json`. Cambio de alcance 2026-11-19: se elimina la CLI y se construye FastAPI desde el Paso 1 (DD-12); las referencias a la CLI en esta KB son históricas. Resueltas también el 2026-11-19: contraseña del admin (DD-07), seed por script Python (IN-01), producto repetido en orden (RN-OR-11) y reintegro a producto inactivo (RN-OR-12).
+Las preguntas del discovery (reactivación de productos, fecha de orden, tipo de clave Supabase, mecanismo de sesión) ya fueron resueltas: ver SU-03, DD-08, DD-05 y DD-04. Cambio de framework Flask a FastAPI resuelto el 2026-11-19 (DD-03, DD-11); pendiente de definir en el Paso 6: servir `static/` con `StaticFiles` y/o ruteo estático de `vercel.json`. Cambio de alcance 2026-11-19: se elimina la CLI y se construye FastAPI desde el Paso 1 (DD-12); las referencias a la CLI en esta KB son históricas. Resueltas también el 2026-11-19: contraseña del admin (DD-07), seed por script Python (IN-01), producto repetido en orden (RN-OR-11) y reintegro a producto inactivo (RN-OR-12). Resuelta por C-02 (2026-11-20): consulta de movimientos (PA-04), con `GET /api/movimientos` y filtros por `codigo` y `desde`/`hasta`.
 
 ## Inconsistencias detectadas
 
@@ -21,7 +21,6 @@ Las preguntas del discovery (reactivación de productos, fecha de orden, tipo de
 | ID | Prioridad | Pregunta | Bloquea | Decisor |
 |----|-----------|----------|---------|---------|
 | PA-03 | Media | ¿Cómo se darán de alta usuarios adicionales y cómo se cambia la contraseña de `admin`? (fuera de v1 por ahora) | Paso 5 / posterior | Usuario |
-| PA-04 | Media | ¿Se quiere una vista para consultar el historial de `movimientos` (hoy solo se registra)? | Paso 5 | Usuario |
 | PA-06 | Baja | ¿El `numero` de orden es numérico o alfanumérico (p. ej. `OT-0001`)? | Paso 3 | Usuario |
 | PA-07 | Baja | ¿Se habilita RLS sin políticas como defensa extra sobre Supabase? | Paso 5 | Equipo técnico |
 | PA-08 | Baja | ¿Cuántos usuarios y qué volumen de productos/órdenes se esperan (para dimensionar paginación del listado)? | Paso 5 | Usuario |

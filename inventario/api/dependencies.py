@@ -3,12 +3,16 @@ from fastapi import Depends, HTTPException, Request
 
 from inventario.domain.entities import UsuarioAutenticado
 from inventario.repositories.sqlite_repo import (
+    SqliteMovimientoRepository,
     SqliteProductoRepository,
+    SqliteStockRepository,
     SqliteUsuarioRepository,
     conectar,
 )
 from inventario.services.auth_service import AuthService
 from inventario.services.inventario_service import InventarioService
+from inventario.services.movimientos_service import MovimientosService
+from inventario.services.stock_service import StockService
 
 SESSION_USUARIO_ID = "usuario_id"
 SESSION_USERNAME = "username"
@@ -29,6 +33,14 @@ def get_auth_service(conn=Depends(get_conexion)):
 
 def get_inventario_service(conn=Depends(get_conexion)):
     return InventarioService(SqliteProductoRepository(conn))
+
+
+def get_stock_service(conn=Depends(get_conexion)):
+    return StockService(SqliteStockRepository(conn))
+
+
+def get_movimientos_service(conn=Depends(get_conexion)):
+    return MovimientosService(SqliteMovimientoRepository(conn))
 
 
 def get_current_user(request: Request) -> UsuarioAutenticado:

@@ -43,26 +43,43 @@ class LoginTest(ApiAuthBase):
 
     def test_422_por_cuerpo_invalido(self):
         invalidos = [
-            None,
-            {"username": "admin"},
-            {"username": "admin", "password": ""},
-            {"username": "", "password": "x"},
-            {"username": 5, "password": "x"},
-            {"username": "admin", "password": None},
+            (None, "El cuerpo de la petición es obligatorio."),
+            ({"username": "admin"}, "El campo password es obligatorio."),
+            ({"username": "admin", "password": ""}, "El campo password es obligatorio."),
+            ({"username": "", "password": "x"}, "El campo username es obligatorio."),
+            ({"username": 5, "password": "x"}, "El campo username debe ser texto."),
+            ({"username": "admin", "password": None}, "El campo password debe ser texto."),
         ]
-        for cuerpo in invalidos:
+        for cuerpo, mensaje in invalidos:
             with self.subTest(cuerpo=cuerpo):
                 r = self.client.post("/api/login", json=cuerpo)
                 self.assertEqual(r.status_code, 422)
+                self.assertEqual(r.json(), {"detail": mensaje})
 
     def test_422_por_longitud_excesiva(self):
-        for cuerpo in (
-            {"username": "u" * 65, "password": "x"},
-            {"username": "admin", "password": "p" * 129},
-        ):
+        casos = [
+            ({"username": "u" * 65, "password": "x"}, "El campo username admite hasta 64 caracteres."),
+            ({"username": "admin", "password": "p" * 129}, "El campo password admite hasta 128 caracteres."),
+        ]
+        for cuerpo, mensaje in casos:
             with self.subTest(usuario=len(cuerpo["username"]), clave=len(cuerpo["password"])):
                 r = self.client.post("/api/login", json=cuerpo)
                 self.assertEqual(r.status_code, 422)
+                self.assertEqual(r.json(), {"detail": mensaje})
+
+    def test_422_por_json_mal_formado(self):
+        r = self.client.post(
+            "/api/login",
+            content='{"username": "admin",',
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(r.status_code, 422)
+        self.assertEqual(r.json(), {"detail": "El cuerpo de la petición no es JSON válido."})
+
+    def test_422_por_cuerpo_que_no_es_objeto(self):
+        r = self.client.post("/api/login", json=[1, 2])
+        self.assertEqual(r.status_code, 422)
+        self.assertIsInstance(r.json()["detail"], str)
 
     def test_longitudes_limite_se_procesan(self):
         for cuerpo in (

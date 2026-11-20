@@ -20,6 +20,44 @@ def insertar_producto(conn, codigo, nombre, stock=0, activo=1):
     return cur.lastrowid
 
 
+def insertar_usuario(conn, username="admin"):
+    cur = conn.execute(
+        "INSERT INTO usuarios (username, password_hash, salt) VALUES (?, 'hash', 'salt')",
+        (username,),
+    )
+    return cur.lastrowid
+
+
+def movimientos(conn):
+    """Filas (tipo, cantidad, codigo, usuario_id, fecha) ordenadas por id."""
+    filas = conn.execute(
+        "SELECT m.tipo, m.cantidad, p.codigo, m.usuario_id, m.fecha "
+        "FROM movimientos m JOIN productos p ON p.id = m.producto_id ORDER BY m.id"
+    ).fetchall()
+    return [tuple(f) for f in filas]
+
+
+def insertar_movimiento(conn, fecha, producto_id, tipo, cantidad, usuario_id):
+    """Siembra la bitacora con la fecha como texto."""
+    cur = conn.execute(
+        "INSERT INTO movimientos (fecha, producto_id, tipo, cantidad, usuario_id) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (fecha, producto_id, tipo, cantidad, usuario_id),
+    )
+    return cur.lastrowid
+
+
+def sembrar(ruta, productos):
+    """Inserta productos (codigo, nombre, stock, activo) en la base de archivo `ruta`."""
+    conn = conectar(ruta)
+    try:
+        for codigo, nombre, stock, activo in productos:
+            insertar_producto(conn, codigo, nombre, stock, activo)
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # --- Helpers de la API (D12): archivo SQLite real en directorio temporal ---
 PASSWORD_ADMIN_TEST = "Clave-Test-1"
 

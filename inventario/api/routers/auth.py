@@ -7,12 +7,16 @@ from inventario.api.dependencies import (
     get_auth_service,
     get_current_user,
 )
-from inventario.api.schemas import LoginRequest, UsuarioOut
+from inventario.api.schemas import ErrorOut, LoginRequest, UsuarioOut
 
 router = APIRouter(prefix="/api", tags=["auth"])
 
 
-@router.post("/login", response_model=UsuarioOut)
+@router.post(
+    "/login",
+    response_model=UsuarioOut,
+    responses={422: {"model": ErrorOut, "description": "Datos inválidos (mensaje en español)"}},
+)
 def login(datos: LoginRequest, request: Request, auth=Depends(get_auth_service)):
     request.session.clear()  # tambien ante fallo: mitiga fijacion de sesion
     usuario = auth.login(datos.username, datos.password)

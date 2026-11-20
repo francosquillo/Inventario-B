@@ -163,9 +163,25 @@ class DocsTest(unittest.TestCase):
         client, _ = cliente_de_test(self.addCleanup)
         self.assertEqual(client.get("/docs").status_code, 200)
         paths = client.get("/openapi.json").json()["paths"]
-        for ruta in ("/api/login", "/api/logout", "/api/me", "/api/inventario"):
+        for ruta in (
+            "/api/login", "/api/logout", "/api/me", "/api/inventario",
+            "/api/stock/ingreso", "/api/stock/egreso", "/api/movimientos",
+        ):
             with self.subTest(ruta=ruta):
                 self.assertIn(ruta, paths)
+
+
+class OpenApiErrorOutTest(unittest.TestCase):
+    def test_422_de_login_referencia_error_out(self):
+        from tests.helpers import cliente_de_test
+
+        client, _ = cliente_de_test(self.addCleanup)
+        spec = client.get("/openapi.json").json()
+        ref = spec["paths"]["/api/login"]["post"]["responses"]["422"]["content"][
+            "application/json"
+        ]["schema"]["$ref"]
+        self.assertTrue(ref.endswith("/ErrorOut"))
+        self.assertIn("ErrorOut", spec["components"]["schemas"])
 
 
 class RutaDbPorEntornoTest(unittest.TestCase):

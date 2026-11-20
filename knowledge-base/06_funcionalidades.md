@@ -102,14 +102,16 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 
 ### US-007 — Listar órdenes
 **Como** usuario
-**Quiero** listar órdenes, todas o por rango de fechas
+**Quiero** listar órdenes, todas, por rango de fechas o buscar una por su número
 **Para** consultar el historial
 
 **Paso**: 4 (API), 5 (modal de listado)
 
 **Criterios de aceptación**:
 - [ ] `GET /api/ordenes` sin filtro lista todas.
-- [ ] Con `?desde&hasta` (`YYYY-MM-DD`), se incluyen ambos extremos.
+- [ ] Con `?desde&hasta` (`YYYY-MM-DD`), se incluyen ambos extremos; `desde == hasta` busca un solo día.
+- [ ] `desde` y `hasta` son opcionales por separado: solo `desde` = "de esa fecha en adelante", solo `hasta` = "hasta esa fecha"; parámetro vacío = sin filtro (mismo criterio que `GET /api/movimientos` en C-02). *(Agregado 2026-11-20, a confirmar en el propose de C-04.)*
+- [ ] Búsqueda por número de orden (RN-OR-01, único): forma a definir en el propose de C-04 — filtro `?numero=X` combinable con fechas y/o detalle `GET /api/ordenes/{numero}` (404 si no existe). *(Agregado 2026-11-20 a pedido del usuario.)*
 - [ ] Fecha inválida o desde > hasta se rechaza con mensaje claro.
 - [ ] Cada orden muestra número, fecha y componentes con cantidades (incluso de productos dados de baja).
 

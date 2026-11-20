@@ -160,3 +160,73 @@ class IdempotenciaTest(unittest.TestCase):
         conn = conectar(":memory:")
         self.addCleanup(conn.close)
         self.assertIs(conn.row_factory, sqlite3.Row)
+
+
+class NormalizacionFechasLegadasTest(unittest.TestCase):
+    def setUp(self):
+        self.conn = conexion_inicializada()
+        self.addCleanup(self.conn.close)
+        self.uid = insertar_usuario(self.conn)
+        self.pid = insertar_producto(self.conn, "A-01", "Tornillo", 5)
+
+    def sembrar_fecha(self, fecha):
+        self.conn.execute(
+            "INSERT INTO movimientos (fecha, producto_id, tipo, cantidad, usuario_id) "
+            "VALUES (?, ?, 'ingreso', 1, ?)",
+            (fecha, self.pid, self.uid),
+        )
+        self.conn.commit()
+
+    def fechas(self):
+        return [f[0] for f in self.conn.execute("SELECT fecha FROM movimientos ORDER BY id")]
+
+    def test_fecha_legada_utc_pasa_a_hora_local_con_offset(self):
+        self.sembrar_fecha("2026-11-19 18:30:00")
+        inicializar_esquema(self.conn)
+        self.assertEqual(self.fechas(), ["2026-11-19T15:30:00-03:00"])
+
+    def test_legada_cruzando_medianoche(self):
+        self.sembrar_fecha("2026-11-20 01:15:00")
+        inicializar_esquema(self.conn)
+        self.assertEqual(self.fechas(), ["2026-11-19T22:15:00-03:00"])
+
+    def test_fila_ya_normalizada_no_cambia(self):
+        self.sembrar_fecha("2026-11-18T09:00:00-03:00")
+        inicializar_esquema(self.conn)
+        self.assertEqual(self.fechas(), ["2026-11-18T09:00:00-03:00"])
+
+    def test_es_idempotente(self):
+        self.sembrar_fecha("2026-11-19 18:30:00")
+        self.sembrar_fecha("2026-11-18T09:00:00-03:00")
+        for _ in range(3):
+            inicializar_esquema(self.conn)
+        self.assertEqual(
+            self.fechas(), ["2026-11-19T15:30:00-03:00", "2026-11-18T09:00:00-03:00"]
+        )
+
+    def test_base_sin_movimientos_no_falla(self):
+        conn = conexion_inicializada()
+        self.addCleanup(conn.close)
+        inicializar_esquema(conn)
+        self.assertEqual(conn.execute("SELECT COUNT(*) FROM movimientos").fetchone()[0], 0)
+
+    def test_fecha_no_parseable_no_rompe_el_arranque_y_se_deja_intacta(self):
+        self.sembrar_fecha("basura")
+        self.sembrar_fecha("2026-11-19 18:30:00")
+        with self.assertLogs("inventario", level="WARNING") as logs:
+            inicializar_esquema(self.conn)
+        self.assertEqual(self.fechas(), ["basura", "2026-11-19T15:30:00-03:00"])
+        self.assertIn("1", logs.output[0])
+
+    def test_sin_filas_no_parseables_no_loguea_advertencia(self):
+        self.sembrar_fecha("2026-11-19 18:30:00")
+        with self.assertNoLogs("inventario", level="WARNING"):
+            inicializar_esquema(self.conn)
+
+    def test_fila_no_parseable_sigue_intacta_en_arranques_repetidos(self):
+        self.sembrar_fecha("basura")
+        with self.assertLogs("inventario", level="WARNING"):
+            for _ in range(2):
+                inicializar_esquema(self.conn)
+        self.assertEqual(self.fechas(), ["basura"])
+

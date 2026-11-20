@@ -83,7 +83,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
   - `knowledge-base/11_plan_de_pasos_y_despliegue.md`
 
 ### [C-02] `paso-2-movimientos-stock`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-20)
 - **Scope**:
   - Ingreso de stock por código: suma si existe, crea con nombre si no existe, reactiva si está inactivo (US-004)
   - Egreso manual: entero > 0 y <= stock actual (US-005)
@@ -121,9 +121,11 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
 - **Estado**: `[ ]` pendiente
 - **Scope**:
   - `GET /api/ordenes?desde&hasta`: todas o rango `YYYY-MM-DD` inclusivo, validando fechas reales y desde <= hasta (US-007)
+  - `desde`/`hasta` opcionales por separado (solo uno = rango abierto; vacío = sin filtro, como en C-02) — a confirmar en el propose
+  - Búsqueda por número de orden: `?numero=X` y/o `GET /api/ordenes/{numero}` (404 si no existe) — forma a decidir en el propose (agregado 2026-11-20)
   - Detalle de componentes por orden, mostrando productos dados de baja (RN-PR-04)
   - Verificación en `/docs`
-  - Tests `unittest`: sin filtro, rango inclusivo en bordes, rango invertido, fecha inexistente, sin resultados, endpoint con `TestClient`
+  - Tests `unittest`: sin filtro, rango inclusivo en bordes, un solo día, solo desde / solo hasta, rango invertido, fecha inexistente, sin resultados, búsqueda por número existente / inexistente, endpoint con `TestClient`
 - **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-03`
 - **Governance**: BAJO (lectura)
