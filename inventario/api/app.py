@@ -17,6 +17,7 @@ from inventario.domain.errors import (
     MENSAJE_CREDENCIALES_INVALIDAS,
     NombreRequerido,
     OrdenDuplicada,
+    OrdenNoEncontrada,
     ProductoNoEncontrado,
     ProductosNoEncontrados,
     StockInsuficiente,
@@ -107,6 +108,7 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
         (ProductoNoEncontrado, 404),
         (StockInsuficiente, 409),
         (OrdenDuplicada, 409),
+        (OrdenNoEncontrada, 404),
         (ProductosNoEncontrados, 404),
     ):
         app.add_exception_handler(tipo, _responder(status))

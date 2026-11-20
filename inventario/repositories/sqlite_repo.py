@@ -3,6 +3,7 @@ import logging
 import sqlite3
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
+from itertools import groupby
 
 from inventario.domain.entities import (
     Faltante,
@@ -318,14 +319,37 @@ _SQL_PRODUCTOS_POR_CODIGOS = (
 )
 _SQL_ALTA_ORDEN = "INSERT INTO ordenes (numero, fecha, usuario_id, created_at) VALUES (?, ?, ?, ?)"
 _SQL_ALTA_ITEM = "INSERT INTO orden_items (orden_id, producto_id, cantidad) VALUES (?, ?, ?)"
-_SQL_ORDEN_COMPLETA = (
-    "SELECT o.id, o.numero, o.fecha, u.username FROM ordenes o "
-    "JOIN usuarios u ON u.id = o.usuario_id WHERE o.id = ?"
+
+_SQL_LISTAR_ORDENES = (
+    "SELECT o.id, o.numero, o.fecha, u.username, p.codigo, p.nombre, i.cantidad "
+    "FROM ordenes o "
+    "JOIN usuarios u ON u.id = o.usuario_id "
+    "LEFT JOIN orden_items i ON i.orden_id = o.id "
+    "LEFT JOIN productos p ON p.id = i.producto_id"
 )
-_SQL_ITEMS_DE_ORDEN = (
-    "SELECT p.codigo, p.nombre, i.cantidad FROM orden_items i "
-    "JOIN productos p ON p.id = i.producto_id WHERE i.orden_id = ? ORDER BY p.codigo"
-)
+_ORDEN_LISTAR_ORDENES = " ORDER BY o.fecha DESC, o.id DESC, p.codigo"
+
+
+def _a_ordenes(filas):
+    """Agrupa las filas del JOIN (contiguas por orden) en entidades `Orden`."""
+    ordenes = []
+    for _, grupo in groupby(filas, key=lambda f: f["id"]):
+        lineas = list(grupo)
+        cabecera = lineas[0]
+        ordenes.append(
+            Orden(
+                id=cabecera["id"],
+                numero=cabecera["numero"],
+                fecha=date.fromisoformat(cabecera["fecha"]),
+                usuario=cabecera["username"],
+                items=tuple(
+                    ItemOrden(f["codigo"], f["nombre"], f["cantidad"])
+                    for f in lineas
+                    if f["codigo"] is not None
+                ),
+            )
+        )
+    return ordenes
 
 
 class SqliteOrdenRepository(OrdenRepository):
@@ -377,13 +401,28 @@ class SqliteOrdenRepository(OrdenRepository):
                 )
         return orden_id
 
+    def listar(self, numero, desde, hasta):
+        condiciones, parametros = [], []
+        if numero is not None:
+            condiciones.append("o.numero = ?")
+            parametros.append(numero)
+        if desde is not None:
+            condiciones.append("o.fecha >= ?")
+            parametros.append(desde.isoformat())
+        if hasta is not None:
+            condiciones.append("o.fecha <= ?")
+            parametros.append(hasta.isoformat())
+        sql = _SQL_LISTAR_ORDENES
+        if condiciones:
+            sql += " WHERE " + " AND ".join(condiciones)
+        filas = self._conn.execute(sql + _ORDEN_LISTAR_ORDENES, parametros).fetchall()
+        return _a_ordenes(filas)
+
+    def existe_numero(self, numero):
+        return self._conn.execute(_SQL_ORDEN_EXISTE, (numero,)).fetchone() is not None
+
     def _leer_orden(self, orden_id):
-        fila = self._conn.execute(_SQL_ORDEN_COMPLETA, (orden_id,)).fetchone()
-        lineas = self._conn.execute(_SQL_ITEMS_DE_ORDEN, (orden_id,)).fetchall()
-        return Orden(
-            id=fila["id"],
-            numero=fila["numero"],
-            fecha=date.fromisoformat(fila["fecha"]),
-            usuario=fila["username"],
-            items=tuple(ItemOrden(f["codigo"], f["nombre"], f["cantidad"]) for f in lineas),
-        )
+        filas = self._conn.execute(
+            _SQL_LISTAR_ORDENES + " WHERE o.id = ?" + _ORDEN_LISTAR_ORDENES, (orden_id,)
+        ).fetchall()
+        return _a_ordenes(filas)[0]

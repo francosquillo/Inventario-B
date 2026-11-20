@@ -5,6 +5,7 @@ from inventario.domain.entities import Faltante
 from inventario.domain.errors import (
     DatosInvalidos,
     OrdenDuplicada,
+    OrdenNoEncontrada,
     ProductosNoEncontrados,
     StockInsuficienteOrden,
 )
@@ -202,3 +203,113 @@ class SinEscrituraTest(ServiceBase):
                 with self.assertRaises(tipo):
                     self.crear(**kwargs)
                 self.assertEqual(self.conteos(), antes)
+
+
+class ListarServiceTest(ServiceBase):
+    def sembrar(self, *numero_fecha):
+        for numero, fecha in numero_fecha:
+            self.crear(numero=numero, fecha=fecha)
+
+    def numeros(self, *args, **kwargs):
+        return [o.numero for o in self.service.listar(*args, **kwargs)]
+
+    def test_sin_argumentos_devuelve_de_la_mas_nueva_a_la_mas_vieja(self):
+        self.sembrar(("OT-1", "2026-11-18"), ("OT-2", "2026-11-20"), ("OT-3", "2026-11-17"))
+        self.assertEqual(self.numeros(), ["OT-2", "OT-1", "OT-3"])
+
+    def test_numero_se_normaliza_y_vacio_es_sin_filtro(self):
+        self.sembrar(("OT-0003", "2026-11-18"), ("OT-0004", "2026-11-19"))
+        self.assertEqual(self.numeros("  ot-0003 "), ["OT-0003"])
+        for vacio in (None, "", "   "):
+            with self.subTest(numero=vacio):
+                self.assertEqual(self.numeros(vacio), ["OT-0004", "OT-0003"])
+
+    def test_numero_de_31_caracteres_es_invalido(self):
+        with self.assertRaises(DatosInvalidos) as ctx:
+            self.service.listar("X" * 31)
+        self.assertEqual(str(ctx.exception), "El campo numero admite hasta 30 caracteres.")
+
+    def test_numero_inexistente_lanza_no_encontrada_con_numero_normalizado(self):
+        self.sembrar(("OT-0001", "2026-11-17"))
+        with self.assertRaises(OrdenNoEncontrada) as ctx:
+            self.service.listar("ot-9 ")
+        self.assertEqual(str(ctx.exception), "No existe una orden con número 'OT-9'.")
+
+    def test_numero_existente_fuera_del_rango_devuelve_lista_vacia(self):
+        self.sembrar(("OT-0001", "2026-11-17"))
+        self.assertEqual(self.numeros("OT-0001", desde="2026-11-18"), [])
+        self.assertEqual(self.numeros("OT-0001", desde="2026-11-17"), ["OT-0001"])
+
+    def espiar_existe_numero(self):
+        """Espia sobre el repositorio SQLite real: registra las llamadas y delega."""
+        llamadas = []
+
+        class RepoEspia(SqliteOrdenRepository):
+            def existe_numero(repo, numero):
+                llamadas.append(numero)
+                return super().existe_numero(numero)
+
+        self.service = OrdenService(RepoEspia(self.conn), ahora=lambda: FECHA_FIJA)
+        return llamadas
+
+    def test_existe_numero_no_se_consulta_sin_numero(self):
+        self.sembrar(("OT-0001", "2026-11-17"))
+        llamadas = self.espiar_existe_numero()
+        self.assertEqual(self.numeros(), ["OT-0001"])
+        self.assertEqual(self.numeros(desde="2030-01-01"), [])
+        self.assertEqual(llamadas, [])
+
+    def test_existe_numero_no_se_consulta_si_el_filtro_devuelve_resultados(self):
+        self.sembrar(("OT-0001", "2026-11-17"))
+        llamadas = self.espiar_existe_numero()
+        self.assertEqual(self.numeros("ot-0001"), ["OT-0001"])
+        self.assertEqual(llamadas, [])
+
+    def test_existe_numero_se_consulta_solo_con_numero_y_resultado_vacio(self):
+        self.sembrar(("OT-0001", "2026-11-17"))
+        llamadas = self.espiar_existe_numero()
+        self.assertEqual(self.numeros("OT-0001", desde="2026-11-18"), [])
+        self.assertEqual(llamadas, ["OT-0001"])
+        with self.assertRaises(OrdenNoEncontrada):
+            self.service.listar("ot-9")
+        self.assertEqual(llamadas, ["OT-0001", "OT-9"])
+
+    def test_numero_en_blanco_sin_ordenes_es_lista_vacia(self):
+        self.assertEqual(self.numeros("   "), [])
+
+    def test_fecha_invalida_tiene_prioridad_sobre_no_encontrada(self):
+        with self.assertRaises(DatosInvalidos):
+            self.service.listar("OT-9", desde="19/11/2026")
+
+    def assertListarInvalido(self, mensaje, **kwargs):
+        with self.assertRaises(DatosInvalidos) as ctx:
+            self.service.listar(**kwargs)
+        self.assertEqual(str(ctx.exception), mensaje)
+
+    def test_mensajes_de_fecha_identicos_a_movimientos(self):
+        self.assertListarInvalido(
+            "La fecha 'desde' debe tener formato AAAA-MM-DD.", desde="19/11/2026"
+        )
+        self.assertListarInvalido(
+            "La fecha 'hasta' (2026-02-30) no es una fecha válida.", hasta="2026-02-30"
+        )
+        self.assertListarInvalido(
+            "La fecha 'desde' (2026-11-20) no puede ser posterior a 'hasta' (2026-11-19).",
+            desde="2026-11-20",
+            hasta="2026-11-19",
+        )
+
+    def test_fechas_vacias_son_sin_filtro_y_solo_desde_o_solo_hasta_filtran(self):
+        self.sembrar(("OT-1", "2026-11-18"), ("OT-2", "2026-11-19"), ("OT-3", "2026-11-20"))
+        self.assertEqual(self.numeros(desde="", hasta=""), ["OT-3", "OT-2", "OT-1"])
+        self.assertEqual(self.numeros(desde="2026-11-19"), ["OT-3", "OT-2"])
+        self.assertEqual(self.numeros(hasta="2026-11-19"), ["OT-2", "OT-1"])
+        self.assertEqual(self.numeros(desde="2026-11-19", hasta="2026-11-19"), ["OT-2"])
+
+    def test_prioridad_de_errores_numero_luego_desde_luego_hasta(self):
+        self.assertListarInvalido(
+            "El campo numero admite hasta 30 caracteres.", numero="X" * 31, desde="mal"
+        )
+        self.assertListarInvalido(
+            "La fecha 'desde' debe tener formato AAAA-MM-DD.", desde="mal", hasta="peor"
+        )

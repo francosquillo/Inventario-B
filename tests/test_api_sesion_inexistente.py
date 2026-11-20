@@ -10,6 +10,7 @@ ORDEN = {"numero": "OT-1", "fecha": "2026-11-20", "componentes": [{"codigo": "A-
 # (nombre, metodo, url, cuerpo)
 ENDPOINTS = (
     ("crear orden", "post", "/api/ordenes", ORDEN),
+    ("listar ordenes", "get", "/api/ordenes", None),
     ("ingreso", "post", "/api/stock/ingreso", {"codigo": "A-01", "cantidad": 1}),
     ("egreso", "post", "/api/stock/egreso", {"codigo": "A-01", "cantidad": 1}),
     ("movimientos", "get", "/api/movimientos", None),
@@ -52,7 +53,7 @@ class SesionDeUsuarioInexistenteTest(unittest.TestCase):
         return self.client.get(url)
 
     def test_sesion_valida_antes_de_borrar_al_usuario(self):
-        for nombre, metodo, url, cuerpo in ENDPOINTS[3:]:
+        for nombre, metodo, url, cuerpo in ENDPOINTS[1:2] + ENDPOINTS[4:]:
             with self.subTest(endpoint=nombre):
                 self.assertEqual(self.llamar(metodo, url, cuerpo).status_code, 200)
 

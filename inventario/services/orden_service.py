@@ -1,7 +1,7 @@
 """Alta de ordenes de trabajo: validacion, normalizacion y consolidacion de componentes."""
-from inventario.domain.errors import DatosInvalidos
+from inventario.domain.errors import DatosInvalidos, OrdenNoEncontrada
 from inventario.domain.tiempo import ahora_argentina
-from inventario.services.fechas import parsear_fecha
+from inventario.services.fechas import parsear_fecha, parsear_filtro_fecha, validar_rango
 from inventario.services.normalizacion import normalizar_codigo, validar_cantidad
 
 NUMERO_MAX = 30
@@ -28,6 +28,13 @@ def _normalizar_numero(numero):
     if len(numero) > NUMERO_MAX:
         raise DatosInvalidos(MENSAJE_NUMERO_LARGO)
     return numero
+
+
+def _normalizar_numero_filtro(numero):
+    """Filtro opcional: None o en blanco -> sin filtro; si no, la misma normalizacion del alta."""
+    if numero is None or (isinstance(numero, str) and not numero.strip()):
+        return None
+    return _normalizar_numero(numero)
 
 
 def _parsear_fecha(fecha):
@@ -77,3 +84,14 @@ class OrdenService:
         f_orden = _parsear_fecha(fecha)
         items = _consolidar(componentes)
         return self._repo.crear(numero, f_orden, items, usuario_id, self._ahora())
+
+    def listar(self, numero=None, desde=None, hasta=None):
+        numero = _normalizar_numero_filtro(numero)
+        f_desde = parsear_filtro_fecha("desde", desde)
+        f_hasta = parsear_filtro_fecha("hasta", hasta)
+        validar_rango(desde, hasta, f_desde, f_hasta)
+        ordenes = self._repo.listar(numero, f_desde, f_hasta)
+        # Vacio con numero: 404 solo si el numero no existe; si existe, quedo fuera del rango.
+        if not ordenes and numero is not None and not self._repo.existe_numero(numero):
+            raise OrdenNoEncontrada(numero)
+        return ordenes

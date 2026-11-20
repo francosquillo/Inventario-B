@@ -38,7 +38,7 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 - **RN-OR-04**: Al crear, se valida el stock de TODOS los componentes; si alguno no alcanza, se rechaza la orden completa sin modificar nada.
 - **RN-OR-05**: Si el stock alcanza, se descuentan todos los componentes y se crea la orden de forma atómica.
 - **RN-OR-06**: Solo productos activos son seleccionables como componentes.
-- **RN-OR-07**: El listado de órdenes admite todas o un rango de fechas `YYYY-MM-DD` inclusivo en ambos extremos; el rango se valida (desde ≤ hasta).
+- **RN-OR-07**: El listado de órdenes admite todas o un filtro por número exacto (normalizado: recorte + MAYÚSCULAS) y/o un rango de fechas `YYYY-MM-DD` inclusivo en ambos extremos. `desde` y `hasta` son opcionales por separado (rango abierto), los filtros se combinan por AND y el rango se valida (desde ≤ hasta). Un número inexistente da 404; uno existente fuera del rango da lista vacía. Orden: fecha de la orden DESC, luego id DESC.
 - **RN-OR-08**: Al borrar una orden, el sistema pregunta cada vez si se reintegra al inventario el stock descontado.
 - **RN-OR-09**: Si se elige reintegrar, la devolución de stock y el borrado de la orden son atómicos; si no, solo se borra la orden.
 - **RN-OR-10**: Las órdenes no se editan en v1.

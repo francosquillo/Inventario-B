@@ -81,17 +81,21 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 - Producto repetido en la misma orden → se consolidan las cantidades sumándolas (RN-OR-11).
 
 ## Flujo 5: Listar órdenes
-**Disparador**: `GET /api/ordenes?desde&hasta` (Fase 1, `/docs`) / pantalla de órdenes (Fase 2).
+**Disparador**: `GET /api/ordenes?numero&desde&hasta` (Fase 1, `/docs`) / pantalla de órdenes (Fase 2).
 **Actor**: Usuario autenticado.
 
 **Pasos**:
-1. Usuario elige "todas" o ingresa `desde` y `hasta`.
-2. OrdenService valida fechas y desde ≤ hasta.
-3. Repo consulta `fecha BETWEEN desde AND hasta` (inclusivo) junto a sus ítems y los nombres de producto (activos o no).
+1. Usuario elige "todas", ingresa un número de orden y/o `desde` y `hasta` (cada fecha opcional por separado; vacío = sin filtro).
+2. OrdenService normaliza el número (recorte + MAYÚSCULAS), valida fechas y desde ≤ hasta.
+3. Repo busca por número exacto y/o `fecha BETWEEN desde AND hasta` (inclusivo, rangos abiertos permitidos), combinados por AND, junto a sus ítems y los nombres de producto (activos o no), ordenados por fecha DESC, id DESC.
 
 **Casos de error**:
-- Fecha inválida o rango invertido → mensaje claro.
-- Sin resultados → mensaje de lista vacía.
+- Fecha inválida o rango invertido → 422 con mensaje claro.
+- Número de más de 30 caracteres → 422.
+- Número inexistente → 404 "No existe una orden con número 'X'." (la validación de formato tiene prioridad).
+- Número existente fuera del rango de fechas → lista vacía (no es un error).
+- Sin resultados → lista vacía.
+- Sin sesión válida → 401.
 
 ## Flujo 6: Borrar orden
 **Disparador**: `DELETE /api/ordenes/{id}?reintegrar=` (Fase 1, `/docs`) / modal de borrado (Fase 2).

@@ -44,6 +44,12 @@ class OrdenDuplicada(InventarioError):
         super().__init__(f"Ya existe una orden con número '{numero}'.")
 
 
+class OrdenNoEncontrada(InventarioError):
+    def __init__(self, numero):
+        self.numero = numero
+        super().__init__(f"No existe una orden con número '{numero}'.")
+
+
 class ProductosNoEncontrados(InventarioError):
     def __init__(self, codigos):
         self.codigos = tuple(codigos)

@@ -60,3 +60,19 @@ class OrdenRepository(ABC):
         primera aparicion, codigos unicos. No escribe en `movimientos` (RN-ST-06).
         Lanza OrdenDuplicada, ProductosNoEncontrados o StockInsuficienteOrden.
         """
+
+    @abstractmethod
+    def listar(
+        self, numero: "str | None", desde: "date | None", hasta: "date | None"
+    ) -> "list[Orden]":
+        """Ordenes con sus componentes, de la mas nueva a la mas vieja.
+
+        Ordena por `fecha` DESC y luego `id` DESC; componentes por codigo. Los filtros
+        son opcionales y se combinan con AND: `numero` exacto (ya normalizado) y
+        `desde`/`hasta` inclusivos sobre la fecha de la orden. Incluye los componentes
+        de productos dados de baja.
+        """
+
+    @abstractmethod
+    def existe_numero(self, numero: str) -> bool:
+        """True si hay una orden con ese numero exacto (ya normalizado), sin importar la fecha."""

@@ -118,7 +118,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
   - `knowledge-base/04_modelo_de_datos.md` §ordenes, §orden_items
 
 ### [C-04] `paso-4-listado-ordenes`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-20)
 - **Scope**:
   - `GET /api/ordenes?desde&hasta`: todas o rango `YYYY-MM-DD` inclusivo, validando fechas reales y desde <= hasta (US-007)
   - `desde`/`hasta` opcionales por separado (solo uno = rango abierto; vacío = sin filtro, como en C-02) — a confirmar en el propose
@@ -163,7 +163,8 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07
   - Script de seed del admin (contraseña desde entorno, PBKDF2)
   - Repositorios `supabase` (cliente Python síncrono) que reemplazan la implementación SQLite sin tocar los services; tests de contrato compartidos entre ambas implementaciones; `supabase` se agrega a `requirements.txt`
   - La API FastAPI YA EXISTE (C-01..C-05); aquí solo se ajusta para serverless-ready (cookie HttpOnly, SameSite=Lax, `SECRET_KEY` por entorno) sin cambiar el contrato de los endpoints `/api/...`
-  - Frontend HTML estático en `static/` (`login.html`, `index.html`, `ordenes.html`, `js/`, `css/`) + Tailwind CDN + JS vanilla con `fetch` a la API JSON (redirige al login en 401; sin Jinja2 ni `templates/`): login, inventario, modales, `/ordenes` con filtro de fechas; validación en front
+  - Frontend HTML estático en `static/` (`login.html`, `index.html`, `ordenes.html`, `js/`, `css/`) + Tailwind CDN + JS vanilla con `fetch` a la API JSON (redirige al login en 401; sin Jinja2 ni `templates/`): login, inventario, modales, `/ordenes` con filtro de fechas y búsqueda por número; validación en front
+  - Estado vacío en `/ordenes`: si la API devuelve `[]`, mostrar el cartel "No hay órdenes en ese período" (en vez de una tabla vacía); si la búsqueda por número da 404, mostrar su `detail` ("No existe una orden con número 'X'."). Incluir ambos estados en los mockups (decisión del usuario, 2026-11-20)
   - Los services y rutas de C-01..C-05 se reutilizan sin modificarlos
   - Revisar CSRF de login/logout (observación verify C-01)
   - Tests `unittest` (contrato de repositorio, rutas FastAPI con `TestClient` (dependencia de test: `httpx`), servicios)

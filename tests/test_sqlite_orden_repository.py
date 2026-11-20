@@ -5,7 +5,7 @@ import threading
 import unittest
 from datetime import date, datetime
 
-from inventario.domain.entities import Faltante, Orden
+from inventario.domain.entities import Faltante, ItemOrden, Orden
 from inventario.domain.errors import (
     OrdenDuplicada,
     ProductosNoEncontrados,
@@ -294,3 +294,160 @@ class ConcurrenciaTest(unittest.TestCase):
                 )
                 self.assertEqual(res, ["duplicada", "ok"])
                 self.assertEqual((final, ordenes), (9, 1))
+
+
+class ListarTest(RepoBase):
+    def sembrar_orden(self, numero, fecha, items=(("A-01", 1),), cuando=FECHA_FIJA):
+        return self.repo.crear(numero, fecha, list(items), self.uid, cuando)
+
+    def numeros(self, **filtros):
+        args = {"numero": None, "desde": None, "hasta": None, **filtros}
+        return [o.numero for o in self.repo.listar(args["numero"], args["desde"], args["hasta"])]
+
+    def test_sin_filtros_devuelve_ordenes_de_la_mas_nueva_a_la_mas_vieja(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 50)
+        self.sembrar_orden("OT-1", date(2026, 11, 18))
+        self.sembrar_orden("OT-2", date(2026, 11, 20))
+        self.sembrar_orden("OT-3", date(2026, 11, 17))
+        ordenes = self.repo.listar(None, None, None)
+        self.assertEqual([o.numero for o in ordenes], ["OT-2", "OT-1", "OT-3"])
+        primera = ordenes[0]
+        self.assertIsInstance(primera, Orden)
+        self.assertEqual(primera.fecha, date(2026, 11, 20))
+        self.assertEqual(primera.usuario, "admin")
+        self.assertEqual(primera.items, (ItemOrden("A-01", "Tornillo", 1),))
+
+    def test_desempata_por_id_descendente_y_ordena_por_fecha_no_por_created_at(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 50)
+        antes = datetime(2026, 11, 1, 8, 0, tzinfo=ZONA_AR)
+        despues = datetime(2026, 11, 30, 8, 0, tzinfo=ZONA_AR)
+        self.sembrar_orden("OT-NUEVA", date(2026, 11, 19), cuando=antes)
+        self.sembrar_orden("OT-VIEJA", date(2025, 1, 15), cuando=despues)
+        self.sembrar_orden("OT-A", date(2026, 11, 19))
+        self.sembrar_orden("OT-B", date(2026, 11, 19))
+        self.assertEqual(self.numeros(), ["OT-B", "OT-A", "OT-NUEVA", "OT-VIEJA"])
+
+    def test_componentes_ordenados_por_codigo_con_nombre_y_cantidad(self):
+        self.sembrar_basico()
+        self.sembrar_orden("OT-1", FECHA_ORDEN, items=(("B-02", 5), ("A-01", 2)))
+        (orden,) = self.repo.listar(None, None, None)
+        self.assertEqual(
+            orden.items, (ItemOrden("A-01", "Tornillo", 2), ItemOrden("B-02", "Tuerca", 5))
+        )
+
+    def test_sin_ordenes_devuelve_lista_vacia(self):
+        self.assertEqual(self.repo.listar(None, None, None), [])
+
+    def test_producto_dado_de_baja_sigue_en_los_componentes(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        insertar_producto(self.conn, "C-99", "Viejo", 5)
+        self.sembrar_orden("OT-1", FECHA_ORDEN, items=(("A-01", 1), ("C-99", 3)))
+        self.conn.execute("UPDATE productos SET activo = 0 WHERE codigo = 'C-99'")
+        self.conn.commit()
+        (orden,) = self.repo.listar(None, None, None)
+        self.assertEqual(
+            orden.items, (ItemOrden("A-01", "Tornillo", 1), ItemOrden("C-99", "Viejo", 3))
+        )
+
+    def insertar_orden_sin_items(self, numero, fecha):
+        self.conn.execute(
+            "INSERT INTO ordenes (numero, fecha, usuario_id, created_at) VALUES (?, ?, ?, ?)",
+            (numero, fecha.isoformat(), self.uid, "2026-11-19T15:30:00-03:00"),
+        )
+        self.conn.commit()
+
+    def test_orden_sin_items_aparece_con_componentes_vacios(self):
+        self.insertar_orden_sin_items("OT-VACIA", date(2026, 11, 20))
+        (orden,) = self.repo.listar(None, None, None)
+        self.assertEqual(orden.numero, "OT-VACIA")
+        self.assertEqual(orden.items, ())
+        self.assertEqual(self.numeros(numero="OT-VACIA"), ["OT-VACIA"])
+
+    def test_orden_sin_items_convive_con_ordenes_normales_agrupadas_y_ordenadas(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 50)
+        insertar_producto(self.conn, "B-02", "Tuerca", 50)
+        self.sembrar_orden("OT-1", date(2026, 11, 18), items=(("B-02", 5), ("A-01", 2)))
+        self.insertar_orden_sin_items("OT-VACIA", date(2026, 11, 19))
+        self.sembrar_orden("OT-3", date(2026, 11, 20), items=(("A-01", 1),))
+        ordenes = self.repo.listar(None, None, None)
+        self.assertEqual([o.numero for o in ordenes], ["OT-3", "OT-VACIA", "OT-1"])
+        self.assertEqual(ordenes[0].items, (ItemOrden("A-01", "Tornillo", 1),))
+        self.assertEqual(ordenes[1].items, ())
+        self.assertEqual(
+            ordenes[2].items, (ItemOrden("A-01", "Tornillo", 2), ItemOrden("B-02", "Tuerca", 5))
+        )
+
+    def test_orden_con_todos_los_productos_dados_de_baja_sigue_listada_con_sus_items(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        insertar_producto(self.conn, "B-02", "Tuerca", 5)
+        self.sembrar_orden("OT-1", FECHA_ORDEN, items=(("A-01", 1), ("B-02", 3)))
+        self.conn.execute("UPDATE productos SET activo = 0")
+        self.conn.commit()
+        (orden,) = self.repo.listar(None, None, None)
+        self.assertEqual(
+            orden.items, (ItemOrden("A-01", "Tornillo", 1), ItemOrden("B-02", "Tuerca", 3))
+        )
+
+    def sembrar_cuatro_dias(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 50)
+        for dia in (17, 18, 19, 20):
+            self.sembrar_orden(f"OT-{dia}", date(2026, 11, dia))
+
+    def test_rango_inclusivo_en_ambos_bordes(self):
+        self.sembrar_cuatro_dias()
+        self.assertEqual(
+            self.numeros(desde=date(2026, 11, 18), hasta=date(2026, 11, 19)), ["OT-19", "OT-18"]
+        )
+        self.assertEqual(
+            self.numeros(desde=date(2026, 11, 19), hasta=date(2026, 11, 19)), ["OT-19"]
+        )
+
+    def test_rangos_abiertos_y_rango_sin_resultados(self):
+        self.sembrar_cuatro_dias()
+        self.assertEqual(self.numeros(desde=date(2026, 11, 18)), ["OT-20", "OT-19", "OT-18"])
+        self.assertEqual(self.numeros(hasta=date(2026, 11, 18)), ["OT-18", "OT-17"])
+        self.assertEqual(
+            self.numeros(desde=date(2026, 12, 1), hasta=date(2026, 12, 31)), []
+        )
+
+    def test_numero_exacto_devuelve_solo_esa_orden_con_sus_items(self):
+        self.sembrar_basico()
+        self.sembrar_orden("OT-0001", date(2026, 11, 17))
+        self.sembrar_orden("OT-0002", date(2026, 11, 20), items=(("B-02", 5), ("A-01", 2)))
+        (orden,) = self.repo.listar("OT-0002", None, None)
+        self.assertEqual(orden.numero, "OT-0002")
+        self.assertEqual(
+            orden.items, (ItemOrden("A-01", "Tornillo", 2), ItemOrden("B-02", "Tuerca", 5))
+        )
+
+    def test_numero_no_es_prefijo_ni_parcial(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 50)
+        self.sembrar_orden("OT-1", FECHA_ORDEN)
+        self.sembrar_orden("OT-10", FECHA_ORDEN)
+        self.assertEqual(self.numeros(numero="OT-1"), ["OT-1"])
+
+    def test_numero_se_combina_con_fechas_por_and(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 50)
+        self.sembrar_orden("OT-0001", date(2026, 11, 17))
+        self.assertEqual(self.numeros(numero="OT-0001", desde=date(2026, 11, 18)), [])
+        self.assertEqual(self.numeros(numero="OT-0001", desde=date(2026, 11, 17)), ["OT-0001"])
+
+    def test_existe_numero_es_exacto(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 50)
+        self.sembrar_orden("OT-0001", FECHA_ORDEN)
+        self.sembrar_orden("OT-10", FECHA_ORDEN)
+        self.assertTrue(self.repo.existe_numero("OT-0001"))
+        self.assertFalse(self.repo.existe_numero("OT-9999"))
+        self.assertFalse(self.repo.existe_numero("OT-1"))
+
+    def test_listar_ejecuta_un_solo_select(self):
+        self.sembrar_basico()
+        for n in ("OT-1", "OT-2", "OT-3"):
+            self.sembrar_orden(n, FECHA_ORDEN, items=(("A-01", 1), ("B-02", 1)))
+        sentencias = []
+        self.conn.set_trace_callback(sentencias.append)
+        ordenes = self.repo.listar(None, None, None)
+        self.conn.set_trace_callback(None)
+        self.assertEqual(len(ordenes), 3)
+        self.assertEqual(sum(1 for s in sentencias if s.lstrip().upper().startswith("SELECT")), 1)
+        self.assertEqual(len(sentencias), 1)

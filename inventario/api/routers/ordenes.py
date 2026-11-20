@@ -1,5 +1,5 @@
-"""Alta de ordenes de trabajo (requiere sesion). Sin logica: request -> service -> schema."""
-from typing import Annotated
+"""Alta y consulta de ordenes de trabajo (requiere sesion). Sin logica: request -> service -> schema."""
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends
 
@@ -36,3 +36,21 @@ Servicio = Annotated[OrdenService, Depends(get_orden_service)]
 def crear_orden(datos: OrdenRequest, usuario: Usuario, ordenes: Servicio):
     componentes = [(c.codigo, c.cantidad) for c in datos.componentes]
     return orden_out(ordenes.crear(datos.numero, datos.fecha, componentes, usuario.id))
+
+
+@router.get(
+    "",
+    response_model=List[OrdenOut],
+    responses={
+        404: {"model": ErrorOut, "description": "No existe una orden con ese número"},
+        422: {"model": ErrorOut, "description": "Filtros inválidos (mensaje en español)"},
+    },
+)
+def listar_ordenes(
+    usuario: Usuario,
+    ordenes: Servicio,
+    numero: Optional[str] = None,
+    desde: Optional[str] = None,
+    hasta: Optional[str] = None,
+):
+    return [orden_out(o) for o in ordenes.listar(numero, desde, hasta)]

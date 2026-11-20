@@ -43,6 +43,13 @@ class OrdenesSinSesionTest(unittest.TestCase):
         client.post("/api/logout")
         self.assertEqual(client.post(URL, json=cuerpo()).status_code, 401)
 
+    def test_listado_sin_sesion_401(self):
+        client, ruta = cliente_de_test(self.addCleanup)
+        sembrar(ruta, PRODUCTOS)
+        r = client.get(URL)
+        self.assertEqual(r.status_code, 401)
+        self.assertEqual(r.json(), {"detail": "No autenticado."})
+
 
 class OrdenesBase(unittest.TestCase):
     def setUp(self):
@@ -222,6 +229,126 @@ class RechazosTest(OrdenesBase):
         )
 
 
+class ListadoTest(OrdenesBase):
+    def comp(self, *pares):
+        return [{"codigo": c, "cantidad": n} for c, n in pares]
+
+    def numeros(self, query=""):
+        r = self.client.get(URL + query)
+        self.assertEqual(r.status_code, 200, r.text)
+        return [o["numero"] for o in r.json()]
+
+    def test_sin_ordenes_devuelve_lista_vacia(self):
+        r = self.client.get(URL)
+        self.assertEqual((r.status_code, r.json()), (200, []))
+
+    def test_listado_cuerpo_exacto_con_el_mismo_id_del_alta(self):
+        creada = self.crear(componentes=self.comp(("b-02", 5), ("A-01", 2)))
+        self.assertEqual(creada.status_code, 201)
+        r = self.client.get(URL)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(
+            r.json(),
+            [
+                {
+                    "id": creada.json()["id"],
+                    "numero": "OT-0001",
+                    "fecha": "2026-11-20",
+                    "usuario": "admin",
+                    "componentes": [
+                        {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2},
+                        {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 5},
+                    ],
+                }
+            ],
+        )
+        self.assertEqual(r.json()[0], creada.json())
+
+    def test_orden_por_fecha_descendente_y_luego_id(self):
+        self.crear(numero="OT-1", fecha="2026-11-18")
+        self.crear(numero="OT-2", fecha="2026-11-20")
+        self.crear(numero="OT-3", fecha="2026-11-20")
+        self.assertEqual(self.numeros(), ["OT-3", "OT-2", "OT-1"])
+
+    def sembrar_tres(self):
+        self.crear(numero="OT-0001", fecha="2026-11-17")
+        self.crear(numero="OT-0002", fecha="2026-11-20")
+        self.crear(numero="OT-0003", fecha="2026-11-19")
+
+    def test_filtros_combinados_y_rango_abierto(self):
+        self.sembrar_tres()
+        self.assertEqual(
+            self.numeros("?numero=ot-0002&desde=2026-11-20&hasta=2026-11-20"), ["OT-0002"]
+        )
+        self.assertEqual(self.numeros("?desde=2026-11-18"), ["OT-0002", "OT-0003"])
+        self.assertEqual(self.numeros("?hasta=2026-11-19"), ["OT-0003", "OT-0001"])
+
+    def test_parametros_vacios_equivalen_a_sin_filtro(self):
+        self.sembrar_tres()
+        self.assertEqual(
+            self.numeros("?numero=&desde=&hasta="), ["OT-0002", "OT-0003", "OT-0001"]
+        )
+
+    def test_numero_inexistente_es_404_con_mensaje(self):
+        self.sembrar_tres()
+        r = self.client.get(URL + "?numero=ot-9")
+        self.assertEqual(
+            (r.status_code, r.json()), (404, {"detail": "No existe una orden con número 'OT-9'."})
+        )
+
+    def test_numero_existente_fuera_del_rango_es_200_vacio(self):
+        self.sembrar_tres()
+        r = self.client.get(URL + "?numero=OT-0001&desde=2026-11-18")
+        self.assertEqual((r.status_code, r.json()), (200, []))
+        self.assertEqual(self.numeros("?numero=OT-0001&desde=2026-11-17"), ["OT-0001"])
+
+    def test_422_tiene_prioridad_sobre_404(self):
+        r = self.client.get(URL + "?numero=OT-9&desde=19/11/2026")
+        self.assertEqual(
+            (r.status_code, r.json()),
+            (422, {"detail": "La fecha 'desde' debe tener formato AAAA-MM-DD."}),
+        )
+
+    def test_producto_dado_de_baja_sigue_en_la_orden_pero_no_en_inventario(self):
+        self.crear(componentes=self.comp(("A-01", 1), ("B-02", 1)))
+        conn = conectar(self.ruta)
+        try:
+            conn.execute("UPDATE productos SET activo = 0 WHERE codigo = 'B-02'")
+            conn.commit()
+        finally:
+            conn.close()
+        (orden,) = self.client.get(URL).json()
+        self.assertEqual(
+            orden["componentes"],
+            [
+                {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 1},
+                {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 1},
+            ],
+        )
+        codigos = [p["codigo"] for p in self.client.get("/api/inventario").json()]
+        self.assertNotIn("B-02", codigos)
+
+    def test_422_con_detalle_exacto(self):
+        casos = (
+            ("?desde=19/11/2026", "La fecha 'desde' debe tener formato AAAA-MM-DD."),
+            ("?hasta=2026-02-30", "La fecha 'hasta' (2026-02-30) no es una fecha válida."),
+            (
+                "?desde=2026-11-20&hasta=2026-11-19",
+                "La fecha 'desde' (2026-11-20) no puede ser posterior a 'hasta' (2026-11-19).",
+            ),
+            ("?numero=" + "X" * 31, "El campo numero admite hasta 30 caracteres."),
+        )
+        for query, detalle in casos:
+            with self.subTest(query=query):
+                r = self.client.get(URL + query)
+                self.assertEqual((r.status_code, r.json()), (422, {"detail": detalle}))
+
+    def test_tras_logout_el_listado_da_401(self):
+        self.assertEqual(self.client.get(URL).status_code, 200)
+        self.client.post("/api/logout")
+        self.assertEqual(self.client.get(URL).status_code, 401)
+
+
 class OpenApiOrdenesTest(unittest.TestCase):
     def setUp(self):
         client, _ = cliente_de_test(self.addCleanup)
@@ -240,6 +367,13 @@ class OpenApiOrdenesTest(unittest.TestCase):
         self.assertTrue(self.esquema(URL, "post", "409").endswith("/StockInsuficienteOut"))
         self.assertTrue(self.esquema(URL, "post", "404").endswith("/ErrorOut"))
         self.assertTrue(self.esquema(URL, "post", "201").endswith("/OrdenOut"))
+
+    def test_get_documenta_lista_404_y_422(self):
+        resp = self.spec["paths"][URL]["get"]["responses"]
+        self.assertEqual(resp["200"]["content"]["application/json"]["schema"]["items"]["$ref"][-8:], "OrdenOut")
+        self.assertTrue(self.esquema(URL, "get", "404").endswith("/ErrorOut"))
+        self.assertTrue(self.esquema(URL, "get", "422").endswith("/ErrorOut"))
+        self.assertEqual(set(self.spec["paths"][URL]), {"get", "post"})
 
     def test_422_de_otros_endpoints_siguen_con_error_out(self):
         for ruta, metodo in (
