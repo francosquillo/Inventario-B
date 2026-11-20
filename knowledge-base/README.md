@@ -16,7 +16,7 @@ Base de conocimiento generada a partir del discovery del proyecto (`discovery/di
 | [08_arquitectura_propuesta.md](08_arquitectura_propuesta.md) | Patrones, estructura de directorios, seguridad, variables de entorno |
 | [09_decisiones_y_supuestos.md](09_decisiones_y_supuestos.md) | Decisiones DD-01..DD-10 y supuestos SU-01..SU-07 |
 | [10_preguntas_abiertas.md](10_preguntas_abiertas.md) | Inconsistencias y preguntas abiertas priorizadas |
-| [11_plan_de_pasos_y_despliegue.md](11_plan_de_pasos_y_despliegue.md) | Fases, pasos 1-6 y ciclo OpenSpec con pausa |
+| [11_plan_de_pasos_y_despliegue.md](11_plan_de_pasos_y_despliegue.md) | Fases, pasos 1-7 y ciclo OpenSpec con pausa |
 
 ## Quick Start para Desarrolladores
 
@@ -29,4 +29,4 @@ Base de conocimiento generada a partir del discovery del proyecto (`discovery/di
 
 ## Resumen Ejecutivo
 
-Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme chica. Arranca como backend API local FastAPI + SQLite verificado en `/docs` (Fase 1, sin CLI: decisión del usuario 2026-11-19, DD-12), migra a Supabase PostgreSQL con frontend HTML estático/Tailwind (Fase 2) y se despliega en Vercel (Fase 3). La lógica de negocio vive en services desacoplados con repositorios intercambiables; las operaciones compuestas son atómicas y no hay secretos en el repositorio. Se construye paso a paso con OpenSpec y TDD estricto.
+Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme chica. Arranca como backend API local FastAPI + SQLite verificado en `/docs` (Fase 1, sin CLI: decisión del usuario 2026-11-19, DD-12), suma el frontend HTML estático/Tailwind servido en local sobre SQLite (Fase 2), migra a Supabase PostgreSQL (Fase 3) y se despliega en Vercel (Fase 4). La lógica de negocio vive en services desacoplados con repositorios intercambiables; las operaciones compuestas son atómicas y no hay secretos en el repositorio. Se construye paso a paso con OpenSpec y TDD estricto.

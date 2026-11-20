@@ -2,7 +2,14 @@
 from abc import ABC, abstractmethod
 from datetime import date, datetime
 
-from inventario.domain.entities import Movimiento, Orden, Producto, ResultadoIngreso, Usuario
+from inventario.domain.entities import (
+    Movimiento,
+    Orden,
+    Producto,
+    ResultadoBorradoOrden,
+    ResultadoIngreso,
+    Usuario,
+)
 
 
 class UsuarioRepository(ABC):
@@ -19,6 +26,13 @@ class UsuarioRepository(ABC):
 class ProductoRepository(ABC):
     @abstractmethod
     def listar_activos(self) -> "list[Producto]": ...
+
+    @abstractmethod
+    def dar_de_baja(self, codigo: str) -> Producto:
+        """activo = 0 sobre un producto activo (codigo ya normalizado). Conserva el stock.
+
+        No escribe en `movimientos`. Lanza ProductoNoEncontrado si no existe o ya esta inactivo.
+        """
 
 
 class StockRepository(ABC):
@@ -76,3 +90,11 @@ class OrdenRepository(ABC):
     @abstractmethod
     def existe_numero(self, numero: str) -> bool:
         """True si hay una orden con ese numero exacto (ya normalizado), sin importar la fecha."""
+
+    @abstractmethod
+    def borrar(self, numero: str, reintegrar: bool) -> ResultadoBorradoOrden:
+        """Borra la orden y sus lineas (numero ya normalizado); si `reintegrar`, devuelve el stock
+        y reactiva. Todo o nada. No escribe en `movimientos` (DD-09). Lanza OrdenNoEncontrada.
+
+        En Postgres sera la funcion RPC `borrar_orden(p_numero, p_reintegrar)`.
+        """

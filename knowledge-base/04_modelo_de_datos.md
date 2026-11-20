@@ -43,7 +43,7 @@ usuarios 1 ────< ordenes 1 ────< orden_items >──── 1 pro
 ### ordenes
 | Campo | Tipo | Notas |
 |-------|------|-------|
-| id | PK | |
+| id | PK | El borrado es por `numero`, no por `id`: el reuso de ids en SQLite no tiene impacto funcional. Postgres (identity, C-07) tampoco reutiliza ids. |
 | numero | TEXT, UNIQUE, NOT NULL | alfanumérico; se guarda sin espacios sobrantes y en mayúsculas (`"  ot-0003 "` → `OT-0003`), de 1 a 30 caracteres; unicidad sobre el valor normalizado (PA-06, resuelta en C-03) |
 | fecha | DATE (`YYYY-MM-DD`), NOT NULL | ingresada a mano por el usuario |
 | usuario_id | FK → usuarios.id, NOT NULL | quién la cargó |

@@ -85,5 +85,52 @@ class SesionDeUsuarioInexistenteTest(unittest.TestCase):
         self.assertEqual(foto(self.ruta), self.antes)
 
 
+class BorradosConSesionInexistenteTest(unittest.TestCase):
+    """DELETE de orden y de producto: 401 sin tocar nada si el usuario de la cookie ya no existe."""
+
+    def setUp(self):
+        self.client, self.ruta = cliente_de_test(self.addCleanup)
+        sembrar(self.ruta, PRODUCTOS)
+        self.assertEqual(login(self.client).status_code, 200)
+        self.assertEqual(self.client.post("/api/ordenes", json=ORDEN).status_code, 201)
+        self.antes = foto(self.ruta)
+
+    def assertBorradosRechazados(self):
+        for nombre, url in (
+            ("borrar orden", "/api/ordenes/OT-1?reintegrar=true"),
+            ("borrar producto", "/api/productos/A-01"),
+        ):
+            with self.subTest(endpoint=nombre):
+                r = self.client.delete(url)
+                self.assertEqual((r.status_code, r.json()), (401, {"detail": "No autenticado."}))
+        self.assertEqual(foto(self.ruta), self.antes)
+
+    def test_usuario_borrado(self):
+        conn = conectar(self.ruta)
+        try:
+            conn.execute("PRAGMA foreign_keys = OFF")
+            conn.execute("DELETE FROM usuarios")
+            conn.commit()
+        finally:
+            conn.close()
+        self.antes = foto(self.ruta)
+        self.assertBorradosRechazados()
+
+    def test_usuario_recreado_con_otro_id(self):
+        conn = conectar(self.ruta)
+        try:
+            conn.execute("PRAGMA foreign_keys = OFF")
+            conn.execute("DELETE FROM usuarios")
+            conn.execute(
+                "INSERT INTO usuarios (id, username, password_hash, salt) "
+                "VALUES (999, 'admin', 'h', 's')"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        self.antes = foto(self.ruta)
+        self.assertBorradosRechazados()
+
+
 if __name__ == "__main__":
     unittest.main()

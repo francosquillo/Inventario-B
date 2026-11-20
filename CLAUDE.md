@@ -3,7 +3,7 @@
 > Este archivo (y su copia `CLAUDE.md`) es lo PRIMERO que todo agente lee al entrar al repo.
 > Generado a partir de `knowledge-base/` y `CHANGES.md`. No editar a mano sin re-sincronizar ambos archivos.
 
-Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme chica. Arranca como backend API local FastAPI + SQLite, verificado en la Swagger UI (`/docs`) y con tests (Fase 1); evoluciona migrando a Supabase PostgreSQL y agregando el frontend HTML estático/Tailwind (Fase 2) y se despliega en Vercel (Fase 3). No hay CLI (decisión del usuario, 2026-11-19). Se construye paso a paso con OpenSpec y TDD estricto.
+Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme chica. Arranca como backend API local FastAPI + SQLite, verificado en la Swagger UI (`/docs`) y con tests (Fase 1); evoluciona agregando el frontend HTML estático/Tailwind servido en local sobre SQLite (Fase 2), migra a Supabase PostgreSQL (Fase 3) y se despliega en Vercel (Fase 4). No hay CLI (decisión del usuario, 2026-11-19). Se construye paso a paso con OpenSpec y TDD estricto.
 
 ---
 
@@ -14,10 +14,11 @@ Inventario-B controla stock de piezas y órdenes de trabajo de un taller o pyme 
 | Fase 1 — backend API local | FastAPI + `uvicorn`, Pydantic, `python-dotenv`, `itsdangerous` (sesión); lógica con `sqlite3`, `hashlib`, `hmac`, `datetime`, `os`; `.venv` local | Python 3.10+; versiones en `requirements.txt` |
 | Fase 1 — persistencia | SQLite (archivo local, ruta opcional `INVENTARIO_DB_PATH`) | sqlite 3.x (incluido en Python) |
 | Fase 1 — verificación | Swagger UI en `/docs` + `unittest` con `TestClient` de FastAPI | `httpx` en `requirements-dev.txt` (solo test) |
-| Fase 2 — backend | Mismo FastAPI; se agrega el cliente `supabase` (Python, síncrono) y repositorios Supabase que reemplazan a SQLite sin tocar los services | Versiones a fijar en el Paso 6 |
-| Fase 2 — base de datos | Supabase (PostgreSQL gestionado) + funciones PL/pgSQL vía RPC | PostgreSQL 15+ |
+| Fase 2 — web local | Mismo FastAPI sirviendo `static/` sobre los repositorios SQLite existentes (uvicorn en http://localhost:8000); cookie de sesión endurecida | Sin dependencias nuevas |
 | Fase 2 — frontend | HTML5 + Tailwind CSS vía CDN + JavaScript vanilla | Navegadores modernos |
-| Fase 3 — despliegue | Vercel (Serverless Functions, runtime Python), GitHub como origen | — |
+| Fase 3 — backend Supabase | Se agrega el cliente `supabase` (Python, síncrono) y repositorios Supabase que reemplazan a SQLite sin tocar los services; selector `INVENTARIO_BACKEND=sqlite\|supabase` (por defecto `sqlite`) | Versiones a fijar en el Paso 7 |
+| Fase 3 — base de datos | Supabase (PostgreSQL gestionado) + funciones PL/pgSQL vía RPC | PostgreSQL 15+ |
+| Fase 4 — despliegue | Vercel (Serverless Functions, runtime Python), GitHub como origen | — |
 
 Las versiones exactas se fijan en `requirements.txt` durante el Paso 5/6.
 
@@ -73,8 +74,8 @@ Cargá la skill correspondiente al contexto ANTES de escribir código.
 
 El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 
-- **Total**: 7 changes (C-01..C-07), estrictamente secuenciales.
-- **Camino crítico** (7): `C-01 paso-1-base-cli (nombre histórico; sin CLI) → C-02 paso-2-movimientos-stock → C-03 paso-3-crear-ordenes → C-04 paso-4-listado-ordenes → C-05 paso-4b-borrado-ordenes-productos → C-06 paso-5-supabase-api-web → C-07 paso-6-despliegue-vercel`.
+- **Total**: 8 changes (C-01..C-08), estrictamente secuenciales.
+- **Camino crítico** (8): `C-01 paso-1-base-cli (nombre histórico; sin CLI) → C-02 paso-2-movimientos-stock → C-03 paso-3-crear-ordenes → C-04 paso-4-listado-ordenes → C-05 paso-4b-borrado-ordenes-productos → C-06 paso-5-web-local → C-07 paso-6-migracion-supabase → C-08 paso-7-despliegue-vercel`.
 - **Primer change**: `C-01` (`paso-1-base-cli`).
 
 **Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md), identificá las dependencias del change y los archivos de "Leer antes".
@@ -107,6 +108,6 @@ Son contrato; romperlas es un defecto.
 6. /opsx:archive <change> + marcar [x]           → cerrar el change; esperar "Continuar"
 ```
 
-Un change a la vez. Para `paso-5-supabase-api-web` (UI nueva) aplica el mockup gate: mockups aprobados por el usuario ANTES de `/opsx:apply`, respetando el design system Revision 1.
+Un change a la vez. Para `paso-5-web-local` (UI nueva) aplica el mockup gate: mockups aprobados por el usuario ANTES de `/opsx:apply`, respetando el design system Revision 1.
 
 Aplicar TODAS las reglas duras en cada paso. Ante conflicto entre la KB y este archivo, las reglas duras prevalecen.

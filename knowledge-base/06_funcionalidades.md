@@ -126,9 +126,9 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 **Paso**: 4b (API), 5 (modal)
 
 **Criterios de aceptación**:
-- [ ] `DELETE /api/ordenes/{id}?reintegrar=true|false`: el parámetro `reintegrar` es obligatorio en cada llamada (sin valor por defecto); si falta, se rechaza.
+- [ ] `DELETE /api/ordenes/{numero}?reintegrar=true|false`: la orden se identifica por su número (no por id); el parámetro `reintegrar` es obligatorio en cada llamada (sin valor por defecto); si falta, está repetido o no es `true`/`false`, se rechaza con 422. Número inexistente → 404.
 - [ ] La confirmación previa es del frontend (modal, Paso 5); la API no tiene paso de confirmación propio (IN-02).
-- [ ] Si se reintegra, devolución y borrado son atómicos; si no, solo se borra la orden.
+- [ ] Si se reintegra, devolución y borrado son atómicos (una transacción); si no, solo se borra la orden. Ninguna de las dos opciones genera movimientos de stock.
 - [ ] Reintegrar a un producto inactivo lo reactiva y le suma las unidades (RN-OR-12).
 
 **Reglas relacionadas**: RN-OR-08, RN-OR-09, RN-VA-05
@@ -142,7 +142,7 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 
 **Criterios de aceptación**:
 - [ ] `DELETE /api/productos/{codigo}`; la confirmación previa es del frontend (Paso 5).
-- [ ] El borrado es lógico (`activo = 0`); el stock y el historial se conservan.
+- [ ] El borrado es lógico (`activo = 0`); el stock y el historial se conservan. Se reactiva al ingresar stock con su código o al reintegrar una orden que lo usaba.
 - [ ] Desaparece del inventario y de la selección de componentes.
 - [ ] Las órdenes históricas lo siguen mostrando.
 

@@ -16,6 +16,8 @@ MENSAJE_COMPONENTES_OBLIGATORIO = "El campo componentes es obligatorio."
 MENSAJE_COMPONENTES_TIPO = "El campo componentes debe ser una lista."
 MENSAJE_SIN_COMPONENTES = "La orden requiere al menos un componente."
 MENSAJE_DEMASIADOS = f"La orden admite hasta {COMPONENTES_MAX} componentes."
+MENSAJE_REINTEGRAR_OBLIGATORIO = "El campo reintegrar es obligatorio."
+MENSAJE_REINTEGRAR_VALOR = "El campo reintegrar debe ser true o false."
 MENSAJE_LINEA_TIPO = "debe ser un objeto con codigo y cantidad."
 
 
@@ -35,6 +37,19 @@ def _normalizar_numero_filtro(numero):
     if numero is None or (isinstance(numero, str) and not numero.strip()):
         return None
     return _normalizar_numero(numero)
+
+
+def _parsear_reintegrar(reintegrar):
+    """Solo "true"/"false" exactos (minusculas); un bool de Python pasa tal cual."""
+    if isinstance(reintegrar, bool):
+        return reintegrar
+    if reintegrar is None or (isinstance(reintegrar, str) and reintegrar == ""):
+        raise DatosInvalidos(MENSAJE_REINTEGRAR_OBLIGATORIO)
+    if reintegrar == "true":
+        return True
+    if reintegrar == "false":
+        return False
+    raise DatosInvalidos(MENSAJE_REINTEGRAR_VALOR)
 
 
 def _parsear_fecha(fecha):
@@ -95,3 +110,9 @@ class OrdenService:
         if not ordenes and numero is not None and not self._repo.existe_numero(numero):
             raise OrdenNoEncontrada(numero)
         return ordenes
+
+    def borrar(self, numero, reintegrar):
+        # Primero gana el error de `reintegrar`; luego el de `numero`; el 404 lo da el repo.
+        valor = _parsear_reintegrar(reintegrar)
+        numero = _normalizar_numero(numero)
+        return self._repo.borrar(numero, valor)

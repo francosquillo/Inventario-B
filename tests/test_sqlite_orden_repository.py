@@ -5,9 +5,16 @@ import threading
 import unittest
 from datetime import date, datetime
 
-from inventario.domain.entities import Faltante, ItemOrden, Orden
+from inventario.domain.entities import (
+    Faltante,
+    ItemOrden,
+    Orden,
+    Reintegro,
+    ResultadoBorradoOrden,
+)
 from inventario.domain.errors import (
     OrdenDuplicada,
+    OrdenNoEncontrada,
     ProductosNoEncontrados,
     StockInsuficienteOrden,
 )
@@ -15,6 +22,7 @@ from inventario.domain.tiempo import ZONA_AR
 from inventario.repositories.sqlite_repo import (
     _SQL_ORDEN_EXISTE,
     SqliteOrdenRepository,
+    SqliteProductoRepository,
     conectar,
     inicializar_esquema,
 )
@@ -451,3 +459,225 @@ class ListarTest(RepoBase):
         self.assertEqual(len(ordenes), 3)
         self.assertEqual(sum(1 for s in sentencias if s.lstrip().upper().startswith("SELECT")), 1)
         self.assertEqual(len(sentencias), 1)
+
+
+class BorrarBase(RepoBase):
+    """Siembra: A-01 (5) -> orden x2 deja 3; B-02 (5) -> orden x5 deja 0."""
+
+    def setUp(self):
+        super().setUp()
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        insertar_producto(self.conn, "B-02", "Tuerca", 5)
+        self.orden = self.crear(items=(("A-01", 2), ("B-02", 5)))
+
+    def numeros(self):
+        return [o.numero for o in self.repo.listar(None, None, None)]
+
+    def activos(self):
+        filas = self.conn.execute("SELECT codigo, activo FROM productos ORDER BY codigo")
+        return [tuple(f) for f in filas]
+
+
+class BorrarSinReintegroTest(BorrarBase):
+    def test_borra_orden_y_lineas_sin_tocar_stock(self):
+        res = self.repo.borrar("OT-0001", False)
+        self.assertIsInstance(res, ResultadoBorradoOrden)
+        self.assertEqual(res.orden, self.orden)
+        self.assertEqual(res.orden.id, self.orden.id)
+        self.assertIs(res.reintegrado, False)
+        self.assertEqual(res.reintegros, ())
+        self.assertEqual(self.cuenta("ordenes"), 0)
+        self.assertEqual(self.cuenta("orden_items"), 0)
+        self.assertEqual(self.stocks(), {"A-01": 3, "B-02": 0})
+        self.assertFalse(self.conn.in_transaction)
+
+
+class BorrarConReintegroTest(BorrarBase):
+    def test_devuelve_stock_y_detalla_los_reintegros(self):
+        res = self.repo.borrar("OT-0001", True)
+        self.assertIs(res.reintegrado, True)
+        self.assertEqual(
+            res.reintegros,
+            (
+                Reintegro("A-01", "Tornillo", 2, 5, False),
+                Reintegro("B-02", "Tuerca", 5, 5, False),
+            ),
+        )
+        self.assertEqual(self.stocks(), {"A-01": 5, "B-02": 5})
+        self.assertEqual((self.cuenta("ordenes"), self.cuenta("orden_items")), (0, 0))
+        self.assertFalse(self.conn.in_transaction)
+
+    def test_reintegros_ordenados_por_codigo(self):
+        insertar_producto(self.conn, "Z-1", "Zeta", 1)
+        insertar_producto(self.conn, "C-1", "Ce", 1)
+        self.crear("OT-0002", (("Z-1", 1), ("C-1", 1)))
+        res = self.repo.borrar("OT-0002", True)
+        self.assertEqual([r.codigo for r in res.reintegros], ["C-1", "Z-1"])
+
+    def _orden_con_producto_dado_de_baja(self):
+        insertar_producto(self.conn, "C-99", "Viejo", 5)
+        self.crear("OT-0002", (("C-99", 4),))
+        self.conn.execute("UPDATE productos SET activo = 0 WHERE codigo = 'C-99'")
+        self.conn.commit()
+
+    def test_reactiva_producto_dado_de_baja(self):
+        self._orden_con_producto_dado_de_baja()
+        res = self.repo.borrar("OT-0002", True)
+        self.assertEqual(res.reintegros, (Reintegro("C-99", "Viejo", 4, 5, True),))
+        self.assertEqual(self.stocks()["C-99"], 5)
+        codigos = [p.codigo for p in SqliteProductoRepository(self.conn).listar_activos()]
+        self.assertIn("C-99", codigos)
+
+    def test_sin_reintegro_no_reactiva(self):
+        self._orden_con_producto_dado_de_baja()
+        res = self.repo.borrar("OT-0002", False)
+        self.assertEqual(res.reintegros, ())
+        fila = self.conn.execute("SELECT stock, activo FROM productos WHERE codigo='C-99'").fetchone()
+        self.assertEqual(tuple(fila), (1, 0))
+
+    def test_aislamiento_solo_devuelve_lo_de_la_orden_borrada(self):
+        self.crear("OT-0002", (("A-01", 1),))
+        self.assertEqual(self.stocks()["A-01"], 2)
+        res = self.repo.borrar("OT-0001", True)
+        self.assertEqual(self.stocks()["A-01"], 4)
+        self.assertEqual(res.reintegros[0], Reintegro("A-01", "Tornillo", 2, 4, False))
+        restantes = self.repo.listar(None, None, None)
+        self.assertEqual(
+            [(o.numero, [(i.codigo, i.cantidad) for i in o.items]) for o in restantes],
+            [("OT-0002", [("A-01", 1)])],
+        )
+
+
+class BorrarInexistenteTest(BorrarBase):
+    def test_inexistente_con_y_sin_reintegro(self):
+        for reintegrar in (True, False):
+            with self.subTest(reintegrar=reintegrar):
+                with self.assertRaises(OrdenNoEncontrada) as ctx:
+                    self.repo.borrar("OT-0999", reintegrar)
+                self.assertEqual(str(ctx.exception), "No existe una orden con número 'OT-0999'.")
+                self.assertFalse(self.conn.in_transaction)
+        self.assertEqual(self.stocks(), {"A-01": 3, "B-02": 0})
+        self.assertEqual(self.numeros(), ["OT-0001"])
+
+    def test_segundo_borrado_del_mismo_numero_no_reintegra_otra_vez(self):
+        self.repo.borrar("OT-0001", True)
+        with self.assertRaises(OrdenNoEncontrada):
+            self.repo.borrar("OT-0001", True)
+        self.assertEqual(self.stocks(), {"A-01": 5, "B-02": 5})
+        self.assertFalse(self.conn.in_transaction)
+
+    def test_numero_con_barras_borra_solo_esa(self):
+        self.crear("OT/2026/01", (("A-01", 1),))
+        self.repo.borrar("OT/2026/01", True)
+        self.assertEqual(self.numeros(), ["OT-0001"])
+        self.assertEqual(self.stocks()["A-01"], 3)
+
+    def test_no_escribe_movimientos(self):
+        self.conn.execute(
+            "INSERT INTO movimientos (fecha, producto_id, tipo, cantidad, usuario_id) "
+            "VALUES ('2026-11-19T10:00:00-03:00', 1, 'ingreso', 5, ?)",
+            (self.uid,),
+        )
+        self.conn.commit()
+        antes = movimientos(self.conn)
+        self.repo.borrar("OT-0001", True)
+        self.crear("OT-0002", (("A-01", 1),))
+        self.repo.borrar("OT-0002", False)
+        self.assertEqual(movimientos(self.conn), antes)
+
+
+class BorrarAtomicidadTest(BorrarBase):
+    def estado(self):
+        return (self.stocks(), self.activos(), self.numeros(), self.cuenta("orden_items"))
+
+    def test_falla_a_mitad_del_reintegro_revierte_todo(self):
+        antes = self.estado()
+        self.conn.execute(
+            "CREATE TEMP TRIGGER falla BEFORE UPDATE OF stock ON productos "
+            "WHEN OLD.codigo = 'B-02' BEGIN SELECT RAISE(ABORT, 'falla forzada'); END"
+        )
+        with self.assertRaises(sqlite3.DatabaseError):
+            self.repo.borrar("OT-0001", True)
+        self.assertEqual(self.estado(), antes)
+        self.assertEqual(self.stocks(), {"A-01": 3, "B-02": 0})
+        self.assertEqual(self.cuenta("orden_items"), 2)
+        self.assertFalse(self.conn.in_transaction)
+
+    def test_falla_al_borrar_revierte_reintegro_y_reactivacion(self):
+        insertar_producto(self.conn, "C-99", "Viejo", 5)
+        self.crear("OT-0002", (("C-99", 4),))
+        self.conn.execute("UPDATE productos SET activo = 0 WHERE codigo = 'C-99'")
+        self.conn.commit()
+        antes = self.estado()
+        self.conn.execute(
+            "CREATE TEMP TRIGGER falla BEFORE DELETE ON ordenes "
+            "BEGIN SELECT RAISE(ABORT, 'falla forzada'); END"
+        )
+        for numero in ("OT-0001", "OT-0002"):
+            with self.subTest(numero=numero):
+                with self.assertRaises(sqlite3.DatabaseError):
+                    self.repo.borrar(numero, True)
+                self.assertEqual(self.estado(), antes)
+                self.assertFalse(self.conn.in_transaction)
+
+    def test_linea_huerfana_aborta_el_reintegro(self):
+        self.conn.execute("PRAGMA foreign_keys = OFF")
+        self.conn.execute("DELETE FROM productos WHERE codigo = 'B-02'")
+        self.conn.commit()
+        self.conn.execute("PRAGMA foreign_keys = ON")
+        with self.assertRaises(RuntimeError):
+            self.repo.borrar("OT-0001", True)
+        self.assertEqual(self.numeros(), ["OT-0001"])
+        self.assertEqual(self.stocks(), {"A-01": 3})
+        self.assertFalse(self.conn.in_transaction)
+        # Sin reintegro la orden (aun con la linea huerfana) se puede borrar.
+        res = self.repo.borrar("OT-0001", False)
+        self.assertEqual(res.reintegros, ())
+        self.assertEqual(self.numeros(), [])
+
+
+class BorrarConcurrenciaTest(unittest.TestCase):
+    def test_dos_borrados_simultaneos_de_la_misma_orden_solo_uno_gana(self):
+        for ronda in range(5):
+            with self.subTest(ronda=ronda):
+                with tempfile.TemporaryDirectory() as tmp:
+                    ruta = os.path.join(tmp, "c.db")
+                    prep = conectar(ruta)
+                    inicializar_esquema(prep)
+                    uid = insertar_usuario(prep)
+                    insertar_producto(prep, "A-01", "Tornillo", 5)
+                    SqliteOrdenRepository(prep).crear(
+                        "OT-0001", FECHA_ORDEN, [("A-01", 2)], uid, FECHA_FIJA
+                    )
+                    prep.close()
+
+                    barrera = threading.Barrier(2)
+                    resultados = []
+
+                    def trabajar():
+                        conn = conectar(ruta)
+                        try:
+                            repo = SqliteOrdenRepository(conn)
+                            barrera.wait()
+                            try:
+                                repo.borrar("OT-0001", True)
+                                resultados.append("ok")
+                            except OrdenNoEncontrada:
+                                resultados.append("inexistente")
+                        finally:
+                            conn.close()
+
+                    hilos = [threading.Thread(target=trabajar) for _ in range(2)]
+                    for h in hilos:
+                        h.start()
+                    for h in hilos:
+                        h.join()
+
+                    conn = conectar(ruta)
+                    try:
+                        final = conn.execute("SELECT stock FROM productos").fetchone()[0]
+                        ordenes = conn.execute("SELECT COUNT(*) FROM ordenes").fetchone()[0]
+                    finally:
+                        conn.close()
+                    self.assertEqual(sorted(resultados), ["inexistente", "ok"])
+                    self.assertEqual((final, ordenes), (5, 0))

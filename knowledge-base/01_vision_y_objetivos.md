@@ -23,7 +23,7 @@ Hoy el problema se resuelve (supuesto, no verificado: SU-01) con planillas o pap
 - Listado de órdenes, todas o por rango de fechas `YYYY-MM-DD` inclusivo.
 - Borrado de órdenes (con opción de reintegrar stock) y borrado lógico de productos, siempre con confirmación.
 - Registro en `movimientos` de todo ingreso y egreso manual (sin motivo).
-- Fase 1: backend API local (FastAPI + SQLite), verificado en la Swagger UI `/docs` y con tests. Fase 2: Supabase + frontend web (repositorios Supabase, HTML estático/Tailwind CDN/JS). Fase 3: despliegue en Vercel.
+- Fase 1: backend API local (FastAPI + SQLite), verificado en la Swagger UI `/docs` y con tests. Fase 2: frontend web local (HTML estático/Tailwind CDN/JS sobre SQLite). Fase 3: migración a Supabase (repositorios Supabase). Fase 4: despliegue en Vercel.
 - Cambio de alcance (2026-11-19, decisión del usuario): se elimina la CLI; no hay menú de consola. Ver DD-12.
 
 ## Fuera de alcance

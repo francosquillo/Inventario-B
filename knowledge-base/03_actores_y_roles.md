@@ -5,7 +5,7 @@
 | Actor | Descripción | Cómo interactúa |
 |-------|-------------|-----------------|
 | Usuario `admin` | Único usuario del sistema, creado por el seed. Es el único que puede operar (stock, órdenes, consultas). No hay alta de otros usuarios | Fase 1: Swagger UI (`/docs`) y tests. Fase 2-3: navegador (login + dashboard con modales) |
-| Sistema de persistencia | SQLite (Fase 1) / Supabase PostgreSQL (Fase 2) | Accedido solo por la capa de repositorios |
+| Sistema de persistencia | SQLite (Fase 1) / Supabase PostgreSQL (Fase 3) | Accedido solo por la capa de repositorios |
 | Backend FastAPI | Único cliente de Supabase; guarda la sesión en cookie firmada | El navegador nunca habla con Supabase directamente |
 
 ## RBAC — Matriz de permisos

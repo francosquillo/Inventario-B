@@ -14,6 +14,7 @@ from inventario.services.auth_service import AuthService
 from inventario.services.inventario_service import InventarioService
 from inventario.services.movimientos_service import MovimientosService
 from inventario.services.orden_service import OrdenService
+from inventario.services.producto_service import ProductoService
 from inventario.services.stock_service import StockService
 
 SESSION_USUARIO_ID = "usuario_id"
@@ -47,6 +48,10 @@ def get_movimientos_service(conn=Depends(get_conexion)):
 
 def get_orden_service(conn=Depends(get_conexion)):
     return OrdenService(SqliteOrdenRepository(conn))
+
+
+def get_producto_service(conn=Depends(get_conexion)):
+    return ProductoService(SqliteProductoRepository(conn))
 
 
 def get_current_user(request: Request, conn=Depends(get_conexion)) -> UsuarioAutenticado:

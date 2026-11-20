@@ -98,17 +98,23 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 - Sin sesión válida → 401.
 
 ## Flujo 6: Borrar orden
-**Disparador**: `DELETE /api/ordenes/{id}?reintegrar=` (Fase 1, `/docs`) / modal de borrado (Fase 2).
+**Disparador**: `DELETE /api/ordenes/{numero}?reintegrar=true|false` (Fase 1, `/docs`) / modal de borrado (Fase 2). La orden se identifica por su número normalizado, nunca por id (C-05).
 **Actor**: Usuario autenticado.
 
 **Pasos**:
-1. Usuario indica la orden; en Fase 2 el frontend pide confirmación (modal). La API no tiene confirmación propia.
+1. Usuario indica la orden por su número; en Fase 2 el frontend pide confirmación (modal). La API no tiene confirmación propia.
 2. La llamada debe traer `reintegrar=true|false` explícito (en Fase 2 el modal pregunta "¿Reintegrar el stock al inventario?" cada vez).
-3. Si sí: atómico, suma las cantidades de `orden_items` a cada producto y borra la orden. Si no: solo borra la orden (y sus ítems por cascade).
+3. Todo ocurre en una sola transacción (todo o nada):
+   - Si `reintegrar=true`: suma la cantidad de cada ítem a su producto. Si el producto estaba dado de baja, lo reactiva (`activo = 1`) (RN-OR-12).
+   - Borra explícitamente los ítems de la orden (`orden_items`) y luego la orden. El `ON DELETE CASCADE` queda solo como respaldo.
+   - No genera movimientos de stock.
+4. Respuesta 200 con `orden`, `reintegrado` y `reintegros` (lista ordenada por código; vacía sin reintegro).
 
-**Casos de error**:
-- Orden inexistente → mensaje claro.
-- Confirmación negada (frontend) → no se llama a la API; `reintegrar` ausente → la API rechaza.
+**Casos de error** (ninguno modifica datos):
+- Número inexistente → 404 con `detail` "No existe una orden con número 'X'." (X normalizado).
+- `reintegrar` ausente, vacío, repetido o distinto de `true`/`false` → 422 "El campo reintegrar es obligatorio." (la API no asume un valor por defecto).
+- Número en blanco o de más de 30 caracteres → 422.
+- Sin sesión válida, o con sesión de un usuario borrado → 401.
 - Falla a mitad de reintegro → rollback completo (RN-OR-09).
 
 ## Flujo 7: Borrar producto (lógico)
@@ -117,12 +123,12 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 
 **Pasos**:
 1. Usuario indica el producto; en Fase 2 el frontend pide confirmación (modal).
-2. ProductoService setea `activo = 0`.
+2. `ProductoService.dar_de_baja` setea `activo = 0` solo si el producto estaba activo; no genera movimientos de stock.
 3. El producto sale del inventario y de la selección de componentes; las órdenes históricas siguen mostrándolo.
 
-**Casos de error**: producto inexistente o ya inactivo → mensaje claro.
+**Casos de error**: producto inexistente o ya inactivo → 404 "No existe un producto activo con código 'X'."; código vacío o de más de 50 caracteres → 422; sin sesión → 401. Ningún rechazo modifica datos.
 
-## Flujo 8: Despliegue (Fase 3)
+## Flujo 8: Despliegue (Fase 4)
 **Disparador**: push a GitHub.
 **Actor**: Operador.
 

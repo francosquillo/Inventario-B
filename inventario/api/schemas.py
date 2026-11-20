@@ -145,3 +145,34 @@ def orden_out(orden):
             for i in orden.items
         ],
     )
+
+
+class ReintegroOut(BaseModel):
+    codigo: str
+    nombre: str
+    cantidad: int
+    stock: int
+    reactivado: bool
+
+
+class BorradoOrdenOut(BaseModel):
+    orden: OrdenOut
+    reintegrado: bool
+    reintegros: List[ReintegroOut]
+
+
+def borrado_orden_out(resultado):
+    return BorradoOrdenOut(
+        orden=orden_out(resultado.orden),
+        reintegrado=resultado.reintegrado,
+        reintegros=[
+            ReintegroOut(
+                codigo=r.codigo,
+                nombre=r.nombre,
+                cantidad=r.cantidad,
+                stock=r.stock,
+                reactivado=r.reactivado,
+            )
+            for r in resultado.reintegros
+        ],
+    )

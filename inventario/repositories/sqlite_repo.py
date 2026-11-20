@@ -11,12 +11,15 @@ from inventario.domain.entities import (
     Movimiento,
     Orden,
     Producto,
+    Reintegro,
+    ResultadoBorradoOrden,
     ResultadoIngreso,
     Usuario,
 )
 from inventario.domain.errors import (
     NombreRequerido,
     OrdenDuplicada,
+    OrdenNoEncontrada,
     ProductoNoEncontrado,
     ProductosNoEncontrados,
     StockInsuficiente,
@@ -173,10 +176,19 @@ class SqliteProductoRepository(ProductoRepository):
         ).fetchall()
         return [_a_producto(f) for f in filas]
 
+    def dar_de_baja(self, codigo):
+        with _transaccion(self._conn):
+            cur = self._conn.execute(_SQL_BAJA_PRODUCTO, (codigo,))
+            if cur.rowcount != 1:  # inexistente o ya inactivo
+                raise ProductoNoEncontrado(codigo)
+            fila = self._conn.execute(_SQL_PRODUCTO_POR_CODIGO, (codigo,)).fetchone()
+        return _a_producto(fila)
+
 
 # --- Stock atomico (D1/D2) ---
 _SQL_PRODUCTO_POR_CODIGO = "SELECT id, codigo, nombre, stock, activo FROM productos WHERE codigo = ?"
 _SQL_PRODUCTO_POR_ID = "SELECT id, codigo, nombre, stock, activo FROM productos WHERE id = ?"
+_SQL_BAJA_PRODUCTO = "UPDATE productos SET activo = 0 WHERE codigo = ? AND activo = 1"
 _SQL_SUMAR_Y_ACTIVAR = "UPDATE productos SET stock = stock + ?, activo = 1 WHERE id = ?"
 _SQL_ALTA = "INSERT INTO productos (codigo, nombre, stock, activo) VALUES (?, ?, ?, 1)"
 _SQL_RESTAR = (
@@ -329,6 +341,15 @@ _SQL_LISTAR_ORDENES = (
 )
 _ORDEN_LISTAR_ORDENES = " ORDER BY o.fecha DESC, o.id DESC, p.codigo"
 
+# --- Borrado de ordenes (D2) ---
+_SQL_LINEAS_ORDEN = (
+    "SELECT i.cantidad, p.id, p.codigo, p.nombre, p.stock, p.activo "
+    "FROM orden_items i LEFT JOIN productos p ON p.id = i.producto_id "
+    "WHERE i.orden_id = ? ORDER BY p.codigo"
+)
+_SQL_BORRAR_ITEMS = "DELETE FROM orden_items WHERE orden_id = ?"
+_SQL_BORRAR_ORDEN = "DELETE FROM ordenes WHERE id = ?"
+
 
 def _a_ordenes(filas):
     """Agrupa las filas del JOIN (contiguas por orden) en entidades `Orden`."""
@@ -420,6 +441,44 @@ class SqliteOrdenRepository(OrdenRepository):
 
     def existe_numero(self, numero):
         return self._conn.execute(_SQL_ORDEN_EXISTE, (numero,)).fetchone() is not None
+
+    def borrar(self, numero, reintegrar):
+        with _transaccion(self._conn):
+            orden = self._buscar_orden_por_numero(numero)
+            if orden is None:
+                raise OrdenNoEncontrada(numero)
+            reintegros = self._reintegrar(orden.id) if reintegrar else ()
+            self._conn.execute(_SQL_BORRAR_ITEMS, (orden.id,))
+            cur = self._conn.execute(_SQL_BORRAR_ORDEN, (orden.id,))
+            if cur.rowcount != 1:  # defensa en profundidad; BEGIN IMMEDIATE lo evita
+                raise RuntimeError("No se pudo borrar la orden.")
+        return ResultadoBorradoOrden(orden=orden, reintegrado=reintegrar, reintegros=reintegros)
+
+    def _reintegrar(self, orden_id):
+        """Suma cada cantidad al stock y reactiva; devuelve el detalle (dentro de la transaccion)."""
+        reintegros = []
+        for linea in self._conn.execute(_SQL_LINEAS_ORDEN, (orden_id,)).fetchall():
+            if linea["id"] is None:
+                raise RuntimeError("La orden tiene una línea cuyo producto ya no existe.")
+            cur = self._conn.execute(_SQL_SUMAR_Y_ACTIVAR, (linea["cantidad"], linea["id"]))
+            if cur.rowcount != 1:
+                raise RuntimeError(f"No se pudo reintegrar el stock de '{linea['codigo']}'.")
+            reintegros.append(
+                Reintegro(
+                    codigo=linea["codigo"],
+                    nombre=linea["nombre"],
+                    cantidad=linea["cantidad"],
+                    stock=linea["stock"] + linea["cantidad"],
+                    reactivado=not linea["activo"],
+                )
+            )
+        return tuple(reintegros)
+
+    def _buscar_orden_por_numero(self, numero):
+        filas = self._conn.execute(
+            _SQL_LISTAR_ORDENES + " WHERE o.numero = ?" + _ORDEN_LISTAR_ORDENES, (numero,)
+        ).fetchall()
+        return _a_ordenes(filas)[0] if filas else None
 
     def _leer_orden(self, orden_id):
         filas = self._conn.execute(

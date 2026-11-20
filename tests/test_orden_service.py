@@ -313,3 +313,73 @@ class ListarServiceTest(ServiceBase):
         self.assertListarInvalido(
             "La fecha 'desde' debe tener formato AAAA-MM-DD.", desde="mal", hasta="peor"
         )
+
+
+class BorrarServiceTest(ServiceBase):
+    def setUp(self):
+        super().setUp()
+        self.crear("OT-0001", componentes=(("A-01", 2), ("B-02", 4)))  # A-01 3, B-02 6
+
+    def assertInvalidoBorrar(self, mensaje, numero, reintegrar):
+        antes = self.conteos()
+        with self.assertRaises(DatosInvalidos) as ctx:
+            self.service.borrar(numero, reintegrar)
+        self.assertEqual(str(ctx.exception), mensaje)
+        self.assertEqual(self.conteos(), antes)  # la orden sigue y el stock no cambia
+
+    def test_true_reintegra_y_false_no(self):
+        res = self.service.borrar("OT-0001", "true")
+        self.assertIs(res.reintegrado, True)
+        self.assertEqual((self.stock("A-01"), self.stock("B-02")), (5, 10))
+        self.crear("OT-0002", componentes=(("A-01", 1),))
+        res = self.service.borrar("OT-0002", "false")
+        self.assertIs(res.reintegrado, False)
+        self.assertEqual(res.reintegros, ())
+        self.assertEqual(self.stock("A-01"), 4)
+
+    def test_reintegrar_faltante_o_vacio(self):
+        for valor in (None, ""):
+            with self.subTest(valor=valor):
+                self.assertInvalidoBorrar("El campo reintegrar es obligatorio.", "OT-0001", valor)
+
+    def test_reintegrar_distinto_de_true_false_exactos(self):
+        for valor in ("si", "1", "TRUE", " true", "False", "yes", 1, 0):
+            with self.subTest(valor=valor):
+                self.assertInvalidoBorrar(
+                    "El campo reintegrar debe ser true o false.", "OT-0001", valor
+                )
+
+    def test_bool_de_python_funciona(self):
+        self.assertIs(self.service.borrar("OT-0001", False).reintegrado, False)
+        self.crear("OT-0002", componentes=(("A-01", 1),))
+        self.assertIs(self.service.borrar("OT-0002", True).reintegrado, True)
+
+    def test_numero_se_normaliza(self):
+        res = self.service.borrar("  ot-0001 ", "false")
+        self.assertEqual(res.orden.numero, "OT-0001")
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM ordenes").fetchone()[0], 0)
+
+    def test_numero_en_blanco_o_nulo(self):
+        for valor in ("", "   ", None):
+            with self.subTest(valor=valor):
+                self.assertInvalidoBorrar("El campo numero es obligatorio.", valor, "true")
+
+    def test_numero_largo_y_limite(self):
+        self.assertInvalidoBorrar(
+            "El campo numero admite hasta 30 caracteres.", "X" * 31, "true"
+        )
+        limite = "x" * 30
+        self.crear(limite, componentes=(("A-01", 1),))
+        res = self.service.borrar(f"  {limite}  ", "false")
+        self.assertEqual(res.orden.numero, "X" * 30)
+
+    def test_numero_inexistente_normalizado(self):
+        with self.assertRaises(OrdenNoEncontrada) as ctx:
+            self.service.borrar("ot-0999", "true")
+        self.assertEqual(str(ctx.exception), "No existe una orden con número 'OT-0999'.")
+
+    def test_error_de_reintegrar_gana_sobre_el_de_numero(self):
+        self.assertInvalidoBorrar("El campo reintegrar es obligatorio.", "OT-0999", None)
+        self.assertInvalidoBorrar(
+            "El campo reintegrar debe ser true o false.", "   ", "si"
+        )

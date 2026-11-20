@@ -5,7 +5,7 @@ Las preguntas del discovery (reactivación de productos, fecha de orden, tipo de
 ## Inconsistencias detectadas
 
 ### IN-01 — Seed del admin en `schema.sql` vs hashing PBKDF2
-**Documento A dice**: Paso 5 pide un `schema.sql` con el usuario `admin` inicial.
+**Documento A dice**: Paso 6 pide un `schema.sql` con el usuario `admin` inicial.
 **Documento B dice**: las contraseñas se hashean con PBKDF2-HMAC-SHA256 con salt (RN-AU-02) y PostgreSQL no lo calcula de forma nativa.
 **Impacto**: un `INSERT` del admin en SQL puro obligaría a hardcodear un hash en el repositorio.
 **Resolución (confirmada por el usuario 2026-11-19)**: `schema.sql` crea solo estructura y funciones; el admin se inserta con un script Python de seed que reutiliza `security.py` y lee `ADMIN_DEFAULT_PASSWORD` (DD-07).
@@ -21,5 +21,5 @@ Las preguntas del discovery (reactivación de productos, fecha de orden, tipo de
 | ID | Prioridad | Pregunta | Bloquea | Decisor |
 |----|-----------|----------|---------|---------|
 | PA-03 | Media | ¿Cómo se darán de alta usuarios adicionales y cómo se cambia la contraseña de `admin`? (fuera de v1 por ahora) | Paso 5 / posterior | Usuario |
-| PA-07 | Baja | ¿Se habilita RLS sin políticas como defensa extra sobre Supabase? | Paso 5 | Equipo técnico |
+| PA-07 | Baja | ¿Se habilita RLS sin políticas como defensa extra sobre Supabase? | Paso 6 | Equipo técnico |
 | PA-08 | Baja | ¿Cuántos usuarios y qué volumen de productos/órdenes se esperan (para dimensionar paginación del listado)? | Paso 5 | Usuario |

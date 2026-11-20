@@ -142,6 +142,9 @@ class OpenApiTest(unittest.TestCase):
             "/api/stock/ingreso",
             "/api/stock/egreso",
             "/api/movimientos",
+            "/api/ordenes",
+            "/api/ordenes/{numero}",
+            "/api/productos/{codigo}",
         ):
             with self.subTest(ruta=ruta):
                 self.assertIn(ruta, paths)

@@ -166,6 +166,7 @@ class DocsTest(unittest.TestCase):
         for ruta in (
             "/api/login", "/api/logout", "/api/me", "/api/inventario",
             "/api/stock/ingreso", "/api/stock/egreso", "/api/movimientos",
+            "/api/ordenes", "/api/ordenes/{numero}", "/api/productos/{codigo}",
         ):
             with self.subTest(ruta=ruta):
                 self.assertIn(ruta, paths)

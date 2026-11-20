@@ -15,7 +15,7 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 
 - **RN-PR-01**: El código interno es único por producto.
 - **RN-PR-02**: El stock de un producto nunca es negativo; un producto con stock 0 sigue existiendo.
-- **RN-PR-03**: El borrado de producto es lógico (`activo = 0`): desaparece del inventario y de la selección para nuevas órdenes.
+- **RN-PR-03**: El borrado de producto es lógico (`activo = 0`): desaparece del inventario y de la selección para nuevas órdenes. La baja no genera movimientos ni pierde stock; se reactiva al ingresar stock con su código o por reintegro de una orden (RN-OR-12).
 - **RN-PR-04**: Las órdenes históricas siguen mostrando productos dados de baja.
 - **RN-PR-05**: El inventario general lista solo productos activos.
 - **RN-PR-06**: Ingresar stock con el código de un producto inactivo lo reactiva (`activo = 1`) y suma la cantidad (mantiene unicidad del código).
@@ -39,11 +39,11 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 - **RN-OR-05**: Si el stock alcanza, se descuentan todos los componentes y se crea la orden de forma atómica.
 - **RN-OR-06**: Solo productos activos son seleccionables como componentes.
 - **RN-OR-07**: El listado de órdenes admite todas o un filtro por número exacto (normalizado: recorte + MAYÚSCULAS) y/o un rango de fechas `YYYY-MM-DD` inclusivo en ambos extremos. `desde` y `hasta` son opcionales por separado (rango abierto), los filtros se combinan por AND y el rango se valida (desde ≤ hasta). Un número inexistente da 404; uno existente fuera del rango da lista vacía. Orden: fecha de la orden DESC, luego id DESC.
-- **RN-OR-08**: Al borrar una orden, el sistema pregunta cada vez si se reintegra al inventario el stock descontado.
-- **RN-OR-09**: Si se elige reintegrar, la devolución de stock y el borrado de la orden son atómicos; si no, solo se borra la orden.
+- **RN-OR-08**: Al borrar una orden, identificada por su número (no por id), el sistema pregunta cada vez si se reintegra al inventario el stock descontado; la API exige `reintegrar=true|false` explícito en cada llamada.
+- **RN-OR-09**: Si se elige reintegrar, la devolución de stock y el borrado de la orden son atómicos (una transacción, todo o nada); si no, solo se borra la orden. Ninguna de las dos opciones genera movimientos de stock.
 - **RN-OR-10**: Las órdenes no se editan en v1.
 - **RN-OR-11**: Si al crear una orden se carga varias veces el mismo producto, las cantidades se consolidan sumándose en una sola línea (la validación de stock se hace sobre el total).
-- **RN-OR-12**: Al reintegrar stock por borrado de orden, si un producto estaba dado de baja (`activo = 0`) se reactiva (`activo = 1`) y recibe las unidades devueltas.
+- **RN-OR-12**: Al reintegrar stock por borrado de orden, si un producto estaba dado de baja (`activo = 0`) se reactiva (`activo = 1`) y recibe las unidades devueltas, conservando su stock previo.
 
 ## Dominio: Validaciones globales (RN-VA)
 

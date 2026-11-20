@@ -68,3 +68,19 @@ class Faltante:
     codigo: str
     disponible: int
     solicitado: int
+
+
+@dataclass(frozen=True)
+class Reintegro:
+    codigo: str
+    nombre: str
+    cantidad: int
+    stock: int
+    reactivado: bool
+
+
+@dataclass(frozen=True)
+class ResultadoBorradoOrden:
+    orden: Orden
+    reintegrado: bool
+    reintegros: "tuple[Reintegro, ...]"

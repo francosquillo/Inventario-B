@@ -7,7 +7,7 @@
 | Repositorio / DAO | Interfaces por agregado con implementación SQLite y Supabase | Desacopla la lógica del motor de datos; la Fase 2 solo agrega una implementación |
 | Capa de servicios (dominio) | Reglas de negocio y validaciones | Una única implementación, independiente de FastAPI, reutilizada sin cambios al pasar de SQLite a Supabase |
 | Adaptador delgado | Rutas FastAPI | Solo traducen entrada/salida; cero reglas de negocio |
-| Unidad de trabajo atómica | `crear_con_descuento`, `borrar_con_reintegro`, `registrar_movimiento` en el repositorio | Todo-o-nada: transacción en SQLite, función RPC en Postgres |
+| Unidad de trabajo atómica | `OrdenRepository.crear`, `OrdenRepository.borrar(numero, reintegrar)`, `StockRepository.registrar_ingreso` / `registrar_egreso` en el repositorio; la baja de producto es `ProductoRepository.dar_de_baja(codigo)` (un solo UPDATE, sin movimientos) | Todo-o-nada: transacción en SQLite, función RPC en Postgres |
 | Inyección de dependencias manual | Los services reciben el repositorio por constructor | Testeable con repos en memoria y permite TDD estricto |
 | Borrado lógico | `productos.activo` | Preserva historial de órdenes |
 | Application factory + dependencias | `create_app()` de FastAPI y `Depends(...)` | Facilita tests (`TestClient`) y entrada serverless |
@@ -18,29 +18,29 @@
 ```
 Inventario-B/
 ├── api/
-│   └── index.py              # entrada Vercel (expone `app` FastAPI, ASGI)  [Fase 3]
+│   └── index.py              # entrada Vercel (expone `app` FastAPI, ASGI)  [Fase 4]
 ├── inventario/
 │   ├── domain/               # entidades, errores, validadores puros
 │   ├── services/             # auth, stock, productos, ordenes
 │   ├── repositories/
 │   │   ├── base.py           # interfaces abstractas
 │   │   ├── sqlite_repo.py    # Fase 1
-│   │   └── supabase_repo.py  # Fase 2 (RPC para operaciones atómicas)
+│   │   └── supabase_repo.py  # Fase 3 (RPC para operaciones atómicas)
 │   ├── security.py           # hash PBKDF2, verificación
 │   └── api/                  # app FastAPI (adaptador HTTP): routers, modelos Pydantic, auth de sesión, lifespan (init DB + seed) — desde Fase 1
 ├── .venv/                    # entorno virtual local (gitignored)
-├── requirements.txt          # runtime: fastapi, uvicorn, python-dotenv, itsdangerous (+ supabase en Paso 5)
+├── requirements.txt          # runtime: fastapi, uvicorn, python-dotenv, itsdangerous (+ supabase en Paso 6)
 ├── requirements-dev.txt      # test: httpx
 ├── static/                   # login.html, index.html (inventario), ordenes.html, js/, css/ (tokens.css, ui.css)
 ├── db/
-│   └── schema.sql            # tablas + funciones RPC (Fase 2)
+│   └── schema.sql            # tablas + funciones RPC (Fase 3)
 ├── tests/
 ├── vercel.json
 ├── .env.example
 ├── .gitignore
 ├── knowledge-base/
 ├── openspec/
-└── README.md                 # guía de despliegue (Paso 6)
+└── README.md                 # guía de despliegue (Paso 7)
 ```
 
 La estructura es orientativa; el change de cada paso fija los nombres exactos. Se debe respetar que `domain/`, `services/` y `repositories/` (contratos) no importen `fastapi`; `domain/` y `services/` tampoco `sqlite3` ni `supabase`. FastAPI vive solo en `inventario/api/` (y `api/index.py` en Fase 3). `static/` se agrega en el Paso 5.

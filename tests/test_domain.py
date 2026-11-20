@@ -181,3 +181,33 @@ class ErroresOrdenTest(unittest.TestCase):
             "Stock insuficiente para la orden: 'A-01' (disponible 1, solicitado 2); "
             "'B-02' (disponible 0, solicitado 1).",
         )
+
+
+class BorradoOrdenEntidadesTest(unittest.TestCase):
+    def test_reintegro_es_inmutable_y_expone_campos(self):
+        import dataclasses
+
+        from inventario.domain.entities import Reintegro
+
+        r = Reintegro("A-01", "Tornillo", 2, 5, False)
+        self.assertEqual(
+            (r.codigo, r.nombre, r.cantidad, r.stock, r.reactivado),
+            ("A-01", "Tornillo", 2, 5, False),
+        )
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            r.stock = 9
+
+    def test_resultado_borrado_es_inmutable_y_expone_campos(self):
+        import dataclasses
+        from datetime import date
+
+        from inventario.domain.entities import Orden, Reintegro, ResultadoBorradoOrden
+
+        orden = Orden(1, "OT-0001", date(2026, 11, 20), "admin", ())
+        reint = (Reintegro("B-02", "Tuerca", 5, 5, True),)
+        res = ResultadoBorradoOrden(orden, True, reint)
+        self.assertEqual((res.orden, res.reintegrado, res.reintegros), (orden, True, reint))
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            res.reintegrado = False
+        vacio = ResultadoBorradoOrden(orden, False, ())
+        self.assertEqual((vacio.reintegrado, vacio.reintegros), (False, ()))

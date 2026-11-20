@@ -358,9 +358,33 @@ class OpenApiOrdenesTest(unittest.TestCase):
         resp = self.spec["paths"][ruta][metodo]["responses"][codigo]
         return resp["content"]["application/json"]["schema"]["$ref"]
 
-    def test_lista_los_ocho_endpoints(self):
-        self.assertEqual(len(self.spec["paths"]), 8)
-        self.assertIn("/api/ordenes", self.spec["paths"])
+    def test_lista_las_diez_rutas(self):
+        self.assertEqual(len(self.spec["paths"]), 10)
+        for ruta in ("/api/ordenes", "/api/ordenes/{numero}", "/api/productos/{codigo}"):
+            with self.subTest(ruta=ruta):
+                self.assertIn(ruta, self.spec["paths"])
+
+    def test_delete_de_orden_documenta_parametros_y_respuestas(self):
+        op = self.spec["paths"]["/api/ordenes/{numero}"]["delete"]
+        params = {p["name"]: p for p in op["parameters"]}
+        self.assertEqual(params["numero"]["in"], "path")
+        self.assertIs(params["numero"]["required"], True)
+        self.assertEqual(params["reintegrar"]["in"], "query")
+        self.assertIs(params["reintegrar"]["required"], True)
+        self.assertEqual(params["reintegrar"]["schema"]["enum"], ["true", "false"])
+        self.assertTrue(self.esquema("/api/ordenes/{numero}", "delete", "200").endswith("/BorradoOrdenOut"))
+        self.assertTrue(self.esquema("/api/ordenes/{numero}", "delete", "404").endswith("/ErrorOut"))
+        self.assertTrue(self.esquema("/api/ordenes/{numero}", "delete", "422").endswith("/ErrorOut"))
+        self.assertEqual(set(self.spec["paths"]["/api/ordenes/{numero}"]), {"delete"})
+
+    def test_delete_de_producto_documenta_respuestas(self):
+        ruta = "/api/productos/{codigo}"
+        self.assertEqual(set(self.spec["paths"][ruta]), {"delete"})
+        self.assertTrue(self.esquema(ruta, "delete", "200").endswith("/ProductoOut"))
+        self.assertTrue(self.esquema(ruta, "delete", "404").endswith("/ErrorOut"))
+        self.assertTrue(self.esquema(ruta, "delete", "422").endswith("/ErrorOut"))
+        params = self.spec["paths"][ruta]["delete"]["parameters"]
+        self.assertEqual([(p["name"], p["in"]) for p in params], [("codigo", "path")])
 
     def test_respuestas_documentadas_de_ordenes(self):
         self.assertTrue(self.esquema(URL, "post", "422").endswith("/ErrorOut"))
@@ -384,3 +408,202 @@ class OpenApiOrdenesTest(unittest.TestCase):
         ):
             with self.subTest(ruta=ruta):
                 self.assertTrue(self.esquema(ruta, metodo, "422").endswith("/ErrorOut"))
+
+
+class BorrarSinSesionTest(unittest.TestCase):
+    def test_sin_sesion_401_y_la_orden_sigue(self):
+        client, ruta = cliente_de_test(self.addCleanup)
+        sembrar(ruta, [("A-01", "Tornillo", 5, 1)])
+        login(client)
+        self.assertEqual(client.post(URL, json=cuerpo()).status_code, 201)
+        client.post("/api/logout")
+        r = client.delete(URL + "/OT-0001?reintegrar=true")
+        self.assertEqual((r.status_code, r.json()), (401, {"detail": "No autenticado."}))
+        self.assertEqual(consultar(ruta, "SELECT COUNT(*) FROM ordenes"), [(1,)])
+        self.assertEqual(consultar(ruta, "SELECT stock FROM productos"), [(4,)])
+
+    def test_sin_sesion_gana_sobre_la_validacion(self):
+        client, _ = cliente_de_test(self.addCleanup)
+        self.assertEqual(client.delete(URL + "/OT-0001").status_code, 401)
+
+    def test_sin_sesion_gana_sobre_reintegrar_repetido(self):
+        client, _ = cliente_de_test(self.addCleanup)
+        r = client.delete(URL + "/OT-0001?reintegrar=true&reintegrar=false")
+        self.assertEqual((r.status_code, r.json()), (401, {"detail": "No autenticado."}))
+
+
+class BorrarBase(unittest.TestCase):
+    """OT-0001 (id 1): A-01 x2 y C-99 x4; C-99 queda dado de baja con stock 1."""
+
+    def setUp(self):
+        self.client, self.ruta = cliente_de_test(self.addCleanup)
+        sembrar(self.ruta, [("A-01", "Tornillo", 5, 1), ("C-99", "Arandela", 5, 1)])
+        self.assertEqual(login(self.client).status_code, 200)
+        r = self.client.post(
+            URL,
+            json=cuerpo(
+                componentes=[
+                    {"codigo": "A-01", "cantidad": 2},
+                    {"codigo": "C-99", "cantidad": 4},
+                ]
+            ),
+        )
+        self.assertEqual(r.status_code, 201)
+        conn = conectar(self.ruta)
+        try:
+            conn.execute("UPDATE productos SET activo = 0 WHERE codigo = 'C-99'")
+            conn.commit()
+        finally:
+            conn.close()
+        self.movimientos_antes = self.client.get("/api/movimientos").json()
+
+    def borrar(self, numero="OT-0001", query="?reintegrar=true"):
+        return self.client.delete(f"{URL}/{numero}{query}")
+
+    def estado(self):
+        return (
+            consultar(self.ruta, "SELECT codigo, stock, activo FROM productos ORDER BY codigo"),
+            consultar(self.ruta, "SELECT numero FROM ordenes"),
+            consultar(self.ruta, "SELECT COUNT(*) FROM orden_items"),
+        )
+
+    def assertRechazo(self, r, status, detalle):
+        antes = self.antes
+        self.assertEqual((r.status_code, r.json()), (status, {"detail": detalle}))
+        self.assertEqual(self.estado(), antes)
+        self.assertEqual([o["numero"] for o in self.client.get(URL).json()], ["OT-0001"])
+
+
+class BorrarExitoTest(BorrarBase):
+    def test_con_reintegro_cuerpo_exacto_y_efectos(self):
+        r = self.borrar("ot-0001", "?reintegrar=true")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(
+            r.json(),
+            {
+                "orden": {
+                    "id": 1,
+                    "numero": "OT-0001",
+                    "fecha": "2026-11-20",
+                    "usuario": "admin",
+                    "componentes": [
+                        {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2},
+                        {"codigo": "C-99", "nombre": "Arandela", "cantidad": 4},
+                    ],
+                },
+                "reintegrado": True,
+                "reintegros": [
+                    {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2, "stock": 5, "reactivado": False},
+                    {"codigo": "C-99", "nombre": "Arandela", "cantidad": 4, "stock": 5, "reactivado": True},
+                ],
+            },
+        )
+        self.assertEqual(self.client.get(URL).json(), [])
+        inventario = {p["codigo"]: p["stock"] for p in self.client.get("/api/inventario").json()}
+        self.assertEqual(inventario, {"A-01": 5, "C-99": 5})
+        self.assertEqual(self.client.get("/api/movimientos").json(), self.movimientos_antes)
+
+    def test_sin_reintegro(self):
+        r = self.borrar("OT-0001", "?reintegrar=false")
+        self.assertEqual(r.status_code, 200)
+        cuerpo_ = r.json()
+        self.assertIs(cuerpo_["reintegrado"], False)
+        self.assertEqual(cuerpo_["reintegros"], [])
+        self.assertEqual(cuerpo_["orden"]["numero"], "OT-0001")
+        self.assertEqual(self.client.get(URL).json(), [])
+        inventario = {p["codigo"]: p["stock"] for p in self.client.get("/api/inventario").json()}
+        self.assertEqual(inventario, {"A-01": 3})  # C-99 sigue inactivo
+        self.assertEqual(
+            consultar(self.ruta, "SELECT stock, activo FROM productos WHERE codigo='C-99'"),
+            [(1, 0)],
+        )
+        self.assertEqual(self.client.get("/api/movimientos").json(), self.movimientos_antes)
+
+    def test_numero_normalizado(self):
+        r = self.borrar("%20ot-0001%20", "?reintegrar=false")
+        self.assertEqual((r.status_code, r.json()["orden"]["numero"]), (200, "OT-0001"))
+
+    def test_numero_con_barras(self):
+        self.client.post(URL, json=cuerpo(numero="OT/2026/01"))
+        r = self.borrar("OT/2026/01", "?reintegrar=true")
+        self.assertEqual((r.status_code, r.json()["orden"]["numero"]), (200, "OT/2026/01"))
+        self.assertEqual([o["numero"] for o in self.client.get(URL).json()], ["OT-0001"])
+
+    def test_numero_con_signos_codificados(self):
+        self.client.post(URL, json=cuerpo(numero="OT?1"))
+        self.client.post(URL, json=cuerpo(numero="OT#1"))
+        for crudo, esperado in (("OT%3F1", "OT?1"), ("OT%231", "OT#1")):
+            with self.subTest(numero=esperado):
+                r = self.borrar(crudo, "?reintegrar=false")
+                self.assertEqual((r.status_code, r.json()["orden"]["numero"]), (200, esperado))
+        r = self.borrar("XY%3F9", "?reintegrar=false")
+        self.assertEqual(
+            (r.status_code, r.json()), (404, {"detail": "No existe una orden con número 'XY?9'."})
+        )
+
+
+class BorrarErroresTest(BorrarBase):
+    def setUp(self):
+        super().setUp()
+        self.antes = self.estado()
+
+    def test_reintegrar_ausente_o_vacio(self):
+        for query in ("", "?reintegrar="):
+            with self.subTest(query=query):
+                self.assertRechazo(
+                    self.borrar(query=query), 422, "El campo reintegrar es obligatorio."
+                )
+
+    def test_reintegrar_invalido(self):
+        for valor in ("si", "1", "TRUE", "False"):
+            with self.subTest(valor=valor):
+                self.assertRechazo(
+                    self.borrar(query=f"?reintegrar={valor}"),
+                    422,
+                    "El campo reintegrar debe ser true o false.",
+                )
+
+    def test_reintegrar_repetido(self):
+        for query in (
+            "?reintegrar=true&reintegrar=false",
+            "?reintegrar=false&reintegrar=true",
+            "?reintegrar=true&reintegrar=true",
+            "?reintegrar=si&reintegrar=no",
+        ):
+            with self.subTest(query=query):
+                self.assertRechazo(
+                    self.borrar(query=query),
+                    422,
+                    "El campo reintegrar debe enviarse una sola vez.",
+                )
+
+    def test_reintegrar_repetido_gana_sobre_404_y_numero_invalido(self):
+        mensaje = "El campo reintegrar debe enviarse una sola vez."
+        query = "?reintegrar=true&reintegrar=false"
+        self.assertRechazo(self.borrar("ot-0999", query), 422, mensaje)
+        self.assertRechazo(self.borrar("%20%20", query), 422, mensaje)
+
+    def test_numero_en_blanco_y_largo(self):
+        self.assertRechazo(
+            self.borrar("%20%20"), 422, "El campo numero es obligatorio."
+        )
+        self.assertRechazo(
+            self.borrar("N" * 31), 422, "El campo numero admite hasta 30 caracteres."
+        )
+
+    def test_inexistente_y_prioridad_422_sobre_404(self):
+        r = self.borrar("ot-0999", "?reintegrar=false")
+        self.assertRechazo(r, 404, "No existe una orden con número 'OT-0999'.")
+        self.assertRechazo(
+            self.borrar("ot-0999", ""), 422, "El campo reintegrar es obligatorio."
+        )
+
+    def test_segundo_borrado_da_404_y_no_reintegra_otra_vez(self):
+        self.assertEqual(self.borrar().status_code, 200)
+        despues = self.estado()
+        r = self.borrar()
+        self.assertEqual(
+            (r.status_code, r.json()),
+            (404, {"detail": "No existe una orden con número 'OT-0001'."}),
+        )
+        self.assertEqual(self.estado(), despues)

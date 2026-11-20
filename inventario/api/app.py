@@ -10,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from inventario import config
 from inventario.api.errores_validacion import mensaje_validacion
-from inventario.api.routers import auth, inventario, movimientos, ordenes, stock
+from inventario.api.routers import auth, inventario, movimientos, ordenes, productos, stock
 from inventario.domain.errors import (
     CredencialesInvalidas,
     DatosInvalidos,
@@ -91,6 +91,7 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
     app.include_router(stock.router)
     app.include_router(movimientos.router)
     app.include_router(ordenes.router)
+    app.include_router(productos.router)
 
     @app.exception_handler(CredencialesInvalidas)
     async def credenciales_invalidas(request: Request, exc: CredencialesInvalidas):
