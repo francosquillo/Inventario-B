@@ -8,7 +8,9 @@ from tests.helpers import (
     login,
 )
 
-CLAVES = {"fecha", "codigo", "nombre", "tipo", "cantidad", "usuario"}
+CLAVES = {
+    "fecha", "codigo", "nombre", "tipo", "cantidad", "usuario", "stock_anterior", "stock_nuevo",
+}
 
 
 def sembrar_movimientos(ruta, filas):
@@ -24,6 +26,33 @@ def sembrar_movimientos(ruta, filas):
         conn.commit()
     finally:
         conn.close()
+
+
+class MovimientosAjusteTest(unittest.TestCase):
+    def setUp(self):
+        self.client, self.ruta = cliente_de_test(self.addCleanup)
+        self.assertEqual(login(self.client).status_code, 200)
+
+    def test_ajuste_expone_anterior_y_nuevo(self):
+        conn = conectar(self.ruta)
+        try:
+            uid = conn.execute("SELECT id FROM usuarios WHERE username = 'admin'").fetchone()[0]
+            pid = insertar_producto(conn, "A-01", "Tornillo", 4)
+            conn.execute(
+                "INSERT INTO movimientos (fecha, producto_id, tipo, cantidad, usuario_id,"
+                " stock_anterior, stock_nuevo)"
+                " VALUES ('2026-11-19T10:00:00-03:00', ?, 'ajuste', 3, ?, 7, 4)",
+                (pid, uid),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        lista = self.client.get("/api/movimientos?codigo=a-01").json()
+        self.assertEqual(len(lista), 1)
+        self.assertEqual(
+            (lista[0]["tipo"], lista[0]["cantidad"], lista[0]["stock_anterior"], lista[0]["stock_nuevo"]),
+            ("ajuste", 3, 7, 4),
+        )
 
 
 class MovimientosSinSesionTest(unittest.TestCase):
@@ -62,6 +91,8 @@ class MovimientosConSesionTest(unittest.TestCase):
             ("A-01", "ingreso", 3, "admin"),
         )
         self.assertTrue(lista[0]["fecha"].endswith("-03:00"))
+        self.assertIsNone(lista[0]["stock_anterior"])
+        self.assertIsNone(lista[0]["stock_nuevo"])
 
     def test_orden_y_serializacion_exacta_de_fecha(self):
         sembrar_movimientos(

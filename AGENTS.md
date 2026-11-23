@@ -74,8 +74,8 @@ Cargá la skill correspondiente al contexto ANTES de escribir código.
 
 El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 
-- **Total**: 8 changes (C-01..C-08), estrictamente secuenciales.
-- **Camino crítico** (8): `C-01 paso-1-base-cli (nombre histórico; sin CLI) → C-02 paso-2-movimientos-stock → C-03 paso-3-crear-ordenes → C-04 paso-4-listado-ordenes → C-05 paso-4b-borrado-ordenes-productos → C-06 paso-5-web-local → C-07 paso-6-migracion-supabase → C-08 paso-7-despliegue-vercel`.
+- **Total**: 9 changes (C-01..C-08 más C-06b), estrictamente secuenciales.
+- **Camino crítico** (9): `C-01 paso-1-base-cli (nombre histórico; sin CLI) → C-02 paso-2-movimientos-stock → C-03 paso-3-crear-ordenes → C-04 paso-4-listado-ordenes → C-05 paso-4b-borrado-ordenes-productos → C-06 paso-5-web-local → C-06b paso-5b-fixes-menores → C-07 paso-6-migracion-supabase → C-08 paso-7-despliegue-vercel`.
 - **Primer change**: `C-01` (`paso-1-base-cli`).
 
 **Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md), identificá las dependencias del change y los archivos de "Leer antes".

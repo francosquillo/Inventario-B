@@ -1,17 +1,59 @@
-"""Baja logica de productos (requiere sesion). Sin logica: request -> service -> schema."""
-from typing import Annotated
+"""Alta, dados de baja y baja de productos (requiere sesion). Sin logica: request -> service -> schema."""
+from typing import Annotated, List
 
 from fastapi import APIRouter, Depends
 
-from inventario.api.dependencies import get_current_user, get_producto_service
-from inventario.api.schemas import ErrorOut, ProductoOut, producto_out
+from inventario.api.dependencies import (
+    get_current_user,
+    get_producto_service,
+    get_stock_service,
+)
+from inventario.api.schemas import (
+    AltaProductoRequest,
+    ErrorOut,
+    IngresoOut,
+    ProductoOut,
+    ingreso_out,
+    producto_out,
+)
 from inventario.domain.entities import UsuarioAutenticado
 from inventario.services.producto_service import ProductoService
+from inventario.services.stock_service import StockService
 
 router = APIRouter(prefix="/api/productos", tags=["productos"])
 
 Usuario = Annotated[UsuarioAutenticado, Depends(get_current_user)]
 Servicio = Annotated[ProductoService, Depends(get_producto_service)]
+ServicioStock = Annotated[StockService, Depends(get_stock_service)]
+
+
+@router.post(
+    "",
+    response_model=IngresoOut,
+    status_code=201,
+    summary="Dar de alta un producto",
+    description=(
+        "Alta explícita con código, nombre y stock inicial (0 a 10.000). Con stock mayor que 0 "
+        "registra un ingreso. Si el código es de un producto dado de baja lo reactiva con el "
+        "nombre y stock nuevos (`reactivado: true`; registra un ajuste si el stock cambia)."
+    ),
+    responses={
+        409: {"model": ErrorOut, "description": "Ya existe un producto activo con ese código"},
+        422: {"model": ErrorOut, "description": "Datos inválidos (mensaje en español)"},
+    },
+)
+def dar_de_alta(datos: AltaProductoRequest, usuario: Usuario, stock: ServicioStock):
+    return ingreso_out(stock.dar_de_alta(datos.codigo, datos.nombre, datos.stock, usuario.id))
+
+
+@router.get(
+    "/inactivos",
+    response_model=List[ProductoOut],
+    summary="Listar productos dados de baja",
+    description="Productos con baja lógica, ordenados por código; `[]` si no hay ninguno.",
+)
+def listar_inactivos(usuario: Usuario, productos: Servicio):
+    return [producto_out(p) for p in productos.listar_inactivos()]
 
 
 @router.delete(

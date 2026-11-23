@@ -165,6 +165,55 @@ class RelojTest(ServiceBase):
         self.assertTrue(movimientos(self.conn)[0][4].endswith("-03:00"))
 
 
+class AltaServiceTest(ServiceBase):
+    def test_normaliza_codigo_y_nombre_y_usa_el_reloj_inyectado(self):
+        r = self.service.dar_de_alta("  rd-6204 ", "  Rodamiento 6204  ", 4, self.uid)
+        self.assertTrue(r.creado)
+        self.assertEqual(
+            (r.producto.codigo, r.producto.nombre, r.producto.stock),
+            ("RD-6204", "Rodamiento 6204", 4),
+        )
+        self.assertEqual(
+            movimientos(self.conn), [("ingreso", 4, "RD-6204", self.uid, TEXTO_FECHA)]
+        )
+        self.assertEqual(self.llamadas, 1)
+
+    def test_stock_cero_y_maximo(self):
+        self.assertEqual(self.service.dar_de_alta("N-02", "Buje", 0, self.uid).producto.stock, 0)
+        r = self.service.dar_de_alta("N-03", "Junta", 10_000, self.uid)
+        self.assertEqual(r.producto.stock, 10_000)
+
+    def test_nombre_obligatorio(self):
+        for nombre in (None, "", "   "):
+            with self.subTest(nombre=nombre):
+                with self.assertRaises(DatosInvalidos) as ctx:
+                    self.service.dar_de_alta("N-01", nombre, 1, self.uid)
+                self.assertEqual(str(ctx.exception), "El campo nombre es obligatorio.")
+        self.assertEqual(self.productos(), 1)
+
+    def test_nombre_largo_o_no_texto(self):
+        for nombre in ("x" * 121, 5):
+            with self.subTest(nombre=nombre):
+                with self.assertRaises(DatosInvalidos):
+                    self.service.dar_de_alta("N-01", nombre, 1, self.uid)
+
+    def test_stock_invalido_no_escribe(self):
+        for stock in (-1, 10_001, 2.5, "5", None, True):
+            with self.subTest(stock=stock):
+                with self.assertRaises(DatosInvalidos) as ctx:
+                    self.service.dar_de_alta("N-01", "Pieza", stock, self.uid)
+                self.assertEqual(
+                    str(ctx.exception), "El stock debe ser un entero entre 0 y 10.000."
+                )
+        self.assertEqual(self.productos(), 1)
+
+    def test_codigo_invalido(self):
+        for codigo in ("  ", None, "x" * 51):
+            with self.subTest(codigo=codigo):
+                with self.assertRaises(DatosInvalidos):
+                    self.service.dar_de_alta(codigo, "Pieza", 1, self.uid)
+
+
 class SinDependenciasDeInfraestructuraTest(unittest.TestCase):
     def test_services_no_importan_sqlite_ni_fastapi_ni_pydantic(self):
         raiz = pathlib.Path(__file__).resolve().parent.parent / "inventario" / "services"

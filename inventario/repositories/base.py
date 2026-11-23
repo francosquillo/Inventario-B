@@ -3,11 +3,13 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 
 from inventario.domain.entities import (
+    LineaModificacion,
     Movimiento,
     Orden,
     Producto,
     ResultadoBorradoOrden,
     ResultadoIngreso,
+    ResultadoModificacion,
     Usuario,
 )
 
@@ -26,6 +28,10 @@ class UsuarioRepository(ABC):
 class ProductoRepository(ABC):
     @abstractmethod
     def listar_activos(self) -> "list[Producto]": ...
+
+    @abstractmethod
+    def listar_inactivos(self) -> "list[Producto]":
+        """Productos dados de baja (activo = 0), ordenados por codigo."""
 
     @abstractmethod
     def dar_de_baja(self, codigo: str) -> Producto:
@@ -47,6 +53,26 @@ class StockRepository(ABC):
     def registrar_egreso(
         self, codigo: str, cantidad: int, usuario_id: int, fecha: datetime
     ) -> Producto: ...
+
+    @abstractmethod
+    def dar_de_alta(
+        self, codigo: str, nombre: str, stock: int, usuario_id: int, fecha: datetime
+    ) -> ResultadoIngreso:
+        """Alta explicita (datos ya validados y normalizados); todo o nada.
+
+        Producto nuevo: activo con `stock` y, si stock > 0, un `ingreso`. Activo existente:
+        ProductoDuplicado. Inactivo: se reactiva con nombre y stock nuevos y, si el stock
+        cambia, un `ajuste` (conservado -> nuevo).
+        """
+
+    @abstractmethod
+    def modificar(
+        self, lineas: "list[LineaModificacion]", usuario_id: int, fecha: datetime
+    ) -> "list[ResultadoModificacion]":
+        """Aplica el lote (lineas validadas, codigos unicos) en una sola transaccion.
+
+        Lanza ProductosInexistentes con todos los codigos sin producto (activo o inactivo).
+        """
 
 
 class MovimientoRepository(ABC):

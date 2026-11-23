@@ -358,8 +358,8 @@ class OpenApiOrdenesTest(unittest.TestCase):
         resp = self.spec["paths"][ruta][metodo]["responses"][codigo]
         return resp["content"]["application/json"]["schema"]["$ref"]
 
-    def test_lista_las_diez_rutas(self):
-        self.assertEqual(len(self.spec["paths"]), 10)
+    def test_lista_las_trece_rutas(self):
+        self.assertEqual(len(self.spec["paths"]), 13)
         for ruta in ("/api/ordenes", "/api/ordenes/{numero}", "/api/productos/{codigo}"):
             with self.subTest(ruta=ruta):
                 self.assertIn(ruta, self.spec["paths"])

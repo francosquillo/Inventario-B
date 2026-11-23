@@ -58,6 +58,31 @@ class CsrfTest(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_alta_y_modificacion_con_cualquier_tipo_no_json_422_sin_efectos(self):
+        sembrar(self.ruta, [("A-01", "Tornillo", 5, 1)])
+        login(self.client)
+        cuerpos = {
+            "/api/productos": {"codigo": "N-01", "nombre": "Arandela", "stock": 3},
+            "/api/stock/modificaciones": {
+                "lineas": [{"codigo": "A-01", "modo": "sumar", "cantidad": 1}]
+            },
+        }
+        tipos = ("text/plain", "application/x-www-form-urlencoded", "multipart/form-data")
+        for url, cuerpo in cuerpos.items():
+            for tipo in tipos:
+                with self.subTest(url=url, tipo=tipo):
+                    r = self.client.post(
+                        url, content=json.dumps(cuerpo), headers={"Content-Type": tipo}
+                    )
+                    self.assertEqual(r.status_code, 422)
+        inventario = self.client.get("/api/inventario").json()
+        self.assertEqual([(p["codigo"], p["stock"]) for p in inventario], [("A-01", 5)])
+        conn = sqlite3.connect(self.ruta)
+        try:
+            self.assertEqual(movimientos(conn), [])
+        finally:
+            conn.close()
+
     def test_sin_cors_para_origen_ajeno(self):
         sembrar(self.ruta, [("A-01", "Tornillo", 5, 1)])
         login(self.client)

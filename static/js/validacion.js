@@ -5,6 +5,8 @@
 
   var MAX_CANTIDAD = 10000;
   var MAX_COMPONENTES = 100;
+  var MAX_LINEAS_MODIFICACION = 100;
+  var MSG_STOCK = "El stock debe ser un entero entre 0 y 10.000.";
 
   function adjetivo(etiqueta) {
     return /^La\s/.test(etiqueta) ? "obligatoria" : "obligatorio";
@@ -23,6 +25,14 @@
     if (!/^\d+$/.test(t)) return msg;
     var n = Number(t);
     return n >= 1 && n <= MAX_CANTIDAD ? null : msg;
+  }
+
+  // Stock absoluto (alta y "Fijar en"): entero de 0 a 10.000.
+  function stock(texto) {
+    var t = texto == null ? "" : String(texto).trim();
+    if (!/^\d+$/.test(t)) return MSG_STOCK;
+    var n = Number(t);
+    return n >= 0 && n <= MAX_CANTIDAD ? null : MSG_STOCK;
   }
 
   function largo(valor, max, etiqueta) {
@@ -67,6 +77,35 @@
     return salida;
   }
 
+  // lineas: [{codigo, modo: "fijar"|"sumar", valor, nombre}] ->
+  //   {general, porLinea: [null | {producto, valor, nombre}]}
+  function lineasModificacion(lineas) {
+    var salida = { general: null, porLinea: [] };
+    if (!lineas || lineas.length < 1) {
+      salida.general = "Agregá al menos un producto.";
+      return salida;
+    }
+    if (lineas.length > MAX_LINEAS_MODIFICACION) {
+      salida.general = "Una modificación admite hasta 100 productos.";
+    }
+    var primera = {};
+    lineas.forEach(function (l, i) {
+      var codigo = l.codigo == null ? "" : String(l.codigo).trim();
+      var producto = null;
+      if (codigo === "") {
+        producto = "Elegí un producto.";
+      } else if (Object.prototype.hasOwnProperty.call(primera, codigo)) {
+        producto = "Este producto ya está en la línea " + primera[codigo] + ".";
+      } else {
+        primera[codigo] = i + 1;
+      }
+      var valor = l.modo === "sumar" ? cantidad(l.valor) : stock(l.valor);
+      var nombre = largo(l.nombre, 120, "El nombre");
+      salida.porLinea.push(producto || valor || nombre ? { producto: producto, valor: valor, nombre: nombre } : null);
+    });
+    return salida;
+  }
+
   function hayErrores(resultado) {
     return !!resultado.general || resultado.porLinea.some(function (e) { return e !== null; });
   }
@@ -79,7 +118,8 @@
   }
 
   window.Validacion = {
-    requerido: requerido, cantidad: cantidad, largo: largo, fecha: fecha,
-    rango: rango, componentes: componentes, hayErrores: hayErrores, hoy: hoy
+    requerido: requerido, cantidad: cantidad, stock: stock, largo: largo, fecha: fecha,
+    rango: rango, componentes: componentes, lineasModificacion: lineasModificacion,
+    hayErrores: hayErrores, hoy: hoy
   };
 })();

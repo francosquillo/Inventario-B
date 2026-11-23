@@ -29,7 +29,12 @@ Al iniciar sobre una base vacía, el sistema SHALL crear las tablas `usuarios`, 
 
 #### Scenario: Tipo de movimiento inválido
 - **GIVEN** una base inicializada
-- **WHEN** se intenta guardar un movimiento con tipo distinto de `ingreso` o `egreso`
+- **WHEN** se intenta guardar un movimiento con tipo distinto de `ingreso`, `egreso` o `ajuste`
+- **THEN** la base rechaza la escritura
+
+#### Scenario: Ajuste coherente
+- **GIVEN** una base inicializada
+- **WHEN** se intenta guardar un `ajuste` sin stock anterior o sin stock nuevo, con ambos iguales, con alguno negativo o con una cantidad distinta de su diferencia absoluta, o un `ingreso`/`egreso` con stock anterior o nuevo
 - **THEN** la base rechaza la escritura
 
 #### Scenario: Integridad referencial activa
@@ -88,3 +93,22 @@ El sistema SHALL usar como archivo de base la ruta indicada en la variable de en
 - **GIVEN** `INVENTARIO_DB_PATH` no definida
 - **WHEN** el sistema arranca
 - **THEN** la base se crea y usa en `inventario.db` del directorio de trabajo
+
+### Requirement: Migración de la bitácora al tipo ajuste
+Al inicializar una base cuya tabla `movimientos` no admite el tipo `ajuste`, el sistema SHALL migrarla al esquema vigente en una sola transacción, conservando todas las filas con su id, fecha, producto, tipo, cantidad y usuario. La migración SHALL ser idempotente y, si falla, la base SHALL quedar como estaba.
+
+#### Scenario: Base anterior al cambio
+- **GIVEN** una base con el esquema anterior y tres movimientos (dos ingresos y un egreso)
+- **WHEN** se inicializa la base
+- **THEN** `movimientos` admite el tipo `ajuste` y conserva los tres movimientos con los mismos ids y datos
+- **AND** el stock de los productos no cambia
+
+#### Scenario: Inicialización repetida
+- **GIVEN** una base ya migrada
+- **WHEN** se inicializa la base dos veces más
+- **THEN** la tabla y sus filas no cambian y no hay error
+
+#### Scenario: Falla a mitad de la migración
+- **GIVEN** una base con el esquema anterior
+- **WHEN** la migración falla después de copiar las filas
+- **THEN** la tabla `movimientos` sigue con el esquema anterior y todas sus filas, y el arranque informa el error

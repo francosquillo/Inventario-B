@@ -3,6 +3,8 @@
 MENSAJE_GENERICO = "Los datos enviados no son válidos."
 MENSAJE_CANTIDAD = "La cantidad debe ser un entero entre 1 y 10.000."
 MENSAJE_FECHA = "La fecha debe tener formato AAAA-MM-DD."
+MENSAJE_STOCK = "El stock debe ser un entero entre 0 y 10.000."
+MENSAJE_MODO = "El campo modo debe ser fijar o sumar."
 
 _MENSAJES_CUERPO = {
     "json_invalid": "El cuerpo de la petición no es JSON válido.",
@@ -15,8 +17,18 @@ _MENSAJES_COMPONENTES = {
     "too_long": "La orden admite hasta 100 componentes.",
     "list_type": "El campo componentes debe ser una lista.",
 }
+_MENSAJES_LINEAS = {
+    "too_short": "La modificación requiere al menos una línea.",
+    "too_long": "La modificación admite hasta 100 líneas.",
+    "list_type": "El campo lineas debe ser una lista.",
+}
 _TIPOS_TIPO_INCORRECTO = ("string_type", "list_type")
-_MENSAJE_LINEA_TIPO = "debe ser un objeto con codigo y cantidad."
+_TIPOS_MODO = ("union_tag_invalid", "union_tag_not_found")
+# Listas de lineas: campo del cuerpo -> (etiqueta del prefijo, mensaje de "no es un objeto").
+_LISTAS = {
+    "componentes": ("Componente", "debe ser un objeto con codigo y cantidad."),
+    "lineas": ("Línea", "debe ser un objeto con codigo, modo y stock o cantidad."),
+}
 _TIPOS_LINEA_NO_OBJETO = ("model_type", "model_attributes_type", "dict_type")
 _UBICACIONES = ("body", "query")
 
@@ -30,26 +42,32 @@ def _campo(loc):
 
 
 def _linea(loc):
-    """Numero de componente (desde 1) si el error cae dentro de `componentes`, si no None."""
+    """(lista, numero desde 1) si el error cae dentro de una lista de lineas, si no None."""
     for i, parte in enumerate(loc[:-1]):
-        if parte == "componentes" and isinstance(loc[i + 1], int):
-            return loc[i + 1] + 1
+        if parte in _LISTAS and isinstance(loc[i + 1], int):
+            return parte, loc[i + 1] + 1
     return None
 
 
 def _mensaje_de(error):
-    linea = _linea(tuple(error.get("loc", ())))
-    if linea is None:
+    ubicacion = _linea(tuple(error.get("loc", ())))
+    if ubicacion is None:
         return _mensaje_campo(error)
+    lista, numero = ubicacion
+    etiqueta, mensaje_no_objeto = _LISTAS[lista]
     if error.get("type") in _TIPOS_LINEA_NO_OBJETO and isinstance(error["loc"][-1], int):
-        return f"Componente {linea}: {_MENSAJE_LINEA_TIPO}"
-    return f"Componente {linea}: {_mensaje_campo(error)}"
+        return f"{etiqueta} {numero}: {mensaje_no_objeto}"
+    return f"{etiqueta} {numero}: {_mensaje_campo(error)}"
 
 
 def _mensaje_campo(error):
     tipo = error.get("type")
     loc = tuple(error.get("loc", ()))
-    if tipo in _MENSAJES_CUERPO:
+    if tipo in _TIPOS_MODO:
+        return MENSAJE_MODO
+    if tipo in _MENSAJES_CUERPO and not (
+        tipo in _TIPOS_LINEA_NO_OBJETO and _linea(loc) is not None
+    ):
         return _MENSAJES_CUERPO[tipo]
     campo = _campo(loc)
     if tipo == "missing" and campo is None:
@@ -60,6 +78,10 @@ def _mensaje_campo(error):
         return f"El campo {campo} es obligatorio."  # null equivale a no enviado
     if campo == "componentes" and tipo in _MENSAJES_COMPONENTES:
         return _MENSAJES_COMPONENTES[tipo]
+    if campo == "lineas" and tipo in _MENSAJES_LINEAS:
+        return _MENSAJES_LINEAS[tipo]
+    if campo == "stock" and tipo != "missing":
+        return MENSAJE_STOCK
     if campo in _CAMPOS_FECHA:
         return MENSAJE_FECHA
     if campo == "cantidad" and tipo != "missing":

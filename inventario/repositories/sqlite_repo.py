@@ -14,13 +14,16 @@ from inventario.domain.entities import (
     Reintegro,
     ResultadoBorradoOrden,
     ResultadoIngreso,
+    ResultadoModificacion,
     Usuario,
 )
 from inventario.domain.errors import (
     NombreRequerido,
     OrdenDuplicada,
     OrdenNoEncontrada,
+    ProductoDuplicado,
     ProductoNoEncontrado,
+    ProductosInexistentes,
     ProductosNoEncontrados,
     StockInsuficiente,
     StockInsuficienteOrden,
@@ -36,7 +39,30 @@ from inventario.repositories.base import (
 
 log = logging.getLogger("inventario")
 
-ESQUEMA_SQL = """
+# Columnas de `movimientos` (D4). Se comparte entre el esquema y la tabla destino de la
+# migracion, para que ambos no diverjan.
+_MOVIMIENTOS_COLUMNAS = """
+    id INTEGER PRIMARY KEY,
+    fecha TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    producto_id INTEGER NOT NULL REFERENCES productos(id),
+    tipo TEXT NOT NULL CHECK (tipo IN ('ingreso', 'egreso', 'ajuste')),
+    cantidad INTEGER NOT NULL
+        CHECK (typeof(cantidad) = 'integer' AND cantidad > 0),
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+    stock_anterior INTEGER CHECK (
+        stock_anterior IS NULL
+        OR (typeof(stock_anterior) = 'integer' AND stock_anterior >= 0)),
+    stock_nuevo INTEGER CHECK (
+        stock_nuevo IS NULL
+        OR (typeof(stock_nuevo) = 'integer' AND stock_nuevo >= 0)),
+    CHECK (((tipo = 'ajuste') = (stock_anterior IS NOT NULL))
+           AND ((tipo = 'ajuste') = (stock_nuevo IS NOT NULL))),
+    CHECK (tipo <> 'ajuste'
+           OR (stock_nuevo <> stock_anterior
+               AND cantidad = abs(stock_nuevo - stock_anterior)))
+"""
+
+_ESQUEMA_PLANTILLA = """
 CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
@@ -70,21 +96,18 @@ CREATE TABLE IF NOT EXISTS orden_items (
     PRIMARY KEY (orden_id, producto_id)
 );
 
-CREATE TABLE IF NOT EXISTS movimientos (
-    id INTEGER PRIMARY KEY,
-    fecha TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    producto_id INTEGER NOT NULL REFERENCES productos(id),
-    tipo TEXT NOT NULL CHECK (tipo IN ('ingreso', 'egreso')),
-    cantidad INTEGER NOT NULL
-        CHECK (typeof(cantidad) = 'integer' AND cantidad > 0),
-    usuario_id INTEGER NOT NULL REFERENCES usuarios(id)
-);
+{movimientos}
 
 CREATE INDEX IF NOT EXISTS idx_ordenes_fecha ON ordenes (fecha);
 CREATE INDEX IF NOT EXISTS idx_orden_items_producto ON orden_items (producto_id);
 CREATE INDEX IF NOT EXISTS idx_movimientos_producto ON movimientos (producto_id);
 CREATE INDEX IF NOT EXISTS idx_movimientos_fecha ON movimientos (fecha);
 """
+
+CREAR_MOVIMIENTOS_SQL = "CREATE TABLE movimientos (" + _MOVIMIENTOS_COLUMNAS + ")"
+ESQUEMA_SQL = _ESQUEMA_PLANTILLA.replace(
+    "{movimientos}", CREAR_MOVIMIENTOS_SQL.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS") + ";"
+)
 
 
 # Filas legadas (CURRENT_TIMESTAMP, UTC, 'YYYY-MM-DD HH:MM:SS') pasan a hora local con
@@ -109,8 +132,50 @@ def conectar(ruta):
     return conn
 
 
+# Migracion de `movimientos` de C-01..C-06 (sin ajuste ni stock_anterior/stock_nuevo), D4.
+_COLUMNAS_COPIADAS = "id, fecha, producto_id, tipo, cantidad, usuario_id"
+_SQL_COPIAR_MOVIMIENTOS = (
+    f"INSERT INTO movimientos_nueva ({_COLUMNAS_COPIADAS}) "
+    f"SELECT {_COLUMNAS_COPIADAS} FROM movimientos"
+)
+_SQL_INDICES_MOVIMIENTOS = (
+    "CREATE INDEX idx_movimientos_producto ON movimientos (producto_id)",
+    "CREATE INDEX idx_movimientos_fecha ON movimientos (fecha)",
+)
+
+
+def _migrar_movimientos(conn):
+    """Reconstruye `movimientos` con el CHECK de `tipo` ampliado y las columnas nuevas.
+
+    Idempotente: no hace nada si la tabla ya tiene `stock_anterior`. Todo en una
+    transaccion: ante cualquier error se revierte y la excepcion sube (la base queda
+    como estaba). Ninguna tabla referencia a `movimientos`, asi que no hace falta
+    desactivar las claves foraneas.
+    """
+    columnas = {f["name"] for f in conn.execute("PRAGMA table_info(movimientos)")}
+    if "stock_anterior" in columnas:
+        return
+    with _transaccion(conn):
+        antes = conn.execute("SELECT COUNT(*) FROM movimientos").fetchone()[0]
+        conn.execute(CREAR_MOVIMIENTOS_SQL.replace("movimientos", "movimientos_nueva", 1))
+        conn.execute(_SQL_COPIAR_MOVIMIENTOS)
+        conn.execute("DROP TABLE movimientos")
+        conn.execute("ALTER TABLE movimientos_nueva RENAME TO movimientos")
+        for sql in _SQL_INDICES_MOVIMIENTOS:
+            conn.execute(sql)
+        if conn.execute("PRAGMA foreign_key_check(movimientos)").fetchall():
+            raise sqlite3.IntegrityError("La migracion de movimientos viola claves foraneas.")
+        despues = conn.execute("SELECT COUNT(*) FROM movimientos").fetchone()[0]
+        if despues != antes:
+            raise sqlite3.IntegrityError(
+                f"La migracion de movimientos perdio filas ({antes} antes, {despues} despues)."
+            )
+    log.info("Migrada la tabla movimientos (%d fila(s) conservadas).", antes)
+
+
 def inicializar_esquema(conn):
     conn.executescript(ESQUEMA_SQL)
+    _migrar_movimientos(conn)
     conn.execute(NORMALIZAR_FECHAS_SQL)
     sin_parsear = conn.execute(CONTAR_FECHAS_NO_PARSEABLES_SQL).fetchone()[0]
     if sin_parsear:
@@ -176,6 +241,13 @@ class SqliteProductoRepository(ProductoRepository):
         ).fetchall()
         return [_a_producto(f) for f in filas]
 
+    def listar_inactivos(self):
+        filas = self._conn.execute(
+            "SELECT id, codigo, nombre, stock, activo FROM productos "
+            "WHERE activo = 0 ORDER BY codigo"
+        ).fetchall()
+        return [_a_producto(f) for f in filas]
+
     def dar_de_baja(self, codigo):
         with _transaccion(self._conn):
             cur = self._conn.execute(_SQL_BAJA_PRODUCTO, (codigo,))
@@ -191,6 +263,12 @@ _SQL_PRODUCTO_POR_ID = "SELECT id, codigo, nombre, stock, activo FROM productos 
 _SQL_BAJA_PRODUCTO = "UPDATE productos SET activo = 0 WHERE codigo = ? AND activo = 1"
 _SQL_SUMAR_Y_ACTIVAR = "UPDATE productos SET stock = stock + ?, activo = 1 WHERE id = ?"
 _SQL_ALTA = "INSERT INTO productos (codigo, nombre, stock, activo) VALUES (?, ?, ?, 1)"
+_SQL_ALTA_ACTIVO = "INSERT INTO productos (codigo, nombre, stock, activo) VALUES (?, ?, ?, 1)"
+_SQL_REACTIVAR_ALTA = "UPDATE productos SET nombre = ?, stock = ?, activo = 1 WHERE id = ?"
+_SQL_PRODUCTOS_POR_CODIGOS_TODOS = (
+    "SELECT id, codigo, nombre, stock, activo FROM productos WHERE codigo IN ({})"
+)
+_SQL_ACTUALIZAR_LINEA = "UPDATE productos SET nombre = ?, stock = ?, activo = ? WHERE id = ?"
 _SQL_RESTAR = (
     "UPDATE productos SET stock = stock - ? WHERE id = ? AND activo = 1 AND stock >= ?"
 )
@@ -198,6 +276,18 @@ _SQL_MOVIMIENTO = (
     "INSERT INTO movimientos (fecha, producto_id, tipo, cantidad, usuario_id) "
     "VALUES (?, ?, ?, ?, ?)"
 )
+_SQL_MOVIMIENTO_AJUSTE = (
+    "INSERT INTO movimientos "
+    "(fecha, producto_id, tipo, cantidad, usuario_id, stock_anterior, stock_nuevo) "
+    "VALUES (?, ?, 'ajuste', ?, ?, ?, ?)"
+)
+
+
+def _registrar_ajuste(conn, texto_fecha, producto_id, anterior, nuevo, usuario_id):
+    conn.execute(
+        _SQL_MOVIMIENTO_AJUSTE,
+        (texto_fecha, producto_id, abs(nuevo - anterior), usuario_id, anterior, nuevo),
+    )
 
 
 def _fecha_a_texto(fecha):
@@ -269,10 +359,87 @@ class SqliteStockRepository(StockRepository):
             producto = _a_producto(self._conn.execute(_SQL_PRODUCTO_POR_ID, (fila["id"],)).fetchone())
         return producto
 
+    def dar_de_alta(self, codigo, nombre, stock, usuario_id, fecha):
+        texto_fecha = _fecha_a_texto(fecha)
+        with _transaccion(self._conn):
+            fila = self._conn.execute(_SQL_PRODUCTO_POR_CODIGO, (codigo,)).fetchone()
+            creado = fila is None
+            if creado:
+                try:
+                    producto_id = self._conn.execute(
+                        _SQL_ALTA_ACTIVO, (codigo, nombre, stock)
+                    ).lastrowid
+                except sqlite3.IntegrityError:  # UNIQUE(codigo): respaldo ante una carrera
+                    raise ProductoDuplicado(codigo) from None
+                if stock > 0:
+                    self._conn.execute(
+                        _SQL_MOVIMIENTO, (texto_fecha, producto_id, "ingreso", stock, usuario_id)
+                    )
+            elif fila["activo"]:
+                raise ProductoDuplicado(codigo)
+            else:
+                producto_id = fila["id"]
+                self._conn.execute(_SQL_REACTIVAR_ALTA, (nombre, stock, producto_id))
+                if stock != fila["stock"]:
+                    _registrar_ajuste(
+                        self._conn, texto_fecha, producto_id, fila["stock"], stock, usuario_id
+                    )
+            producto = _a_producto(
+                self._conn.execute(_SQL_PRODUCTO_POR_ID, (producto_id,)).fetchone()
+            )
+        return ResultadoIngreso(producto=producto, creado=creado, reactivado=not creado)
+
+    def modificar(self, lineas, usuario_id, fecha):
+        texto_fecha = _fecha_a_texto(fecha)
+        with _transaccion(self._conn):
+            filas = self._leer_por_codigos([linea.codigo for linea in lineas])
+            faltantes = [linea.codigo for linea in lineas if linea.codigo not in filas]
+            if faltantes:
+                raise ProductosInexistentes(faltantes)
+            resultados = [
+                self._aplicar_linea(linea, filas[linea.codigo], usuario_id, texto_fecha)
+                for linea in lineas
+            ]
+        return resultados
+
+    def _leer_por_codigos(self, codigos):
+        marcas = ",".join("?" * len(codigos))
+        filas = self._conn.execute(_SQL_PRODUCTOS_POR_CODIGOS_TODOS.format(marcas), codigos)
+        return {f["codigo"]: f for f in filas}
+
+    def _aplicar_linea(self, linea, fila, usuario_id, texto_fecha):
+        anterior = fila["stock"]
+        nuevo = linea.valor if linea.modo == "fijar" else anterior + linea.valor
+        nombre = linea.nombre if linea.nombre and linea.nombre != fila["nombre"] else fila["nombre"]
+        cambia_stock = nuevo != anterior
+        # Un dado de baja solo se reactiva si el stock cambia y queda > 0 (decision 9).
+        reactivado = (not fila["activo"]) and cambia_stock and nuevo > 0
+        if cambia_stock or nombre != fila["nombre"] or reactivado:
+            self._conn.execute(
+                _SQL_ACTUALIZAR_LINEA, (nombre, nuevo, 1 if (fila["activo"] or reactivado) else 0, fila["id"])
+            )
+        if cambia_stock:
+            if linea.modo == "sumar":
+                self._conn.execute(
+                    _SQL_MOVIMIENTO, (texto_fecha, fila["id"], "ingreso", linea.valor, usuario_id)
+                )
+            else:
+                _registrar_ajuste(self._conn, texto_fecha, fila["id"], anterior, nuevo, usuario_id)
+        return ResultadoModificacion(
+            codigo=fila["codigo"],
+            nombre=nombre,
+            stock=nuevo,
+            modo=linea.modo,
+            stock_anterior=anterior,
+            nombre_anterior=fila["nombre"],
+            reactivado=reactivado,
+        )
+
 
 # --- Consulta de movimientos (D9) ---
 _SQL_MOVIMIENTOS = (
-    "SELECT m.id, m.fecha, p.codigo, p.nombre, m.tipo, m.cantidad, u.username "
+    "SELECT m.id, m.fecha, p.codigo, p.nombre, m.tipo, m.cantidad, u.username, "
+    "m.stock_anterior, m.stock_nuevo "
     "FROM movimientos m "
     "JOIN productos p ON p.id = m.producto_id "
     "JOIN usuarios u ON u.id = m.usuario_id"
@@ -288,6 +455,8 @@ def _a_movimiento(fila):
         tipo=fila["tipo"],
         cantidad=fila["cantidad"],
         usuario=fila["username"],
+        stock_anterior=fila["stock_anterior"],
+        stock_nuevo=fila["stock_nuevo"],
     )
 
 

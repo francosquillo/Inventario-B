@@ -69,3 +69,22 @@ class StockInsuficienteOrden(InventarioError):
             for f in self.faltantes
         )
         super().__init__(f"Stock insuficiente para la orden: {detalle}.")
+
+
+class ProductoDuplicado(InventarioError):
+    def __init__(self, codigo):
+        self.codigo = codigo
+        super().__init__(f"Ya existe un producto con código '{codigo}'.")
+
+
+class ProductosInexistentes(InventarioError):
+    """Códigos sin producto alguno (activo ni dado de baja)."""
+
+    def __init__(self, codigos):
+        self.codigos = tuple(codigos)
+        if len(self.codigos) == 1:
+            mensaje = f"No existe un producto con código '{self.codigos[0]}'."
+        else:
+            lista = ", ".join(f"'{c}'" for c in self.codigos)
+            mensaje = f"No existen productos con código: {lista}."
+        super().__init__(mensaje)

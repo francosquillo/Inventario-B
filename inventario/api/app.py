@@ -28,7 +28,9 @@ from inventario.domain.errors import (
     NombreRequerido,
     OrdenDuplicada,
     OrdenNoEncontrada,
+    ProductoDuplicado,
     ProductoNoEncontrado,
+    ProductosInexistentes,
     ProductosNoEncontrados,
     StockInsuficiente,
     StockInsuficienteOrden,
@@ -124,8 +126,15 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
         (OrdenDuplicada, 409),
         (OrdenNoEncontrada, 404),
         (ProductosNoEncontrados, 404),
+        (ProductoDuplicado, 409),
     ):
         app.add_exception_handler(tipo, _responder(status))
+
+    @app.exception_handler(ProductosInexistentes)
+    async def productos_inexistentes(request: Request, exc: ProductosInexistentes):
+        return JSONResponse(
+            status_code=404, content={"detail": str(exc), "codigos": list(exc.codigos)}
+        )
 
     @app.exception_handler(StockInsuficienteOrden)
     async def stock_insuficiente_orden(request: Request, exc: StockInsuficienteOrden):

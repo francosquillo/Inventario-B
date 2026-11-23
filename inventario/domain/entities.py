@@ -45,6 +45,33 @@ class Movimiento:
     tipo: str
     cantidad: int
     usuario: str
+    stock_anterior: "int | None" = None
+    stock_nuevo: "int | None" = None
+
+
+@dataclass(frozen=True)
+class LineaModificacion:
+    """Línea validada de una modificación: modo 'fijar' (valor = stock) o 'sumar' (valor = cantidad)."""
+
+    codigo: str
+    modo: str
+    valor: int
+    nombre: "str | None"
+
+
+@dataclass(frozen=True)
+class ResultadoModificacion:
+    codigo: str
+    nombre: str
+    stock: int
+    modo: str
+    stock_anterior: int
+    nombre_anterior: str
+    reactivado: bool
+
+    @property
+    def sin_stock(self):
+        return self.stock == 0
 
 
 @dataclass(frozen=True)

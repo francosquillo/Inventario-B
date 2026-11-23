@@ -20,6 +20,17 @@ CANTIDAD_MAX = 10_000
 MENSAJE_CANTIDAD = "La cantidad debe ser un entero entre 1 y 10.000."
 
 
+STOCK_MAX = 10_000
+MENSAJE_STOCK = "El stock debe ser un entero entre 0 y 10.000."
+
+
+def validar_stock(stock):
+    """Stock absoluto (alta y 'fijar'): entero de 0 a 10.000; type() is int rechaza bool."""
+    if type(stock) is not int or not 0 <= stock <= STOCK_MAX:
+        raise DatosInvalidos(MENSAJE_STOCK)
+    return stock
+
+
 def validar_cantidad(cantidad):
     # type() is int: rechaza bool, float y str.
     if type(cantidad) is not int or not 1 <= cantidad <= CANTIDAD_MAX:

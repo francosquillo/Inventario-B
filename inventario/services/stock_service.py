@@ -1,7 +1,12 @@
 """Ingreso y egreso de stock: validacion, normalizacion y fuente de tiempo."""
+from inventario.domain.entities import LineaModificacion
 from inventario.domain.errors import DatosInvalidos
 from inventario.domain.tiempo import ahora_argentina
-from inventario.services.normalizacion import normalizar_codigo, validar_cantidad
+from inventario.services.normalizacion import (
+    normalizar_codigo,
+    validar_cantidad,
+    validar_stock,
+)
 
 NOMBRE_MAX = 120
 MENSAJE_NOMBRE_LARGO = f"El campo nombre admite hasta {NOMBRE_MAX} caracteres."
@@ -19,6 +24,46 @@ def _normalizar_nombre(nombre):
     return nombre or None
 
 
+LINEAS_MAX = 100
+MODOS = ("fijar", "sumar")
+MENSAJE_NOMBRE_OBLIGATORIO = "El campo nombre es obligatorio."
+MENSAJE_SIN_LINEAS = "La modificación requiere al menos una línea."
+MENSAJE_DEMASIADAS_LINEAS = f"La modificación admite hasta {LINEAS_MAX} líneas."
+MENSAJE_MODO = "El campo modo debe ser fijar o sumar."
+
+
+def _validar_linea(posicion, linea):
+    """Devuelve la línea normalizada; el error lleva 'Línea N: ' (N desde 1)."""
+    try:
+        codigo = normalizar_codigo(linea.codigo)
+        if linea.modo not in MODOS:
+            raise DatosInvalidos(MENSAJE_MODO)
+        validar = validar_stock if linea.modo == "fijar" else validar_cantidad
+        valor = validar(linea.valor)
+        nombre = _normalizar_nombre(linea.nombre)
+    except DatosInvalidos as exc:
+        raise DatosInvalidos(f"Línea {posicion}: {exc}") from None
+    return LineaModificacion(codigo, linea.modo, valor, nombre)
+
+
+def _validar_lineas(lineas):
+    """Valida todas las líneas (la primera inválida gana) y luego rechaza repetidos."""
+    if not isinstance(lineas, (list, tuple)) or not lineas:
+        raise DatosInvalidos(MENSAJE_SIN_LINEAS)
+    if len(lineas) > LINEAS_MAX:
+        raise DatosInvalidos(MENSAJE_DEMASIADAS_LINEAS)
+    validadas = [_validar_linea(i, linea) for i, linea in enumerate(lineas, start=1)]
+    primera = {}
+    for posicion, linea in enumerate(validadas, start=1):
+        if linea.codigo in primera:
+            raise DatosInvalidos(
+                f"Línea {posicion}: el producto '{linea.codigo}' ya está en la línea "
+                f"{primera[linea.codigo]}."
+            )
+        primera[linea.codigo] = posicion
+    return validadas
+
+
 class StockService:
     def __init__(self, stock_repo, ahora=ahora_argentina):
         self._repo = stock_repo
@@ -29,6 +74,18 @@ class StockService:
         cantidad = validar_cantidad(cantidad)
         nombre = _normalizar_nombre(nombre)
         return self._repo.registrar_ingreso(codigo, cantidad, nombre, usuario_id, self._ahora())
+
+    def dar_de_alta(self, codigo, nombre, stock, usuario_id):
+        codigo = normalizar_codigo(codigo)
+        nombre = _normalizar_nombre(nombre)
+        if nombre is None:
+            raise DatosInvalidos(MENSAJE_NOMBRE_OBLIGATORIO)
+        stock = validar_stock(stock)
+        return self._repo.dar_de_alta(codigo, nombre, stock, usuario_id, self._ahora())
+
+    def modificar(self, lineas, usuario_id):
+        validadas = _validar_lineas(lineas)
+        return self._repo.modificar(validadas, usuario_id, self._ahora())
 
     def egresar(self, codigo, cantidad, usuario_id):
         codigo = normalizar_codigo(codigo)

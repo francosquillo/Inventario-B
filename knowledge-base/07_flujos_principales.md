@@ -23,7 +23,9 @@ Usuario → Adaptador → AuthService → UsuarioRepo
 - Campos vacíos → validación RN-VA-02.
 
 ## Flujo 2: Ingreso de stock
-**Disparador**: `POST /api/stock/ingreso` (Fase 1, `/docs`) / modal de ingreso (Fase 2).
+> Desde C-06b la web usa los Flujos 2b y 2c; `POST /api/stock/ingreso` y `/egreso` (Flujos 2 y 3) quedan solo por API.
+
+**Disparador**: `POST /api/stock/ingreso` (`/docs`; solo API desde C-06b).
 **Actor**: Usuario autenticado.
 
 **Pasos**:
@@ -44,7 +46,7 @@ Usuario → Adaptador → StockService → ProductoRepo / MovimientoRepo
 - Falla de persistencia → rollback, sin estado parcial.
 
 ## Flujo 3: Egreso manual de stock
-**Disparador**: `POST /api/stock/egreso` (Fase 1, `/docs`) / modal de egreso (Fase 2).
+**Disparador**: `POST /api/stock/egreso` (`/docs`; solo API desde C-06b).
 **Actor**: Usuario autenticado.
 
 **Pasos**:
@@ -56,6 +58,38 @@ Usuario → Adaptador → StockService → ProductoRepo / MovimientoRepo
 - Producto inexistente/inactivo → mensaje claro.
 - Cantidad > stock → rechazo, stock sin cambios (RN-ST-02).
 - Concurrencia: en Postgres el descuento usa `UPDATE ... WHERE stock >= cantidad` dentro de la función RPC para evitar negativos.
+
+## Flujo 2b: Nuevo ingreso (alta de producto, C-06b)
+**Disparador**: `POST /api/productos` / modal "Nuevo ingreso".
+**Actor**: Usuario autenticado.
+
+**Pasos**:
+1. Adaptador recibe código, nombre y stock (0 a 10.000), los tres obligatorios; normaliza el código y recorta el nombre.
+2. Código nuevo → crea el producto activo; con stock > 0 registra `ingreso`.
+3. Código de un producto dado de baja → lo reactiva con nombre y stock nuevos; registra `ajuste` si el stock cambia. La web avisa antes de enviar si el código figura dado de baja.
+4. Todo en una transacción; responde 201 con `creado`/`reactivado`.
+
+**Casos de error** (ninguno modifica datos):
+- Código de un producto activo → 409 "Ya existe un producto con código 'X'." (la web lo marca en el campo Código).
+- Campo faltante o vacío, o stock fuera de 0..10.000 o no entero → 422.
+- Sin sesión → 401.
+
+## Flujo 2c: Modificar stock (lote, C-06b)
+**Disparador**: `POST /api/stock/modificaciones` / modal "Modificar stock".
+**Actor**: Usuario autenticado.
+
+**Pasos**:
+1. La web carga los productos activos y los dados de baja (`GET /api/inventario`, `GET /api/productos/inactivos`); el usuario arma de 1 a 100 líneas con modo "Fijar en" o "Sumar" y nombre opcional; los ya elegidos quedan deshabilitados.
+2. El servicio valida en orden: datos (primera línea inválida), producto repetido, códigos inexistentes.
+3. Atómico: por línea fija o suma el stock, registra `ajuste` (fijar con cambio) o `ingreso` (sumar), renombra si corresponde y reactiva un dado de baja solo si el stock cambia y queda > 0.
+4. Responde 200 con el resultado por línea (`stock_anterior`, `nombre_anterior`, `reactivado`); la web muestra un resumen persistente.
+
+**Casos de error** (ninguno modifica datos):
+- Valor inválido → 422 "Línea N: ..."; modo inválido → 422 "Línea N: El campo modo debe ser fijar o sumar.".
+- Producto repetido → 422 "Línea N: el producto 'X' ya está en la línea M.".
+- Códigos inexistentes → 404 con `codigos` (la web marca cada línea).
+- Lista vacía o de más de 100 líneas → 422.
+- Falla a mitad → rollback completo.
 
 ## Flujo 4: Crear orden
 **Disparador**: `POST /api/ordenes` (Fase 1, `/docs`) / modal de nueva orden (Fase 2).

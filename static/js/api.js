@@ -5,11 +5,12 @@
   var MSG_RED = "No se pudo conectar con el servidor. Revisá que esté en marcha y probá de nuevo.";
   var MSG_INESPERADO = "Ocurrió un error inesperado. Probá de nuevo.";
 
-  function ApiError(status, detail, faltantes) {
+  function ApiError(status, detail, faltantes, codigos) {
     this.name = "ApiError";
     this.status = status;
     this.detail = detail;
     this.faltantes = faltantes || null;
+    this.codigos = codigos || null;
     this.message = detail;
   }
   ApiError.prototype = Object.create(Error.prototype);
@@ -47,7 +48,8 @@
           var detail = datos && typeof datos.detail === "string" ? datos.detail : null;
           if (respuesta.status >= 500 || detail === null) detail = MSG_INESPERADO;
           var faltantes = datos && Array.isArray(datos.faltantes) ? datos.faltantes : null;
-          throw new ApiError(respuesta.status, detail, faltantes);
+          var codigos = datos && Array.isArray(datos.codigos) ? datos.codigos : null;
+          throw new ApiError(respuesta.status, detail, faltantes, codigos);
         });
       },
       function () { throw new ApiError(0, MSG_RED); }

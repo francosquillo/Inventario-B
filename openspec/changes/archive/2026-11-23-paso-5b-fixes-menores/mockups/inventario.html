@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventario — maqueta C-06b</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Inventario (/inventario) — paso-5b-fixes-menores">
+
+<!-- Barra de la maqueta (no es parte de la app; ?captura la oculta) -->
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta">
+  <div class="mk-bar-in">
+    <span class="mk-tag">Maqueta</span>
+    <label class="sr-only" for="mk-state">Estado</label>
+    <select id="mk-state">
+      <optgroup label="Inventario">
+        <option value="I1" data-desc="Barra de acciones nueva: &#x27;Nuevo ingreso&#x27;, &#x27;Modificar stock&#x27;, &#x27;Nueva orden&#x27;, &#x27;Ver órdenes&#x27;. Sin &#x27;Ingreso de stock&#x27; ni &#x27;Egreso de stock&#x27;.">I1 · con datos</option>
+        <option value="I2" data-desc="Inventario vacío: el cartel invita a crear el primero con &#x27;Nuevo ingreso&#x27;.">I2 · vacío</option>
+      </optgroup>
+      <optgroup label="Modal Nuevo ingreso">
+        <option value="NI1" data-base="I1" data-desc="Código, Nombre y Stock obligatorios; el stock puede ser 0.">NI1 · vacío</option>
+        <option value="NI2" data-base="I1" data-desc="Validación del navegador: Nombre y Stock vacíos; no se envía.">NI2 · validación</option>
+        <option value="NI3" data-base="I1" data-desc="409 &#x27;Ya existe un producto con código &#x27;A-01&#x27;.&#x27;: detail solo en la alerta superior; Código inválido (aria-describedby → alerta) y con foco.">NI3 · 409 código activo</option>
+        <option value="NI4" data-base="I1" data-desc="El código escrito es de un producto dado de baja: aviso no bloqueante de reactivación.">NI4 · aviso dado de baja</option>
+        <option value="NI5" data-desc="Tras el alta de C-99 dado de baja: alerta &#x27;Producto reactivado&#x27; y la fila vuelve al inventario con el nombre y el stock nuevos.">NI5 · éxito reactivado</option>
+        <option value="NI6" data-desc="Tras crear N-01 con stock 0: alerta &#x27;Producto creado&#x27; y fila con el 0 resaltado (sin stock).">NI6 · éxito stock 0</option>
+      </optgroup>
+      <optgroup label="Modal Modificar stock">
+        <option value="MS1" data-base="I1" data-desc="Una línea: A-01 en &#x27;Fijar en&#x27; 12; resultado &#x27;Stock actual 7 → 12&#x27;; nombre opcional vacío (placeholder = nombre actual).">MS1 · una línea (fijar)</option>
+        <option value="MS2" data-base="I1" data-desc="Selector desplegado (en la maqueta, como lista): grupo &#x27;Activos&#x27; y grupo &#x27;Dados de baja&#x27;; A-01 deshabilitado porque ya está en la línea 1; C-99 (dado de baja) con el mismo stock: aviso neutro, sigue dado de baja.">MS2 · selector con dados de baja</option>
+        <option value="MS3" data-base="I1" data-desc="Cuatro líneas: fijar (A-01), sumar (B-02), solo cambio de nombre (CAJA/10, fijar con el stock propuesto) y un producto dado de baja (C-99, sumar 3: cambia el stock y queda > 0, aviso de reactivación).">MS3 · varias líneas</option>
+        <option value="MS4" data-base="I1" data-desc="Validación del navegador: stock -1 (línea 1), línea sin producto (2), suma 0 (3); no se envía.">MS4 · validación por línea</option>
+        <option value="MS5" data-base="I1" data-desc="422 de la API &#x27;Línea 2: …&#x27;: alerta arriba y línea 2 marcada.">MS5 · 422 &#x27;Línea N&#x27;</option>
+        <option value="MS6" data-base="I1" data-desc="404 con codigos [&#x27;D-05&#x27;]: alerta con el detail, línea 2 marcada con su ayuda y selectores recargados.">MS6 · 404 por línea</option>
+        <option value="MS7" data-base="I1" data-desc="Enviando: &#x27;Guardando…&#x27; deshabilitado; un segundo clic no envía.">MS7 · enviando</option>
+        <option value="MS8" data-desc="Alerta persistente con un ítem por línea: stock anterior → nuevo, &#x27;(+N)&#x27; en sumas, &#x27;sin cambios&#x27;, nombre anterior y &#x27;reactivado&#x27;.">MS8 · resumen de éxito</option>
+      </optgroup>
+      <optgroup label="Transversal">
+        <option value="T1" data-base="I1" data-desc="Foco visible en &#x27;Nuevo ingreso&#x27; (anillo congelado).">T1 · foco botón</option>
+        <option value="T1b" data-base="I1" data-desc="Foco visible en el selector &#x27;Fijar en / Sumar&#x27; de una línea.">T1b · foco en el modo</option>
+        <option value="T2" data-base="I1" data-desc="Igual que I1 con el SO en modo claro (emulateMedia colorScheme &#x27;light&#x27;): debe verse oscuro.">T2 · SO claro → tema oscuro</option>
+      </optgroup>
+    </select>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-prev" aria-label="Estado anterior">&larr;</button>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-next" aria-label="Estado siguiente">&rarr;</button>
+    <span>C-06b · paso-5b-fixes-menores</span>
+    <p class="mk-desc" id="mk-desc"></p>
+  </div>
+</div>
+
+<!-- Opciones de los desplegables de producto (en la app: GET /api/inventario + GET /api/productos/inactivos) -->
+<template id="tpl-opts">
+  <option value="">Elegí un producto…</option>
+  <optgroup label="Activos">
+    <option value="A-01">A-01 · Tornillo M8 (stock 7)</option>
+    <option value="B-02">B-02 · Tuerca M8 (stock 0)</option>
+    <option value="CAJA/10">CAJA/10 · Caja de arandelas ×10 (stock 4)</option>
+    <option value="JUN-12">JUN-12 · Junta industrial 12&quot; (stock 30)</option>
+  </optgroup>
+  <optgroup label="Dados de baja">
+    <option value="C-99">C-99 · Junta tórica (stock 2)</option>
+    <option value="D-05">D-05 · Disco de corte 115 mm (stock 0)</option>
+  </optgroup>
+</template>
+
+<header class="bg-surface border-b border-line">
+  <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+    <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+    <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+      <a class="navlink" href="#I1" aria-current="page">Inventario</a>
+      <a class="navlink" href="../../archive/2026-11-20-paso-5-web-local/mockups/ordenes.html#O1">Órdenes</a>
+    </nav>
+    <div class="ml-auto flex items-center gap-3 text-sm">
+      <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">admin</strong></span>
+      <button class="btn btn-secondary" type="button">Cerrar sesión</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+  <h1 class="sr-only">Inventario</h1>
+
+  <div data-show="NI5" role="status" class="flex items-start gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm">
+    <div class="flex-1 py-2"><p><strong>Listo.</strong> Producto reactivado: <span class="num">C-99</span> · Junta tórica (stock 6).</p></div>
+    <button class="icon-btn" type="button" aria-label="Cerrar aviso" data-goto="#I1">&times;</button>
+  </div>
+  <div data-show="NI6" role="status" class="flex items-start gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm">
+    <div class="flex-1 py-2"><p><strong>Listo.</strong> Producto creado: <span class="num">N-01</span> · Arandela 6mm (stock 0).</p></div>
+    <button class="icon-btn" type="button" aria-label="Cerrar aviso" data-goto="#I1">&times;</button>
+  </div>
+  <div data-show="MS8" role="status" class="flex items-start gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm">
+    <div class="flex-1 py-2"><p><strong>Listo.</strong> Stock modificado (4 productos):</p>
+      <ul class="sum-list">
+        <li><span class="num">A-01</span> · Tornillo M8: <span class="num">7 → 12</span></li>
+        <li><span class="num">B-02</span> · Tuerca M8: <span class="num">0 → 24</span> (+24)</li>
+        <li><span class="num">CAJA/10</span> · Caja de arandelas ×20: stock <span class="num">4</span> sin cambios · nombre antes: Caja de arandelas ×10</li>
+        <li><span class="num">C-99</span> · Junta tórica: <span class="num">2 → 5</span> (+3) · <span class="tag-react">reactivado</span></li>
+      </ul></div>
+    <button class="icon-btn" type="button" aria-label="Cerrar aviso" data-goto="#I1">&times;</button>
+  </div>
+
+  <!-- Barra de acciones (C-06b: Nuevo ingreso / Modificar stock reemplazan a Ingreso / Egreso de stock) -->
+  <div class="flex flex-wrap gap-2">
+    <button class="btn btn-primary" type="button" data-goto="#NI1" data-mkfocus="T1">Nuevo ingreso</button>
+    <button class="btn btn-primary" type="button" data-goto="#MS1">Modificar stock</button>
+    <button class="btn btn-primary" type="button">Nueva orden</button>
+    <a class="btn btn-secondary" href="../../archive/2026-11-20-paso-5-web-local/mockups/ordenes.html#O1">Ver órdenes</a>
+  </div>
+
+  <div data-show="I2" class="bg-surface border border-dashed border-line rounded-lg p-8 text-center">
+    <h2 class="font-semibold">Todavía no hay productos</h2>
+    <p class="text-sm text-muted mt-1">Creá el primero con <strong class="text-ink">Nuevo ingreso</strong>.</p>
+  </div>
+
+  <section data-hide="I2" class="bg-surface border border-line rounded-lg" aria-labelledby="t-inv">
+    <div class="flex items-center justify-between gap-3 p-3 border-b border-line">
+      <h2 id="t-inv" class="font-bold">Inventario</h2>
+      <span class="text-sm text-muted" data-hide="NI5 NI6 MS8">4 productos</span>
+      <span class="text-sm text-muted" data-show="NI5 NI6 MS8">5 productos</span>
+    </div>
+    <div class="overflow-x-auto" tabindex="0" role="region" aria-label="Tabla de inventario">
+      <table class="tbl tbl-fit tbl-inv">
+        <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Stock</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+        <tbody>
+          <tr data-hide="MS8"><td class="num">A-01</td><td>Tornillo M8</td><td class="num r">7</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar A-01">Eliminar</button></td></tr>
+          <tr data-show="MS8"><td class="num">A-01</td><td>Tornillo M8</td><td class="num r">12</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar A-01">Eliminar</button></td></tr>
+          <tr data-hide="MS8"><td class="num">B-02</td><td>Tuerca M8</td><td class="num r"><span class="badge bg-warning-subtle text-warning-fg">0<span class="sr-only">, sin stock</span></span></td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar B-02">Eliminar</button></td></tr>
+          <tr data-show="MS8"><td class="num">B-02</td><td>Tuerca M8</td><td class="num r">24</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar B-02">Eliminar</button></td></tr>
+          <tr data-hide="MS8"><td class="num">CAJA/10</td><td>Caja de arandelas ×10</td><td class="num r">4</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar CAJA/10">Eliminar</button></td></tr>
+          <tr data-show="MS8"><td class="num">CAJA/10</td><td>Caja de arandelas ×20</td><td class="num r">4</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar CAJA/10">Eliminar</button></td></tr>
+          <tr><td class="num">JUN-12</td><td>Junta industrial 12&quot;</td><td class="num r">30</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar JUN-12">Eliminar</button></td></tr>
+          <tr data-show="NI5"><td class="num">C-99</td><td>Junta tórica</td><td class="num r">6</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar C-99">Eliminar</button></td></tr>
+          <tr data-show="MS8"><td class="num">C-99</td><td>Junta tórica</td><td class="num r">5</td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar C-99">Eliminar</button></td></tr>
+          <tr data-show="NI6"><td class="num">N-01</td><td>Arandela 6mm</td><td class="num r"><span class="badge bg-warning-subtle text-warning-fg">0<span class="sr-only">, sin stock</span></span></td><td class="r"><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar N-01">Eliminar</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" data-show="NI1" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ni1-t">
+    <div class="modal-head"><h2 id="ni1-t">Nuevo ingreso</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <p class="text-sm text-muted">Alta de un producto. Para cambiar el stock de uno existente usá <strong class="text-ink">Modificar stock</strong>.</p>
+      <div><label class="label" for="ni1-cod">Código</label><input class="field num" id="ni1-cod" autocomplete="off" maxlength="50" aria-describedby="ni1-cod-h"><p class="help" id="ni1-cod-h">Se guarda en mayúsculas.</p></div>
+      <div><label class="label" for="ni1-nom">Nombre</label><input class="field" id="ni1-nom" autocomplete="off" maxlength="120"></div>
+      <div><label class="label" for="ni1-st">Stock</label><input class="field num" id="ni1-st" autocomplete="off" inputmode="numeric" aria-describedby="ni1-st-h"><p class="help" id="ni1-st-h">Entero de 0 a 10.000. Puede ser 0 si todavía no hay unidades.</p></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#NI6">Crear producto</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="NI2" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ni2-t">
+    <div class="modal-head"><h2 id="ni2-t">Nuevo ingreso</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <p class="text-sm text-muted">Alta de un producto. Para cambiar el stock de uno existente usá <strong class="text-ink">Modificar stock</strong>.</p>
+      <div><label class="label" for="ni2-cod">Código</label><input class="field num" id="ni2-cod" autocomplete="off" maxlength="50" value="A-07" aria-describedby="ni2-cod-h"><p class="help" id="ni2-cod-h">Se guarda en mayúsculas.</p></div>
+      <div><label class="label" for="ni2-nom">Nombre</label><input class="field" id="ni2-nom" autocomplete="off" maxlength="120" aria-invalid="true" aria-describedby="ni2-nom-e" data-autofocus><p class="err" id="ni2-nom-e" role="alert">El nombre es obligatorio.</p></div>
+      <div><label class="label" for="ni2-st">Stock</label><input class="field num" id="ni2-st" autocomplete="off" inputmode="numeric" aria-invalid="true" aria-describedby="ni2-st-h ni2-st-e"><p class="err" id="ni2-st-e" role="alert">El stock es obligatorio.</p></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#NI6">Crear producto</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="NI3" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ni3-t">
+    <div class="modal-head"><h2 id="ni3-t">Nuevo ingreso</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <p class="text-sm text-muted">Alta de un producto. Para cambiar el stock de uno existente usá <strong class="text-ink">Modificar stock</strong>.</p>
+      <div id="ni3-a" role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">Ya existe un producto con código &#x27;A-01&#x27;.</div>
+      <div><label class="label" for="ni3-cod">Código</label><input class="field num" id="ni3-cod" autocomplete="off" maxlength="50" value="a-01" aria-invalid="true" aria-describedby="ni3-a" data-autofocus><p class="help" id="ni3-cod-h">Se guarda en mayúsculas.</p></div>
+      <div><label class="label" for="ni3-nom">Nombre</label><input class="field" id="ni3-nom" autocomplete="off" maxlength="120" value="Tornillo M8 inox"></div>
+      <div><label class="label" for="ni3-st">Stock</label><input class="field num" id="ni3-st" autocomplete="off" inputmode="numeric" value="5" aria-describedby="ni3-st-h"><p class="help" id="ni3-st-h">Entero de 0 a 10.000. Puede ser 0 si todavía no hay unidades.</p></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#NI6">Crear producto</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="NI4" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ni4-t">
+    <div class="modal-head"><h2 id="ni4-t">Nuevo ingreso</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <p class="text-sm text-muted">Alta de un producto. Para cambiar el stock de uno existente usá <strong class="text-ink">Modificar stock</strong>.</p>
+      <div><label class="label" for="ni4-cod">Código</label><input class="field num" id="ni4-cod" autocomplete="off" maxlength="50" value="C-99" aria-describedby="ni4-cod-h ni4-cod-w"><p class="hint" id="ni4-cod-w" aria-live="polite">Este código está dado de baja: se va a reactivar con el nombre y el stock que indiques.</p><p class="help" id="ni4-cod-h">Se guarda en mayúsculas.</p></div>
+      <div><label class="label" for="ni4-nom">Nombre</label><input class="field" id="ni4-nom" autocomplete="off" maxlength="120" value="Junta tórica"></div>
+      <div><label class="label" for="ni4-st">Stock</label><input class="field num" id="ni4-st" autocomplete="off" inputmode="numeric" value="6" aria-describedby="ni4-st-h" data-autofocus><p class="help" id="ni4-st-h">Entero de 0 a 10.000. Puede ser 0 si todavía no hay unidades.</p></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#NI5">Crear producto</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="MS1" hidden>
+  <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="ms1-t">
+    <div class="modal-head"><h2 id="ms1-t">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-3">
+        <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+        <fieldset>
+          <legend class="sr-only">Productos a modificar</legend>
+          <ol id="ms1-rows" class="space-y-2">
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="ms1-l1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms1-l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="12" data-autofocus>
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">7</strong> → <strong class="num">12</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms1-l1-nom">Nuevo nombre (opcional)</label><input class="field" id="ms1-l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tornillo M8)"></div>
+              </div>
+            </li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="ms1-rows">Agregar producto</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#MS8">Guardar cambios</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="MS2" hidden>
+  <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="ms2-t">
+    <div class="modal-head"><h2 id="ms2-t">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-3">
+        <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+        <fieldset>
+          <legend class="sr-only">Productos a modificar</legend>
+          <ol id="ms2-rows" class="space-y-2">
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="ms2-l1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms2-l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="12">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">7</strong> → <strong class="num">12</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms2-l1-nom">Nuevo nombre (opcional)</label><input class="field" id="ms2-l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tornillo M8)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">2</span><select size="10" class="field mk-open" data-autofocus data-opts="C-99" data-opts-disable="A-01"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <p class="hint">Dado de baja: sigue dado de baja (sin cambio de stock).</p>
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="ms2-l2-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms2-l2-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 2" value="2">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">2</strong> · sin cambios</span>
+                </div>
+                <div><label class="mlabel" for="ms2-l2-nom">Nuevo nombre (opcional)</label><input class="field" id="ms2-l2-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Junta tórica)"></div>
+              </div>
+            </li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="ms2-rows">Agregar producto</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#MS8">Guardar cambios</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="MS3" hidden>
+  <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="ms3-t">
+    <div class="modal-head"><h2 id="ms3-t">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-3">
+        <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+        <fieldset>
+          <legend class="sr-only">Productos a modificar</legend>
+          <ol id="ms3-rows" class="space-y-2">
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01" data-opts-disable="B-02 CAJA/10 C-99"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="ms3-l1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms3-l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="12">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">7</strong> → <strong class="num">12</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms3-l1-nom">Nuevo nombre (opcional)</label><input class="field" id="ms3-l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tornillo M8)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="B-02" data-opts-disable="A-01 CAJA/10 C-99"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="ms3-l2-m" value="fijar"><span>Fijar en</span></label><label><input type="radio" name="ms3-l2-m" value="sumar" checked><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Cantidad a sumar de la línea 2" value="24">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">0</strong> → <strong class="num">24</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms3-l2-nom">Nuevo nombre (opcional)</label><input class="field" id="ms3-l2-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tuerca M8)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">3</span><select class="field" data-opts="CAJA/10" data-opts-disable="A-01 B-02 C-99"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 3"><label><input type="radio" name="ms3-l3-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms3-l3-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 3" value="4">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">4</strong> · sin cambios</span>
+                </div>
+                <div><label class="mlabel" for="ms3-l3-nom">Nuevo nombre (opcional)</label><input class="field" id="ms3-l3-nom" maxlength="120" autocomplete="off" value="Caja de arandelas ×20" placeholder="Sin cambios (Caja de arandelas ×10)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">4</span><select class="field" data-opts="C-99" data-opts-disable="A-01 B-02 CAJA/10"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <p class="hint">Dado de baja: se va a reactivar al guardar.</p>
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 4"><label><input type="radio" name="ms3-l4-m" value="fijar"><span>Fijar en</span></label><label><input type="radio" name="ms3-l4-m" value="sumar" checked><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Cantidad a sumar de la línea 4" value="3">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">2</strong> → <strong class="num">5</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms3-l4-nom">Nuevo nombre (opcional)</label><input class="field" id="ms3-l4-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Junta tórica)"></div>
+              </div>
+            </li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="ms3-rows">Agregar producto</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#MS8">Guardar cambios</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="MS4" hidden>
+  <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="ms4-t">
+    <div class="modal-head"><h2 id="ms4-t">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-3">
+        <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+        <fieldset>
+          <legend class="sr-only">Productos a modificar</legend>
+          <ol id="ms4-rows" class="space-y-2">
+            <li class="mline" data-row data-invalid>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="ms4-l1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms4-l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="-1" aria-invalid="true" aria-describedby="ms4-l1-e" data-autofocus>
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">7</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms4-l1-nom">Nuevo nombre (opcional)</label><input class="field" id="ms4-l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tornillo M8)"></div>
+                <p class="err" id="ms4-l1-e" role="alert">El stock debe ser un entero entre 0 y 10.000.</p>
+              </div>
+            </li>
+            <li class="mline" data-row data-invalid>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">2</span><select aria-invalid="true" aria-describedby="ms4-l2-e" class="field" data-opts=""></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="ms4-l2-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms4-l2-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 2">
+                  <span class="delta" aria-live="polite"></span>
+                </div>
+                <div><label class="mlabel" for="ms4-l2-nom">Nuevo nombre (opcional)</label><input class="field" id="ms4-l2-nom" maxlength="120" autocomplete="off"></div>
+                <p class="err" id="ms4-l2-e" role="alert">Elegí un producto.</p>
+              </div>
+            </li>
+            <li class="mline" data-row data-invalid>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">3</span><select class="field" data-opts="JUN-12"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 3"><label><input type="radio" name="ms4-l3-m" value="fijar"><span>Fijar en</span></label><label><input type="radio" name="ms4-l3-m" value="sumar" checked><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Cantidad a sumar de la línea 3" value="0" aria-invalid="true" aria-describedby="ms4-l3-e">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">30</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms4-l3-nom">Nuevo nombre (opcional)</label><input class="field" id="ms4-l3-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Junta industrial 12&quot;)"></div>
+                <p class="err" id="ms4-l3-e" role="alert">La cantidad debe ser un entero entre 1 y 10.000.</p>
+              </div>
+            </li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="ms4-rows">Agregar producto</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#MS8">Guardar cambios</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="MS5" hidden>
+  <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="ms5-t">
+    <div class="modal-head"><h2 id="ms5-t">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-3">
+        <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">Línea 2: El stock debe ser un entero entre 0 y 10.000.</div>
+        <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+        <fieldset>
+          <legend class="sr-only">Productos a modificar</legend>
+          <ol id="ms5-rows" class="space-y-2">
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="ms5-l1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms5-l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="12">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">7</strong> → <strong class="num">12</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms5-l1-nom">Nuevo nombre (opcional)</label><input class="field" id="ms5-l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tornillo M8)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row data-invalid>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="B-02"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="ms5-l2-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms5-l2-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 2" value="20000" aria-invalid="true" aria-describedby="ms5-l2-e" data-autofocus>
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">0</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms5-l2-nom">Nuevo nombre (opcional)</label><input class="field" id="ms5-l2-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tuerca M8)"></div>
+                <p class="err" id="ms5-l2-e" role="alert">Revisá el stock de esta línea.</p>
+              </div>
+            </li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="ms5-rows">Agregar producto</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#MS8">Guardar cambios</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="MS6" hidden>
+  <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="ms6-t">
+    <div class="modal-head"><h2 id="ms6-t">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-3">
+        <div role="alert" class="p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">No existe un producto con código &#x27;D-05&#x27;.</div>
+        <p class="help">La lista de productos se actualizó.</p>
+        <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+        <fieldset>
+          <legend class="sr-only">Productos a modificar</legend>
+          <ol id="ms6-rows" class="space-y-2">
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01" data-opts-exclude="D-05"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="ms6-l1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms6-l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="12">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">7</strong> → <strong class="num">12</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms6-l1-nom">Nuevo nombre (opcional)</label><input class="field" id="ms6-l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tornillo M8)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row data-invalid>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">2</span><select aria-invalid="true" aria-describedby="ms6-l2-e" class="field" data-autofocus data-opts="D-05"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="ms6-l2-m" value="fijar"><span>Fijar en</span></label><label><input type="radio" name="ms6-l2-m" value="sumar" checked><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Cantidad a sumar de la línea 2" value="10">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">0</strong> → <strong class="num">10</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms6-l2-nom">Nuevo nombre (opcional)</label><input class="field" id="ms6-l2-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Disco de corte 115 mm)"></div>
+                <p class="err" id="ms6-l2-e" role="alert">Este producto ya no existe: elegí otro o quitá la línea.</p>
+              </div>
+            </li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="ms6-rows">Agregar producto</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#MS8">Guardar cambios</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="MS7" hidden>
+  <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="ms7-t">
+    <div class="modal-head"><h2 id="ms7-t">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-3">
+        <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+        <fieldset>
+          <legend class="sr-only">Productos a modificar</legend>
+          <ol id="ms7-rows" class="space-y-2">
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01" data-opts-disable="B-02 CAJA/10 C-99"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="ms7-l1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms7-l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="12">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">7</strong> → <strong class="num">12</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms7-l1-nom">Nuevo nombre (opcional)</label><input class="field" id="ms7-l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tornillo M8)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="B-02" data-opts-disable="A-01 CAJA/10 C-99"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="ms7-l2-m" value="fijar"><span>Fijar en</span></label><label><input type="radio" name="ms7-l2-m" value="sumar" checked><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Cantidad a sumar de la línea 2" value="24">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">0</strong> → <strong class="num">24</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms7-l2-nom">Nuevo nombre (opcional)</label><input class="field" id="ms7-l2-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tuerca M8)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">3</span><select class="field" data-opts="CAJA/10" data-opts-disable="A-01 B-02 C-99"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 3"><label><input type="radio" name="ms7-l3-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="ms7-l3-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 3" value="4">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">4</strong> · sin cambios</span>
+                </div>
+                <div><label class="mlabel" for="ms7-l3-nom">Nuevo nombre (opcional)</label><input class="field" id="ms7-l3-nom" maxlength="120" autocomplete="off" value="Caja de arandelas ×20" placeholder="Sin cambios (Caja de arandelas ×10)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">4</span><select class="field" data-opts="C-99" data-opts-disable="A-01 B-02 CAJA/10"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <p class="hint">Dado de baja: se va a reactivar al guardar.</p>
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 4"><label><input type="radio" name="ms7-l4-m" value="fijar"><span>Fijar en</span></label><label><input type="radio" name="ms7-l4-m" value="sumar" checked><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Cantidad a sumar de la línea 4" value="3">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">2</strong> → <strong class="num">5</strong></span>
+                </div>
+                <div><label class="mlabel" for="ms7-l4-nom">Nuevo nombre (opcional)</label><input class="field" id="ms7-l4-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Junta tórica)"></div>
+              </div>
+            </li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="ms7-rows">Agregar producto</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" disabled aria-disabled="true">Guardando…</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="T1b" hidden>
+  <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="t1b-t">
+    <div class="modal-head"><h2 id="t1b-t">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-3">
+        <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+        <fieldset>
+          <legend class="sr-only">Productos a modificar</legend>
+          <ol id="t1b-rows" class="space-y-2">
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts="A-01" data-opts-disable="B-02 CAJA/10 C-99"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="t1b-l1-m" value="fijar" checked data-mkfocus="T1b"><span>Fijar en</span></label><label><input type="radio" name="t1b-l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="12">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">7</strong> → <strong class="num">12</strong></span>
+                </div>
+                <div><label class="mlabel" for="t1b-l1-nom">Nuevo nombre (opcional)</label><input class="field" id="t1b-l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tornillo M8)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts="B-02" data-opts-disable="A-01 CAJA/10 C-99"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="t1b-l2-m" value="fijar"><span>Fijar en</span></label><label><input type="radio" name="t1b-l2-m" value="sumar" checked><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Cantidad a sumar de la línea 2" value="24">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">0</strong> → <strong class="num">24</strong></span>
+                </div>
+                <div><label class="mlabel" for="t1b-l2-nom">Nuevo nombre (opcional)</label><input class="field" id="t1b-l2-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Tuerca M8)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">3</span><select class="field" data-opts="CAJA/10" data-opts-disable="A-01 B-02 C-99"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 3"><label><input type="radio" name="t1b-l3-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="t1b-l3-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 3" value="4">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">4</strong> · sin cambios</span>
+                </div>
+                <div><label class="mlabel" for="t1b-l3-nom">Nuevo nombre (opcional)</label><input class="field" id="t1b-l3-nom" maxlength="120" autocomplete="off" value="Caja de arandelas ×20" placeholder="Sin cambios (Caja de arandelas ×10)"></div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">4</span><select class="field" data-opts="C-99" data-opts-disable="A-01 B-02 CAJA/10"></select><button class="btn btn-secondary" type="button" data-remove-row>Quitar</button></div>
+              <div class="mline-body">
+                <p class="hint">Dado de baja: se va a reactivar al guardar.</p>
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 4"><label><input type="radio" name="t1b-l4-m" value="fijar"><span>Fijar en</span></label><label><input type="radio" name="t1b-l4-m" value="sumar" checked><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Cantidad a sumar de la línea 4" value="3">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">2</strong> → <strong class="num">5</strong></span>
+                </div>
+                <div><label class="mlabel" for="t1b-l4-nom">Nuevo nombre (opcional)</label><input class="field" id="t1b-l4-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Junta tórica)"></div>
+              </div>
+            </li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button" data-add-row="t1b-rows">Agregar producto</button><span class="text-xs text-muted" data-count aria-live="polite"></span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#MS8">Guardar cambios</button></div>
+    </form>
+  </div>
+</div>
+
+<script src="assets/mockup.js"></script>
+</body>
+</html>

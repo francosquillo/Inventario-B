@@ -134,3 +134,29 @@ class FechaLegadaNoParseableTest(RepoMovimientosBase):
         self.sembrar("basura", cantidad=2)
         movimientos = self.repo.listar(None, date(2026, 11, 19), date(2026, 11, 19))
         self.assertEqual([m.cantidad for m in movimientos], [1])
+
+
+class AjusteTest(RepoMovimientosBase):
+    def sembrar_ajuste(self, fecha, producto, anterior, nuevo):
+        self.conn.execute(
+            "INSERT INTO movimientos (fecha, producto_id, tipo, cantidad, usuario_id,"
+            " stock_anterior, stock_nuevo) VALUES (?, ?, 'ajuste', ?, ?, ?, ?)",
+            (fecha, producto, abs(nuevo - anterior), self.uid, anterior, nuevo),
+        )
+        self.conn.commit()
+
+    def test_ajuste_devuelve_anterior_y_nuevo_y_el_resto_none(self):
+        self.sembrar("2026-11-18T10:00:00-03:00", cantidad=2)
+        self.sembrar("2026-11-18T11:00:00-03:00", tipo="egreso", cantidad=1)
+        self.sembrar_ajuste("2026-11-19T10:00:00-03:00", self.a01, 7, 4)
+        lista = self.repo.listar(None, None, None)
+        self.assertEqual(
+            [(m.tipo, m.cantidad, m.stock_anterior, m.stock_nuevo) for m in lista],
+            [("ajuste", 3, 7, 4), ("egreso", 1, None, None), ("ingreso", 2, None, None)],
+        )
+
+    def test_filtro_por_codigo_incluye_el_ajuste(self):
+        self.sembrar_ajuste("2026-11-19T10:00:00-03:00", self.a01, 0, 5)
+        self.sembrar_ajuste("2026-11-19T11:00:00-03:00", self.b10, 5, 1)
+        lista = self.repo.listar("A-01", None, None)
+        self.assertEqual([(m.codigo, m.tipo) for m in lista], [("A-01", "ajuste")])

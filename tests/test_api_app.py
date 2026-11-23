@@ -165,11 +165,16 @@ class DocsTest(unittest.TestCase):
         paths = client.get("/openapi.json").json()["paths"]
         for ruta in (
             "/api/login", "/api/logout", "/api/me", "/api/inventario",
-            "/api/stock/ingreso", "/api/stock/egreso", "/api/movimientos",
-            "/api/ordenes", "/api/ordenes/{numero}", "/api/productos/{codigo}",
+            "/api/stock/ingreso", "/api/stock/egreso", "/api/stock/modificaciones",
+            "/api/movimientos", "/api/ordenes", "/api/ordenes/{numero}",
+            "/api/productos", "/api/productos/inactivos", "/api/productos/{codigo}",
         ):
             with self.subTest(ruta=ruta):
                 self.assertIn(ruta, paths)
+        self.assertEqual(len(paths), 13)
+        self.assertEqual(set(paths["/api/productos"]), {"post"})
+        self.assertEqual(set(paths["/api/productos/inactivos"]), {"get"})
+        self.assertEqual(set(paths["/api/stock/modificaciones"]), {"post"})
 
 
 class OpenApiErrorOutTest(unittest.TestCase):

@@ -51,36 +51,39 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 
 **Reglas relacionadas**: RN-PR-02, RN-PR-05
 
-### US-004 — Ingresar stock
+### US-004 — Ingresar stock (Nuevo ingreso)
 **Como** usuario
-**Quiero** ingresar unidades por código interno
+**Quiero** dar de alta un producto con código, nombre y stock inicial
 **Para** mantener el inventario al día
 
-**Paso**: 2 (API), 5 (modal)
+**Paso**: 2 (API de ingreso), 5 (modal), C-06b (alta explícita y modal "Nuevo ingreso")
 
 **Criterios de aceptación**:
-- [ ] Si el código existe y está activo, se suma la cantidad.
-- [ ] `POST /api/stock/ingreso` con código, cantidad y (si el código no existe) nombre no vacío: se crea el producto con esa cantidad; sin nombre responde 422/400.
-- [ ] Si el código existe inactivo, se reactiva y se suma la cantidad.
-- [ ] Cantidad no entera o ≤ 0 se rechaza (422/400).
-- [ ] Se registra un movimiento tipo `ingreso` sin pedir motivo.
+- [ ] `POST /api/productos` con código, nombre y stock (0 a 10.000) obligatorios crea el producto activo y responde 201 con `creado`/`reactivado`; con stock > 0 registra un `ingreso`, con stock 0 ningún movimiento.
+- [ ] Código de un producto activo → 409 "Ya existe un producto con código 'X'.".
+- [ ] Código de un producto dado de baja → se reactiva con el nombre y el stock nuevos (`reactivado: true`); `ajuste` si el stock cambia.
+- [ ] Datos faltantes o stock inválido → 422 en español; nada se modifica.
+- [ ] La web (modal "Nuevo ingreso") usa `POST /api/productos` y avisa si el código figura dado de baja.
+- [ ] `POST /api/stock/ingreso` (código, cantidad > 0, nombre si no existe) sigue disponible solo por API; ya no se usa desde la web.
 
-**Reglas relacionadas**: RN-ST-01, RN-ST-03, RN-ST-04, RN-ST-05, RN-PR-01, RN-PR-06, RN-PR-07, RN-VA-01, RN-VA-02
+**Reglas relacionadas**: RN-ST-01, RN-ST-03, RN-ST-04, RN-ST-05, RN-PR-01, RN-PR-06, RN-PR-07, RN-PR-08, RN-PR-09, RN-PR-10, RN-VA-01, RN-VA-02
 
-### US-005 — Egreso manual de stock
+### US-005 — Modificar stock (y egreso manual)
 **Como** usuario
-**Quiero** descontar unidades sin crear una orden (rotura, pérdida, consumo interno)
+**Quiero** corregir el stock de uno o varios productos (fijarlo en un valor o sumar unidades) y descontar sin crear una orden
 **Para** que el stock refleje la realidad
 
-**Paso**: 2 (API), 5 (modal)
+**Paso**: 2 (API de egreso), 5 (modal), C-06b (modal "Modificar stock")
 
 **Criterios de aceptación**:
-- [ ] `POST /api/stock/egreso`: cantidad entera > 0 y ≤ stock actual; si excede, se rechaza (400/409) y el stock no cambia.
-- [ ] El stock nunca queda negativo; si llega a 0 el producto sigue existiendo.
-- [ ] Se registra un movimiento tipo `egreso` sin motivo.
-- [ ] Solo se puede operar sobre productos activos existentes.
+- [ ] `POST /api/stock/modificaciones` recibe 1 a 100 líneas `{codigo, modo: fijar|sumar, stock|cantidad, nombre?}` y es todo o nada.
+- [ ] "Fijar en" (0 a 10.000) registra un `ajuste` con stock anterior y nuevo si cambia; "Sumar" (1 a 10.000) registra un `ingreso`; el nombre es opcional y no genera movimiento.
+- [ ] Se pueden modificar también productos dados de baja: se reactivan solo si el stock cambia y queda > 0.
+- [ ] Errores por línea ("Línea N: ..."), producto repetido → 422, códigos inexistentes → 404 con `codigos`; el stock nunca queda negativo.
+- [ ] `GET /api/productos/inactivos` alimenta el selector de la web.
+- [ ] `POST /api/stock/egreso` (cantidad entera > 0 y ≤ stock, `egreso` sin motivo) sigue disponible solo por API; ya no se usa desde la web.
 
-**Reglas relacionadas**: RN-ST-02, RN-ST-03, RN-ST-04, RN-ST-05, RN-PR-02, RN-VA-01
+**Reglas relacionadas**: RN-ST-02, RN-ST-03, RN-ST-04, RN-ST-05, RN-ST-07, RN-ST-08, RN-ST-09, RN-ST-10, RN-PR-02, RN-VA-01
 
 ## Épica 3: Órdenes de trabajo
 

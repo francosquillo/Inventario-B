@@ -29,8 +29,9 @@ C-01 paso-1-base-cli
            └── C-04 paso-4-listado-ordenes
                 └── C-05 paso-4b-borrado-ordenes-productos
                      └── C-06 paso-5-web-local
-                          └── C-07 paso-6-migracion-supabase
-                               └── C-08 paso-7-despliegue-vercel
+                          └── C-06b paso-5b-fixes-menores
+                               └── C-07 paso-6-migracion-supabase
+                                    └── C-08 paso-7-despliegue-vercel
 ```
 
 ### Paralelismo por fase
@@ -43,9 +44,11 @@ GATE 0: (inicio)
 GATE 1..7: cada change archivado desbloquea únicamente el siguiente (sin fork).
 ```
 
-### Camino crítico (8 changes — mínimo irreducible)
+### Camino crítico (9 changes — mínimo irreducible)
 
-C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08
+C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-07 → C-08
+
+> C-06b (`paso-5b-fixes-menores`) es un change intermedio agregado el 2026-11-20 a pedido del usuario, entre C-06 y C-07.
 
 ### Plan óptimo con 3 agentes
 
@@ -57,6 +60,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08
 | 4 | C-04 | — | — |
 | 5 | C-05 | — | — |
 | 6 | C-06 (mockups + apply) | — | — |
+| 6b | C-06b (mockups + apply) | — | — |
 | 7 | C-07 | — | — |
 | 8 | C-08 | — | — |
 
@@ -179,6 +183,27 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08
   - `knowledge-base/10_preguntas_abiertas.md`
   - `design-system/README.md`
 
+### [C-06b] `paso-5b-fixes-menores`
+> Change intermedio agregado el 2026-11-20 (pedido del usuario tras usar la web local de C-06).
+- **Estado**: `[x]` archivado (2026-11-23)
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`, design system Revision 2 aprobado. ANTES de `apply` deben aprobarse los mockups en `openspec/changes/paso-5b-fixes-menores/mockups/` (renders 390x844 y 1440x900, `## UI Mockups` en `design.md`)
+  - Botón "Ingreso de stock" → **"Nuevo ingreso"**: alta de producto con Código, Nombre y Stock obligatorios; stock inicial 0 permitido; código activo existente → 409 "Ya existe un producto con código 'X'."; código dado de baja → se reactiva con el nombre y el stock nuevos. Endpoint nuevo `POST /api/productos`
+  - Botón "Egreso de stock" → **"Modificar stock"**: modal multi-línea (como nueva orden); por línea, modo "Fijar en" (stock absoluto >= 0, se registra como movimiento nuevo de tipo `ajuste` con stock anterior y nuevo) o "Sumar" (cantidad > 0, movimiento `ingreso`), y cambio opcional del nombre; también sobre productos dados de baja, que se reactivan. Todo o nada en una transacción; errores marcados por línea. Endpoints nuevos `POST /api/stock/modificaciones` y `GET /api/productos/inactivos`
+  - Migración idempotente al arrancar de la tabla `movimientos` de SQLite (CHECK de `tipo` con `ajuste` + columnas `stock_anterior`/`stock_nuevo`), reconstruyendo la tabla en una transacción; `GET /api/movimientos` agrega esas dos columnas (null salvo en `ajuste`)
+  - `POST /api/stock/ingreso` y `/egreso` siguen en la API (y sus tests) pero salen de la web; las órdenes no cambian
+  - Al archivar: actualizar KB 04, 05, 06 y 07 (alta con stock 0, tipo `ajuste`, modificación en lote, reactivación)
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
+- **Dependencias**: `C-06`
+- **Governance**: MEDIO/ALTO (lógica de negocio de stock + migración de esquema sobre datos existentes) con componente visual
+- **Leer antes**:
+  - `knowledge-base/04_modelo_de_datos.md` §productos, §movimientos
+  - `knowledge-base/05_reglas_de_negocio.md` §RN-ST, §RN-PR, §RN-VA
+  - `knowledge-base/06_funcionalidades.md` §US-004, §US-005, §US-009
+  - `knowledge-base/07_flujos_principales.md`
+  - `design-system/README.md`
+  - `openspec/changes/archive/2026-11-20-paso-5-web-local/` (mockups y design de C-06)
+
 ---
 
 ## FASE 3 — Supabase
@@ -193,8 +218,9 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08
   - Tests de contrato de repositorio compartidos entre ambas implementaciones; `supabase` se agrega a `requirements.txt`
   - Selector de backend por variable de entorno (p. ej. `INVENTARIO_BACKEND=sqlite|supabase`, por defecto `sqlite`), para poder seguir probando en local tras la migración
   - `.env.example` solo con nombres de variables; el usuario crea su `.env`
+  - Paridad con C-06b: `movimientos.tipo` admite `ajuste` con `stock_anterior`/`stock_nuevo`; funciones RPC para el alta de producto (`POST /api/productos`) y la modificación de stock en lote (`POST /api/stock/modificaciones`)
 - **Test runner**: `unittest` + `TestClient` (Strict TDD)
-- **Dependencias**: `C-06`
+- **Dependencias**: `C-06b`
 - **Governance**: CRITICO (`service_role` key, migración de datos)
 - **Leer antes**:
   - `knowledge-base/08_arquitectura_propuesta.md`
@@ -235,7 +261,8 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-07 → C-08
 | C-04 | paso-4-listado-ordenes | 1 | C-03 | BAJO |
 | C-05 | paso-4b-borrado-ordenes-productos | 1 | C-04 | ALTO |
 | C-06 | paso-5-web-local (antes paso-5-supabase-api-web) | 2 | C-05 | ALTO |
-| C-07 | paso-6-migracion-supabase | 3 | C-06 | CRITICO |
+| C-06b | paso-5b-fixes-menores | 2 | C-06 | MEDIO/ALTO |
+| C-07 | paso-6-migracion-supabase | 3 | C-06b | CRITICO |
 | C-08 | paso-7-despliegue-vercel (antes paso-6-despliegue-vercel) | 4 | C-07 | ALTO |
 
 Primer change recomendado: `C-01` (`paso-1-base-cli`).

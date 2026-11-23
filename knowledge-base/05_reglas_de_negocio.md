@@ -20,6 +20,9 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 - **RN-PR-05**: El inventario general lista solo productos activos.
 - **RN-PR-06**: Ingresar stock con el código de un producto inactivo lo reactiva (`activo = 1`) y suma la cantidad (mantiene unicidad del código).
 - **RN-PR-07**: Un producto nuevo requiere nombre no vacío.
+- **RN-PR-08**: El alta explícita (`POST /api/productos`, "Nuevo ingreso" en la web) exige código (hasta 50, normalizado con recorte + MAYÚSCULAS), nombre (1 a 120) y stock inicial entero de 0 a 10.000; con stock 0 el producto queda activo sin stock y sin movimiento.
+- **RN-PR-09**: Dar de alta el código de un producto activo se rechaza con 409 "Ya existe un producto con código 'X'." sin modificar nada.
+- **RN-PR-10**: Dar de alta el código de un producto dado de baja lo reactiva reemplazando su nombre y su stock por los nuevos (`reactivado: true`); registra un `ajuste` si el stock cambia y ningún movimiento si no cambia.
 
 ## Dominio: Stock y movimientos (RN-ST)
 
@@ -29,6 +32,10 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 - **RN-ST-04**: La actualización de stock y el registro del movimiento son una operación atómica (ambos o ninguno).
 - **RN-ST-05**: Los movimientos se registran sin pedir motivo.
 - **RN-ST-06**: Los descuentos generados por órdenes NO se registran en `movimientos`; quedan reflejados en la propia orden (`orden_items`).
+- **RN-ST-07**: La modificación de stock (`POST /api/stock/modificaciones`, "Modificar stock" en la web) recibe de 1 a 100 líneas y es todo o nada en una transacción. Orden de rechazos: validación de datos (primera línea inválida, "Línea N: ..."), producto repetido en el lote ("Línea N: el producto 'X' ya está en la línea M."), códigos inexistentes (404 con todos los códigos).
+- **RN-ST-08**: Cada línea tiene un modo: `fijar` (stock absoluto entero de 0 a 10.000; si cambia registra un movimiento `ajuste` con stock anterior, stock nuevo y cantidad = diferencia absoluta) o `sumar` (cantidad entera de 1 a 10.000; registra un `ingreso`). Fijar el mismo stock en un producto activo se acepta sin efectos ni movimiento.
+- **RN-ST-09**: Una línea puede traer un nombre nuevo opcional (hasta 120; vacío o igual = sin cambio); renombrar no registra movimientos.
+- **RN-ST-10**: Una línea sobre un producto dado de baja lo reactiva solo si su stock cambia efectivamente (`sumar`, o `fijar` en un valor distinto) y el stock resultante es > 0 (`reactivado: true`); si no (fijar en 0, mismo stock o solo renombrar) sigue dado de baja (`reactivado: false`). La reactivación no registra movimiento propio.
 
 ## Dominio: Órdenes (RN-OR)
 
@@ -47,7 +54,7 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 
 ## Dominio: Validaciones globales (RN-VA)
 
-- **RN-VA-01**: Las cantidades son enteros > 0.
+- **RN-VA-01**: Las cantidades son enteros > 0. Excepción: el stock inicial del alta y el stock fijado por un ajuste son enteros de 0 a 10.000 (RN-PR-08, RN-ST-08).
 - **RN-VA-02**: Los campos obligatorios no pueden estar vacíos (se recortan espacios antes de validar).
 - **RN-VA-03**: Las fechas usan formato `YYYY-MM-DD` y deben ser fechas reales (p. ej. `2026-02-30` es inválida).
 - **RN-VA-04**: Toda validación se aplica en frontend (UX) y en backend (autoridad); el backend nunca confía en el frontend.
@@ -64,5 +71,5 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 
 ## Dominio: Excepciones globales
 
-- Las operaciones compuestas (crear orden, borrar orden con reintegro, ingreso/egreso con movimiento) son todo-o-nada. En SQLite se resuelve con transacciones; en Supabase con funciones RPC de Postgres.
+- Las operaciones compuestas (crear orden, borrar orden con reintegro, ingreso/egreso con movimiento, alta de producto, modificación de stock en lote) son todo-o-nada. En SQLite se resuelve con transacciones; en Supabase con funciones RPC de Postgres.
 - Cualquier error de validación devuelve un mensaje claro y no deja estado parcial.

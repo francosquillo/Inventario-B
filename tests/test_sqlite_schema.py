@@ -102,9 +102,58 @@ class ConstraintsTest(unittest.TestCase):
     def test_tipo_de_movimiento_invalido(self):
         self.assertRechaza(
             "INSERT INTO movimientos (producto_id, tipo, cantidad, usuario_id)"
-            " VALUES (?, 'ajuste', 1, ?)",
+            " VALUES (?, 'otro', 1, ?)",
             (self.pid, self.uid),
         )
+
+    def insertar_mov(self, tipo, cantidad, anterior=None, nuevo=None):
+        return self.conn.execute(
+            "INSERT INTO movimientos (producto_id, tipo, cantidad, usuario_id,"
+            " stock_anterior, stock_nuevo) VALUES (?, ?, ?, ?, ?, ?)",
+            (self.pid, tipo, cantidad, self.uid, anterior, nuevo),
+        )
+
+    def test_ajuste_con_anterior_y_nuevo_se_acepta(self):
+        self.insertar_mov("ajuste", 3, 7, 4)
+        fila = self.conn.execute(
+            "SELECT tipo, cantidad, stock_anterior, stock_nuevo FROM movimientos"
+        ).fetchone()
+        self.assertEqual(tuple(fila), ("ajuste", 3, 7, 4))
+
+    def test_ajuste_hacia_arriba_y_hacia_cero_se_aceptan(self):
+        self.insertar_mov("ajuste", 5, 0, 5)
+        self.insertar_mov("ajuste", 5, 5, 0)
+
+    def test_ajuste_incoherente_se_rechaza(self):
+        casos = {
+            "sin anterior": (3, None, 4),
+            "sin nuevo": (3, 7, None),
+            "iguales": (1, 4, 4),
+            "anterior negativo": (4, -1, 3),
+            "nuevo negativo": (4, 3, -1),
+            "cantidad distinta de la diferencia": (2, 7, 4),
+        }
+        for nombre, (cantidad, anterior, nuevo) in casos.items():
+            with self.subTest(nombre):
+                self.assertRechaza(
+                    "INSERT INTO movimientos (producto_id, tipo, cantidad, usuario_id,"
+                    " stock_anterior, stock_nuevo) VALUES (?, 'ajuste', ?, ?, ?, ?)",
+                    (self.pid, cantidad, self.uid, anterior, nuevo),
+                )
+
+    def test_ingreso_y_egreso_no_admiten_anterior_ni_nuevo(self):
+        for tipo in ("ingreso", "egreso"):
+            for anterior, nuevo in ((1, None), (None, 2), (1, 2)):
+                with self.subTest(tipo=tipo, anterior=anterior, nuevo=nuevo):
+                    self.assertRechaza(
+                        "INSERT INTO movimientos (producto_id, tipo, cantidad, usuario_id,"
+                        " stock_anterior, stock_nuevo) VALUES (?, ?, 1, ?, ?, ?)",
+                        (self.pid, tipo, self.uid, anterior, nuevo),
+                    )
+
+    def test_ingreso_y_egreso_sin_anterior_ni_nuevo_se_aceptan(self):
+        self.insertar_mov("ingreso", 2)
+        self.insertar_mov("egreso", 1)
 
     def test_movimiento_con_producto_inexistente(self):
         self.assertRechaza(

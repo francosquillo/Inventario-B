@@ -176,10 +176,18 @@ class InventarioPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):
         self.js = leer(STATIC / "js" / "inventario.js")
 
     def test_cabecera_y_acciones(self):
-        for texto in ("Cerrar sesión", "Usuario:", "Ingreso de stock", "Egreso de stock",
+        for texto in ("Cerrar sesión", "Usuario:", "Nuevo ingreso", "Modificar stock",
                       "Nueva orden", "Ver órdenes", 'href="/ordenes"'):
             with self.subTest(texto=texto):
                 self.assertIn(texto, self.html)
+        for ident in ("btn-nuevo", "btn-modificar"):
+            self.assertIn('id="%s"' % ident, self.html)
+
+    def test_sin_los_modales_viejos_de_ingreso_y_egreso(self):
+        for viejo in ("Ingreso de stock", "Egreso de stock", "modal-ingreso", "modal-egreso",
+                      "btn-ingreso", "btn-egreso"):
+            with self.subTest(viejo=viejo):
+                self.assertNotIn(viejo, self.html)
 
     def test_estados_de_la_lista(self):
         for ident in ("inv-cargando", "inv-error", "inv-reintentar", "inv-vacio", "inv-conteo",
@@ -189,34 +197,90 @@ class InventarioPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):
         self.assertIn("Todavía no hay productos", self.html)
         self.assertIn("Cargando inventario…", self.html)
 
+    def test_cartel_vacio_indica_crear_con_nuevo_ingreso(self):
+        self.assertIn("Creá el primero con Nuevo ingreso.", self.html)
+        self.assertNotIn("Registrá un ingreso", self.html)
+
     def test_cuatro_modales_accesibles(self):
-        self.comprobar_modales(self.html, ("modal-ingreso", "modal-egreso", "modal-orden", "modal-baja"))
+        self.comprobar_modales(self.html, ("modal-nuevo", "modal-modificar", "modal-orden", "modal-baja"))
+
+    def test_modal_nuevo_ingreso_pide_codigo_nombre_y_stock(self):
+        for ident, etiqueta in (("nu-codigo", "Código"), ("nu-nombre", "Nombre"), ("nu-stock", "Stock")):
+            with self.subTest(ident=ident):
+                self.assertRegex(self.html, r'<label[^>]*for="%s"[^>]*>%s</label>' % (ident, etiqueta))
+                self.assertIn('id="%s"' % ident, self.html)
+        stock = re.search(r'<input[^>]*id="nu-stock"[^>]*>', self.html).group(0)
+        self.assertIn('inputmode="numeric"', stock)
+        self.assertRegex(self.html, r'id="nu-enviar"[^>]*>Crear producto<')
+        self.assertIn("Este código está dado de baja: se va a reactivar con el nombre y el stock que indiques.", self.html)
+
+    def test_modal_modificar_stock_y_plantilla_de_linea(self):
+        self.assertRegex(self.html, r'id="mod-enviar"[^>]*>Guardar cambios<')
+        self.assertIn("Agregar producto", self.html)
+        plantilla = re.search(r'<template id="tpl-mline">(.*?)</template>', self.html, re.S)
+        self.assertIsNotNone(plantilla, "falta la plantilla de linea")
+        cuerpo = plantilla.group(1)
+        self.assertRegex(cuerpo, r'<fieldset[^>]*class="seg"')
+        self.assertEqual(len(re.findall(r'type="radio"', cuerpo)), 2)
+        self.assertIn("Fijar en", cuerpo)
+        self.assertIn("Sumar", cuerpo)
+        self.assertIn("Quitar", cuerpo)
+        self.assertIn("Nuevo nombre (opcional)", cuerpo)
 
     def test_campos_con_etiqueta(self):
         self.comprobar_etiquetas(self.html)
 
-    def test_aviso_de_codigo_nuevo_no_bloqueante(self):
-        self.assertIn("Código nuevo o dado de baja: si es nuevo, indicá un nombre.", self.html)
-        self.assertNotRegex(self.html, r'id="ing-nombre"[^>]*\b(?:required|disabled|readonly)\b')
-
-    def test_cantidades_con_inputmode_numerico(self):
-        for ident in ("ing-cantidad", "egr-cantidad"):
-            campo = re.search(r'<input[^>]*id="%s"[^>]*>' % ident, self.html).group(0)
-            with self.subTest(ident=ident):
-                self.assertIn('inputmode="numeric"', campo)
+    def test_el_aviso_de_codigo_dado_de_baja_no_bloquea_el_envio(self):
+        self.assertNotRegex(self.html, r'id="nu-(?:codigo|nombre|stock)"[^>]*\b(?:required|disabled|readonly)\b')
+        self.assertRegex(self.html, r'id="nu-aviso"[^>]*aria-live="polite"[^>]*hidden|id="nu-aviso"[^>]*hidden[^>]*aria-live="polite"')
 
     def test_js_usa_los_endpoints_y_codifica_codigos(self):
-        for fragmento in ("/api/inventario", "/api/stock/ingreso", "/api/stock/egreso",
-                          "/api/ordenes", "/api/productos/", "encodeURIComponent"):
+        for fragmento in ("/api/inventario", "/api/productos", "/api/productos/inactivos",
+                          "/api/stock/modificaciones", "/api/ordenes", "encodeURIComponent"):
             with self.subTest(fragmento=fragmento):
                 self.assertIn(fragmento, self.js)
         self.assertNotRegex(self.js, r"/api/productos/\$\{(?!encodeURIComponent)")
 
+    def test_ningun_js_llama_a_los_endpoints_de_ingreso_y_egreso(self):
+        for js in sorted((STATIC / "js").glob("*.js")):
+            codigo = leer(js)
+            for ruta in ("/api/stock/ingreso", "/api/stock/egreso"):
+                with self.subTest(archivo=js.name, ruta=ruta):
+                    self.assertNotIn(ruta, codigo)
+        for html in PAGINAS:
+            self.assertNotIn("/api/stock/ingreso", leer(STATIC / html))
+
+    def test_js_ya_no_tiene_las_funciones_de_ingreso_y_egreso(self):
+        for viejo in ("abrirIngreso", "enviarIngreso", "abrirEgreso", "enviarEgreso", "hintCodigoNuevo"):
+            with self.subTest(viejo=viejo):
+                self.assertNotIn(viejo, self.js)
+
     def test_js_valida_con_el_modulo_puro(self):
-        for fragmento in ("Validacion.cantidad", "Validacion.requerido", "Validacion.componentes",
-                          "Validacion.fecha", "Validacion.hoy"):
+        for fragmento in ("Validacion.stock", "Validacion.requerido", "Validacion.componentes",
+                          "Validacion.lineasModificacion", "Validacion.fecha", "Validacion.hoy"):
             with self.subTest(fragmento=fragmento):
                 self.assertIn(fragmento, self.js)
+
+    def test_resumen_y_avisos_dependen_de_reactivado_de_la_respuesta(self):
+        for fragmento in ("reactivado", "se va a reactivar al guardar",
+                          "sigue dado de baja (sin cambio de stock)", "sigue dado de baja (stock 0)",
+                          "Stock modificado", "Este producto ya no existe: elegí otro o quitá la línea.",
+                          "Guardando…", "optgroup", "codigos"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, self.js)
+        # La marca "reactivado" del resumen sale solo de la respuesta de la API.
+        self.assertRegex(self.js, r"l\.reactivado")
+        # Los errores de modificacion llegan por linea ("Linea N:").
+        self.assertRegex(self.js, r"\^L\S*nea \(\\d\+\)")
+
+
+class ValidacionStaticaTest(unittest.TestCase):
+    def test_validacion_js_expone_stock_y_lineas_de_modificacion(self):
+        js = leer(STATIC / "js" / "validacion.js")
+        for fragmento in ("stock:", "lineasModificacion:", "El stock debe ser un entero entre 0 y 10.000.",
+                          "Elegí un producto.", "ya está en la línea"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, js)
 
 
 class OrdenesPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):

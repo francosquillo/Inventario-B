@@ -35,7 +35,7 @@ usuarios 1 ────< ordenes 1 ────< orden_items >──── 1 pro
 | id | PK | |
 | codigo | TEXT, UNIQUE, NOT NULL | código interno |
 | nombre | TEXT, NOT NULL | |
-| stock | INTEGER, NOT NULL, CHECK (stock >= 0) | nunca negativo |
+| stock | INTEGER, NOT NULL, CHECK (stock >= 0) | nunca negativo; el alta explícita admite stock inicial 0 (RN-PR-08) |
 | activo | BOOLEAN, NOT NULL, default true | borrado lógico (SQLite: INTEGER 0/1) |
 
 Índice: UNIQUE(codigo). Índice parcial opcional sobre `activo`.
@@ -66,9 +66,15 @@ PK compuesta (orden_id, producto_id): un producto aparece una sola vez por orden
 | id | PK | |
 | fecha | TIMESTAMP, NOT NULL | momento del movimiento |
 | producto_id | FK → productos.id, NOT NULL | |
-| tipo | TEXT, NOT NULL, CHECK IN ('ingreso','egreso') | |
-| cantidad | INTEGER, NOT NULL, CHECK (cantidad > 0) | |
+| tipo | TEXT, NOT NULL, CHECK IN ('ingreso','egreso','ajuste') | `ajuste` lo genera "Fijar en" (RN-ST-08) y la reactivación por alta (RN-PR-10) |
+| cantidad | INTEGER, NOT NULL, CHECK (cantidad > 0) | en un `ajuste` es la diferencia absoluta entre stock anterior y nuevo |
+| stock_anterior | INTEGER, NULL | solo en `ajuste`; NULL en `ingreso`/`egreso` |
+| stock_nuevo | INTEGER, NULL | solo en `ajuste`; NULL en `ingreso`/`egreso` |
 | usuario_id | FK → usuarios.id, NOT NULL | |
+
+CHECK de coherencia: `((tipo = 'ajuste') = (stock_anterior IS NOT NULL)) AND ((tipo = 'ajuste') = (stock_nuevo IS NOT NULL))` (ambos campos presentes si y solo si el tipo es `ajuste`).
+
+**Migración (C-06b, SQLite)**: al arrancar, si `movimientos` no admite `ajuste`, la inicialización reconstruye la tabla en una sola transacción (copia las filas conservando id, fecha, producto, tipo, cantidad y usuario; stock anterior/nuevo quedan NULL). Es idempotente y, si falla, la base queda como estaba. En Supabase (C-07) el `schema.sql` debe replicar el CHECK de `tipo` y el de coherencia.
 
 Índice: `producto_id`, `fecha`. No incluye motivo (RN-ST-05). Los descuentos por órdenes NO se registran aquí: viven en `orden_items` (RN-ST-06).
 

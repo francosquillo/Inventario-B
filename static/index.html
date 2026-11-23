@@ -38,15 +38,15 @@
     <div id="aviso-exito" role="status" hidden class="flex items-center gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm"></div>
 
     <div class="flex flex-wrap gap-2">
-      <button id="btn-ingreso" class="btn btn-primary" type="button">Ingreso de stock</button>
-      <button id="btn-egreso" class="btn btn-primary" type="button">Egreso de stock</button>
+      <button id="btn-nuevo" class="btn btn-primary" type="button">Nuevo ingreso</button>
+      <button id="btn-modificar" class="btn btn-primary" type="button">Modificar stock</button>
       <button id="btn-orden" class="btn btn-primary" type="button">Nueva orden</button>
       <a class="btn btn-secondary" href="/ordenes">Ver órdenes</a>
     </div>
 
     <div id="inv-vacio" hidden class="bg-surface border border-dashed border-line rounded-lg p-8 text-center">
       <h2 class="font-semibold">Todavía no hay productos</h2>
-      <p class="text-sm text-muted mt-1">Registrá un ingreso con un código nuevo para dar de alta el primero.</p>
+      <p class="text-sm text-muted mt-1">Creá el primero con Nuevo ingreso.</p>
     </div>
 
     <section id="inv-panel" class="bg-surface border border-line rounded-lg" aria-labelledby="t-inv">
@@ -73,52 +73,83 @@
     </section>
   </main>
 
-  <datalist id="dl-codigos"></datalist>
-
-  <!-- ===================== Modal Ingreso ===================== -->
-  <div class="overlay" id="modal-ingreso" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ing-titulo">
-      <div class="modal-head"><h2 id="ing-titulo">Ingreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
-      <form id="form-ingreso" class="modal-body space-y-4" novalidate>
-        <div id="ing-alerta" hidden></div>
+  <!-- ===================== Modal Nuevo ingreso ===================== -->
+  <div class="overlay" id="modal-nuevo" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="nu-titulo">
+      <div class="modal-head"><h2 id="nu-titulo">Nuevo ingreso</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+      <form id="form-nuevo" class="modal-body space-y-4" novalidate>
+        <p class="text-sm text-muted">Alta de un producto. Para cambiar el stock de uno existente usá <strong class="text-ink">Modificar stock</strong>.</p>
+        <div id="nu-alerta" hidden></div>
         <div>
-          <label class="label" for="ing-codigo">Código</label>
-          <input class="field num" id="ing-codigo" list="dl-codigos" maxlength="50" autocomplete="off">
-          <p class="hint" id="ing-aviso" aria-live="polite" hidden>Código nuevo o dado de baja: si es nuevo, indicá un nombre.</p>
+          <label class="label" for="nu-codigo">Código</label>
+          <input class="field num" id="nu-codigo" maxlength="50" autocomplete="off" aria-describedby="nu-codigo-h" data-desc-base="nu-codigo-h">
+          <p class="hint" id="nu-aviso" aria-live="polite" hidden>Este código está dado de baja: se va a reactivar con el nombre y el stock que indiques.</p>
+          <p class="help" id="nu-codigo-h">Se guarda en mayúsculas.</p>
         </div>
         <div>
-          <label class="label" for="ing-nombre">Nombre</label>
-          <input class="field" id="ing-nombre" maxlength="120" autocomplete="off" aria-describedby="ing-nombre-h" data-desc-base="ing-nombre-h">
-          <p class="help" id="ing-nombre-h">Solo si el código es nuevo.</p>
+          <label class="label" for="nu-nombre">Nombre</label>
+          <input class="field" id="nu-nombre" maxlength="120" autocomplete="off">
         </div>
         <div>
-          <label class="label" for="ing-cantidad">Cantidad</label>
-          <input class="field num" id="ing-cantidad" inputmode="numeric" autocomplete="off">
+          <label class="label" for="nu-stock">Stock</label>
+          <input class="field num" id="nu-stock" inputmode="numeric" autocomplete="off" aria-describedby="nu-stock-h" data-desc-base="nu-stock-h">
+          <p class="help" id="nu-stock-h">Entero de 0 a 10.000. Puede ser 0 si todavía no hay unidades.</p>
         </div>
-        <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="ing-enviar" class="btn btn-primary" type="submit">Registrar ingreso</button></div>
+        <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="nu-enviar" class="btn btn-primary" type="submit">Crear producto</button></div>
       </form>
     </div>
   </div>
 
-  <!-- ===================== Modal Egreso ===================== -->
-  <div class="overlay" id="modal-egreso" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="egr-titulo">
-      <div class="modal-head"><h2 id="egr-titulo">Egreso de stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
-      <form id="form-egreso" class="modal-body space-y-4" novalidate>
-        <div id="egr-alerta" hidden></div>
-        <div>
-          <label class="label" for="egr-producto">Producto</label>
-          <select class="field" data-opts id="egr-producto" aria-describedby="egr-ayuda" data-desc-base="egr-ayuda"></select>
-          <p class="help" id="egr-ayuda"></p>
+  <!-- ===================== Modal Modificar stock ===================== -->
+  <div class="overlay" id="modal-modificar" hidden>
+    <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="mod-titulo">
+      <div class="modal-head"><h2 id="mod-titulo">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+      <form id="form-modificar" class="modal-form" novalidate>
+        <div class="modal-body space-y-3">
+          <div id="mod-alerta" hidden></div>
+          <p id="mod-nota" class="help" role="status" hidden></p>
+          <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+          <fieldset>
+            <legend class="sr-only">Productos a modificar</legend>
+            <p id="mod-general-e" class="err" role="alert" hidden></p>
+            <ol id="mod-lineas" class="space-y-2"></ol>
+            <div class="flex flex-wrap items-center justify-between gap-2 mt-3">
+              <button id="mod-agregar" class="btn btn-secondary" type="button" aria-describedby="mod-max">Agregar producto</button>
+              <span id="mod-contador" class="text-xs text-muted" aria-live="polite"></span>
+            </div>
+            <p class="help" id="mod-max" hidden>Una modificación admite hasta 100 productos.</p>
+          </fieldset>
         </div>
-        <div>
-          <label class="label" for="egr-cantidad">Cantidad</label>
-          <input class="field num" id="egr-cantidad" inputmode="numeric" autocomplete="off">
-        </div>
-        <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="egr-enviar" class="btn btn-primary" type="submit">Registrar egreso</button></div>
+        <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="mod-enviar" class="btn btn-primary" type="submit">Guardar cambios</button></div>
       </form>
     </div>
   </div>
+
+  <!-- Plantilla de una línea de "Modificar stock" (se clona con cloneNode; los textos de cada línea los pone el JS) -->
+  <template id="tpl-mline">
+    <li class="mline" data-row>
+      <div class="mline-head">
+        <span class="line-n" aria-hidden="true">0</span>
+        <select class="field" data-opts data-producto aria-label="Producto de la línea"></select>
+        <button class="btn btn-secondary" type="button" data-quitar>Quitar</button>
+      </div>
+      <div class="mline-body">
+        <p class="hint" data-aviso aria-live="polite" hidden></p>
+        <div class="mline-val">
+          <fieldset class="seg" data-modo aria-label="Modo de la línea">
+            <label><input type="radio" value="fijar" checked aria-label="Fijar en"><span>Fijar en</span></label>
+            <label><input type="radio" value="sumar" aria-label="Sumar"><span>Sumar</span></label>
+          </fieldset>
+          <input class="field num" data-valor inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea">
+          <span class="delta" data-delta aria-live="polite"></span>
+        </div>
+        <div>
+          <label class="mlabel" data-nombre-etiqueta>Nuevo nombre (opcional)</label>
+          <input class="field" data-nombre maxlength="120" autocomplete="off" aria-label="Nuevo nombre (opcional) de la línea">
+        </div>
+      </div>
+    </li>
+  </template>
 
   <!-- ===================== Modal Nueva orden ===================== -->
   <div class="overlay" id="modal-orden" hidden>

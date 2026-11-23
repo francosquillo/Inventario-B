@@ -1,6 +1,6 @@
 """Modelos Pydantic estrictos (D10). Pydantic solo vive en inventario/api/."""
 from datetime import date, datetime
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -47,6 +47,77 @@ class EgresoRequest(BaseModel):
     cantidad: Cantidad
 
 
+Stock = Annotated[int, Field(strict=True, ge=0, le=10_000)]
+
+
+class AltaProductoRequest(BaseModel):
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    codigo: str = Field(min_length=1, max_length=50)
+    nombre: str = Field(min_length=1, max_length=120)
+    stock: Stock
+
+
+class _LineaBase(BaseModel):
+    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+
+    codigo: str = Field(min_length=1, max_length=50)
+    nombre: Optional[str] = Field(default=None, max_length=120)
+
+
+class LineaFijar(_LineaBase):
+    modo: Literal["fijar"]
+    stock: Stock
+
+
+class LineaSumar(_LineaBase):
+    modo: Literal["sumar"]
+    cantidad: Cantidad
+
+
+LineaModificacionIn = Annotated[Union[LineaFijar, LineaSumar], Field(discriminator="modo")]
+
+
+class ModificacionRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    lineas: List[LineaModificacionIn] = Field(min_length=1, max_length=100)
+
+
+class LineaModificadaOut(ProductoOut):
+    modo: str
+    stock_anterior: int
+    nombre_anterior: str
+    reactivado: bool
+
+
+class ModificacionOut(BaseModel):
+    lineas: List[LineaModificadaOut]
+
+
+def modificacion_out(resultados):
+    return ModificacionOut(
+        lineas=[
+            LineaModificadaOut(
+                codigo=r.codigo,
+                nombre=r.nombre,
+                stock=r.stock,
+                sin_stock=r.sin_stock,
+                modo=r.modo,
+                stock_anterior=r.stock_anterior,
+                nombre_anterior=r.nombre_anterior,
+                reactivado=r.reactivado,
+            )
+            for r in resultados
+        ]
+    )
+
+
+class ProductosInexistentesOut(BaseModel):
+    detail: str
+    codigos: List[str]
+
+
 class IngresoOut(ProductoOut):
     creado: bool
     reactivado: bool
@@ -76,6 +147,8 @@ class MovimientoOut(BaseModel):
     tipo: str
     cantidad: int
     usuario: str
+    stock_anterior: Optional[int] = None
+    stock_nuevo: Optional[int] = None
 
 
 def movimiento_out(movimiento):
@@ -86,6 +159,8 @@ def movimiento_out(movimiento):
         tipo=movimiento.tipo,
         cantidad=movimiento.cantidad,
         usuario=movimiento.usuario,
+        stock_anterior=movimiento.stock_anterior,
+        stock_nuevo=movimiento.stock_nuevo,
     )
 
 
