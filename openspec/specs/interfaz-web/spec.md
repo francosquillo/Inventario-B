@@ -47,7 +47,7 @@ Ante un 401 de cualquier llamada a la API distinta del login, la interfaz SHALL 
 - **THEN** no se muestra el aviso de sesión expirada
 
 ### Requirement: Cabecera y cierre de sesión
-Las páginas protegidas SHALL mostrar una cabecera con el título de texto "Inventario" (sin logo), el usuario de `GET /api/me` y el botón "Cerrar sesión", que SHALL llamar a `POST /api/logout` y navegar a `/`.
+Las páginas protegidas SHALL mostrar una cabecera con el título de texto "Inventario" (sin logo), la navegación por secciones con las pestañas "Inventario" (`/inventario`), "Órdenes" (`/ordenes`) y "Reportes" (`/reportes`), marcando la pestaña de la página actual con `aria-current="page"`, el usuario de `GET /api/me` y el botón "Cerrar sesión", que SHALL llamar a `POST /api/logout` y navegar a `/`.
 
 #### Scenario: Cerrar sesión
 - **GIVEN** el usuario está en `/inventario`
@@ -58,8 +58,18 @@ Las páginas protegidas SHALL mostrar una cabecera con el título de texto "Inve
 - **WHEN** el `admin` abre `/inventario` en escritorio
 - **THEN** la cabecera muestra "Usuario: admin"
 
+#### Scenario: Pestaña Reportes
+- **GIVEN** el usuario está en `/inventario` o en `/ordenes`
+- **WHEN** pulsa la pestaña "Reportes"
+- **THEN** el navegador queda en `/reportes` y esa pestaña está marcada como la actual
+
+#### Scenario: Navegación en móvil
+- **GIVEN** un ancho de 390 px
+- **WHEN** se abre cualquier página protegida
+- **THEN** las tres pestañas se ven completas, sin scroll horizontal de la página
+
 ### Requirement: Tabla de inventario
-`/inventario` SHALL mostrar primero la barra de acciones ("Nuevo ingreso", "Modificar stock", "Nueva orden", "Ver órdenes") y la tabla de productos activos de `GET /api/inventario` (código, nombre, stock, acción "Eliminar") en el orden de la API, con la cantidad de productos y el stock 0 resaltado. La web SHALL NOT ofrecer los antiguos "Ingreso de stock" ni "Egreso de stock".
+`/inventario` SHALL mostrar primero la barra de acciones ("Nuevo ingreso", "Modificar stock", "Nueva orden", "Ver órdenes") y la tabla de productos activos de `GET /api/inventario` (código, nombre, stock, acción "Eliminar") en el orden de la API, con la cantidad de productos y el stock 0 resaltado. Sobre la tabla SHALL mostrar el campo "Buscar" y el botón "Exportar PDF". La web SHALL NOT ofrecer los antiguos "Ingreso de stock" ni "Egreso de stock".
 
 #### Scenario: Producto sin stock
 - **GIVEN** los productos activos `A-01` (stock 5) y `B-10` (stock 0)
@@ -74,6 +84,11 @@ Las páginas protegidas SHALL mostrar una cabecera con el título de texto "Inve
 - **WHEN** se abre `/inventario`
 - **THEN** la barra muestra "Nuevo ingreso" y "Modificar stock" y no muestra "Ingreso de stock" ni "Egreso de stock"
 - **AND** ningún script de la web llama a `/api/stock/ingreso` ni a `/api/stock/egreso`
+
+#### Scenario: Buscador y exportación visibles
+- **GIVEN** al menos un producto activo
+- **WHEN** se abre `/inventario`
+- **THEN** sobre la tabla se ven el campo "Buscar" (vacío, con etiqueta accesible) y el botón "Exportar PDF" habilitado
 
 ### Requirement: Inventario vacío
 Si `GET /api/inventario` devuelve una lista vacía, `/inventario` SHALL mostrar el cartel "Todavía no hay productos" con la indicación de crear el primero con "Nuevo ingreso", en lugar de una tabla vacía.
@@ -131,7 +146,7 @@ La acción "Eliminar" de una fila SHALL abrir un modal de confirmación con el c
 - **THEN** no se envía ninguna petición y `A-01` sigue en la tabla
 
 ### Requirement: Pantalla de órdenes
-`/ordenes` SHALL mostrar un enlace "← Inventario", filtros opcionales Desde, Hasta y Número, y la lista de `GET /api/ordenes` en el orden de la API con número, fecha y componentes (código, nombre y cantidad, incluidos productos dados de baja). Los filtros vacíos SHALL NOT enviarse.
+`/ordenes` SHALL mostrar un enlace "← Inventario", filtros opcionales Desde, Hasta y Número y la lista de `GET /api/ordenes` en el orden de la API con número, fecha y componentes (código, nombre y cantidad, incluidos productos dados de baja); cada orden SHALL tener sus acciones "Exportar PDF" y "Eliminar". Los filtros vacíos SHALL NOT enviarse.
 
 #### Scenario: Todas las órdenes
 - **GIVEN** las órdenes `OT-0042` (2026-11-18) y `OT-0041` (2026-11-15)
@@ -145,6 +160,12 @@ La acción "Eliminar" de una fila SHALL abrir un modal de confirmación con el c
 #### Scenario: Limpiar filtros
 - **WHEN** el usuario pulsa "Ver todas"
 - **THEN** los filtros se vacían y se listan todas las órdenes
+
+#### Scenario: Exportación por orden
+- **GIVEN** las órdenes `OT-0042` y `OT-0041` listadas
+- **WHEN** se abre `/ordenes`
+- **THEN** cada orden muestra su propio botón "Exportar PDF" junto a "Eliminar", con nombre accesible "Exportar PDF de la orden OT-0042" (y de `OT-0041`)
+- **AND** no hay un botón que exporte la lista completa
 
 ### Requirement: Estados de la lista de órdenes
 Si la API devuelve `[]`, `/ordenes` SHALL mostrar en lugar de la tabla el cartel "No hay órdenes en ese período" cuando hay algún filtro aplicado, o "No hay órdenes" cuando no hay filtros (decisión del usuario, 2026-11-20); si devuelve 404 por número, SHALL mostrar su `detail`; si devuelve 422, SHALL mostrar su `detail` junto a los filtros.
@@ -381,3 +402,256 @@ Ante un 422 "Línea N: …" el modal SHALL marcar la línea N; ante un 404 SHALL
 #### Scenario: Enviando
 - **WHEN** el usuario pulsa "Guardar cambios"
 - **THEN** el botón muestra "Guardando…" deshabilitado hasta la respuesta y se envía una sola petición
+
+### Requirement: Buscador del inventario
+El campo "Buscar" de `/inventario` SHALL filtrar, mientras se escribe y sin llamar a la API, las filas de productos activos cuyo código o nombre contiene el texto escrito, sin distinguir mayúsculas ni tildes e ignorando los espacios al principio y al final. Con texto vacío SHALL mostrar todos los productos. Las filas visibles SHALL conservar el orden de la API.
+
+#### Scenario: Por nombre parcial
+- **GIVEN** los productos `A-01` "Tornillo M8", `B-10` "Tuerca M8" y `C-03` "Arandela"
+- **WHEN** el usuario escribe `tor`
+- **THEN** la tabla muestra solo `A-01`
+- **AND** no se envía ninguna petición a la API
+
+#### Scenario: Por código parcial y en minúsculas
+- **GIVEN** los productos `A-01`, `A-02` y `B-10`
+- **WHEN** el usuario escribe `a-0`
+- **THEN** la tabla muestra `A-01` y luego `A-02`
+
+#### Scenario: Texto que aparece en código y nombre
+- **GIVEN** los productos `M8-1` "Arandela" y `A-01` "Tornillo M8"
+- **WHEN** el usuario escribe `m8`
+- **THEN** la tabla muestra ambos productos en el orden de la API
+
+#### Scenario: Sin tildes
+- **GIVEN** el producto `C-99` "Junta tórica"
+- **WHEN** el usuario escribe `TORICA`
+- **THEN** la tabla muestra `C-99`
+
+#### Scenario: Solo espacios
+- **WHEN** el usuario escribe `"   "`
+- **THEN** la tabla muestra todos los productos y el conteo dice "N productos"
+
+### Requirement: Conteo durante la búsqueda
+Mientras haya texto de búsqueda y se vean menos productos que los activos (V < T), el conteo del inventario SHALL decir "V de T productos" (V visibles, T activos); sin búsqueda, o cuando la búsqueda deja visibles todos los productos (V = T), SHALL decir "T productos" como hasta ahora (cambio pedido por el usuario, 2026-11-24).
+
+#### Scenario: Conteo filtrado
+- **GIVEN** 12 productos activos, 2 de los cuales contienen `tor`
+- **WHEN** el usuario escribe `tor`
+- **THEN** el conteo dice "2 de 12 productos"
+
+#### Scenario: La búsqueda coincide con todos los productos
+- **GIVEN** 12 productos activos y todos contienen `m`
+- **WHEN** el usuario escribe `m`
+- **THEN** el conteo dice "12 productos" (no "12 de 12 productos")
+
+#### Scenario: Conteo al borrar la búsqueda
+- **WHEN** el usuario vacía el campo "Buscar"
+- **THEN** el conteo vuelve a "12 productos"
+
+### Requirement: Búsqueda sin coincidencias
+Si la búsqueda no coincide con ningún producto, `/inventario` SHALL mostrar en lugar de las filas el cartel "Ningún producto coincide con «<texto>»" con el botón "Limpiar búsqueda", que vacía el campo, muestra todos los productos y devuelve el foco al campo. Pulsar Escape dentro del campo SHALL tener el mismo efecto.
+
+#### Scenario: Sin coincidencias
+- **WHEN** el usuario escribe `xyz` y ningún producto lo contiene
+- **THEN** se ve "Ningún producto coincide con «xyz»" y el botón "Limpiar búsqueda"
+- **AND** el conteo dice "0 de 12 productos"
+
+#### Scenario: Limpiar búsqueda
+- **WHEN** el usuario pulsa "Limpiar búsqueda"
+- **THEN** el campo queda vacío, se ven todos los productos y el foco está en el campo "Buscar"
+
+#### Scenario: Escape en el campo
+- **GIVEN** el campo "Buscar" con `tor`
+- **WHEN** el usuario pulsa Escape dentro del campo
+- **THEN** el campo queda vacío y se ven todos los productos
+
+#### Scenario: Texto mostrado literal
+- **WHEN** el usuario busca `<b>x</b>` sin coincidencias
+- **THEN** el cartel muestra ese texto literal, sin interpretarlo como HTML
+
+### Requirement: Búsqueda conservada al actualizar el inventario
+Cuando el inventario se recarga tras un nuevo ingreso, una modificación de stock, una orden o una baja, la búsqueda escrita SHALL conservarse y aplicarse a la lista nueva. La búsqueda SHALL NOT conservarse al volver a abrir la página.
+
+#### Scenario: Recarga tras modificar stock
+- **GIVEN** la búsqueda `tor` aplicada
+- **WHEN** el usuario guarda una modificación de stock
+- **THEN** el campo sigue con `tor` y la tabla muestra solo las coincidencias con el stock actualizado
+
+#### Scenario: Producto nuevo que no coincide
+- **GIVEN** la búsqueda `tor` aplicada
+- **WHEN** el usuario crea el producto `N-01` "Arandela"
+- **THEN** la alerta de éxito se muestra y `N-01` no aparece en la tabla hasta limpiar la búsqueda
+
+### Requirement: Exportar el inventario a PDF
+"Exportar PDF" en `/inventario` SHALL exportar, según `exportacion-pdf`, exactamente las filas visibles (todas o el resultado de la búsqueda) en el orden de la tabla, con columnas Código, Nombre y Stock, el título "Inventario", la cantidad de filas exportadas y la fecha de exportación; el criterio de búsqueda y el usuario no se imprimen (revisión pedida por el usuario, 2026-11-24).
+
+#### Scenario: Exportar el resultado de una búsqueda
+- **GIVEN** la búsqueda `tor` que muestra `A-01` y `D-07`
+- **WHEN** el usuario pulsa "Exportar PDF"
+- **THEN** el documento lista solo `A-01` y `D-07`, con "2 productos" y sin mostrar «tor»
+
+#### Scenario: Exportar todo el inventario
+- **GIVEN** 12 productos y el campo "Buscar" vacío
+- **WHEN** el usuario pulsa "Exportar PDF"
+- **THEN** el documento lista los 12 productos con "12 productos"
+
+### Requirement: Exportar una orden a PDF
+El botón "Exportar PDF" de una orden en `/ordenes` SHALL exportar, según `exportacion-pdf`, solo esa orden (decisión del usuario, 2026-11-24): encabezado "Orden <número>" y "Fecha: AAAA-MM-DD · N componentes" (sin usuario creador; revisión del usuario, 2026-11-24), y la tabla de sus componentes por código, incluidos productos dados de baja. Las demás órdenes SHALL NOT aparecer.
+
+#### Scenario: Exportar una orden
+- **GIVEN** la lista con `OT-0042` (2026-11-18, creada por `admin`, componentes `A-01` x 2 y `B-02` x 1) y `OT-0041`
+- **WHEN** el usuario pulsa "Exportar PDF" en `OT-0042`
+- **THEN** el documento muestra "Orden OT-0042", "Fecha: 2026-11-18 · 2 componentes", `A-01` x 2 y `B-02` x 1
+- **AND** no muestra "Creada por" ni `admin`
+- **AND** no muestra `OT-0041`
+
+#### Scenario: Componente dado de baja
+- **GIVEN** la orden `OT-0001` con el componente `C-99` cuyo producto quedó dado de baja
+- **WHEN** el usuario exporta `OT-0001`
+- **THEN** el documento incluye `C-99` con su nombre y cantidad
+
+#### Scenario: Lista intacta tras exportar
+- **GIVEN** la lista filtrada con Desde `2026-11-16`
+- **WHEN** el usuario exporta una orden y cierra el diálogo de impresión
+- **THEN** la pantalla sigue mostrando la misma lista filtrada, con todas sus órdenes visibles
+
+#### Scenario: Sin órdenes no hay exportación
+- **WHEN** la lista muestra "No hay órdenes" o "No hay órdenes en ese período"
+- **THEN** no se ve ningún botón "Exportar PDF"
+
+### Requirement: Pantalla de reportes
+`/reportes` SHALL mostrar el título "Reportes" y el reporte "Productos usados en órdenes" con los filtros "Desde (obligatorio)", "Hasta (opcional)" (ayuda "Vacío = hoy") y Producto (opcional), y el botón "Generar". El resultado SHALL ser una tabla con las columnas Código, Nombre, Cantidad y Órdenes, en el orden de la API, y una línea de resumen (decidido por el usuario al aprobar mockups, 2026-11-24).
+
+#### Scenario: Generar con un rango
+- **WHEN** el usuario completa Desde `2026-10-01`, Hasta `2026-10-31` y pulsa "Generar"
+- **THEN** la interfaz llama a `GET /api/reportes/productos-en-ordenes?desde=2026-10-01&hasta=2026-10-31`, sin `codigo`, y muestra una fila por producto con su cantidad total y sus órdenes
+
+#### Scenario: Generar sin Hasta
+- **GIVEN** la fecha local 2026-11-24
+- **WHEN** el usuario completa Desde `2026-11-01`, deja Hasta vacío y pulsa "Generar"
+- **THEN** la llamada no incluye `hasta` y el rango mostrado es "2026-11-01 a 2026-11-24"
+
+#### Scenario: Línea de resumen
+- **GIVEN** un reporte generado del 2026-11-01 al 2026-11-24 con 5 productos
+- **THEN** el resumen dice "2026-11-01 a 2026-11-24 · 5 productos" (con 1 producto, "1 producto"; con el filtro `A-01 · Tornillo`, "A-01 · Tornillo · 2026-11-01 a 2026-11-24 · 1 producto"; con Hasta vacío, el rango usa el `hasta` efectivo), igual que la línea del PDF (decidido por el usuario al aprobar mockups, 2026-11-24)
+
+#### Scenario: Cambiar filtros no altera el resultado mostrado
+- **GIVEN** un reporte generado del 2026-11-01 al 2026-11-24
+- **WHEN** el usuario cambia Desde sin pulsar "Generar"
+- **THEN** la tabla y el rango mostrado siguen siendo los del reporte generado
+
+### Requirement: Estado inicial del reporte
+Al abrir `/reportes`, Desde SHALL venir completado con el primer día del mes en curso y Hasta con la fecha de hoy (fecha local), pero el reporte SHALL NOT generarse hasta que el usuario pulse "Generar" (decisión del usuario, 2026-11-24). Hasta entonces SHALL verse, en lugar de la tabla, el cartel neutro "Elegí el período y pulsá «Generar» para ver el reporte." y "Exportar PDF" SHALL estar deshabilitado.
+
+#### Scenario: Apertura sin generar
+- **GIVEN** la fecha local 2026-11-24
+- **WHEN** el usuario abre `/reportes`
+- **THEN** Desde vale `2026-11-01` y Hasta vale `2026-11-24`
+- **AND** no se llama a `GET /api/reportes/productos-en-ordenes`, se ve el cartel "Elegí el período y pulsá «Generar» para ver el reporte." y "Exportar PDF" está deshabilitado
+
+#### Scenario: Primera generación
+- **GIVEN** la página recién abierta el 2026-11-24 con el mes en curso
+- **WHEN** el usuario pulsa "Generar"
+- **THEN** la interfaz llama a `GET /api/reportes/productos-en-ordenes?desde=2026-11-01&hasta=2026-11-24` y el cartel inicial deja de verse
+
+### Requirement: Selector de producto del reporte
+El filtro Producto SHALL ofrecer "Todos los productos" (sin filtro) y solo los productos de `GET /api/reportes/productos-usados`, es decir, usados en al menos una orden de cualquier fecha (decisión del usuario, 2026-11-24): los activos en un grupo "Activos" y los dados de baja en un grupo "Dados de baja", cada uno como "CÓDIGO · Nombre", ordenados por código; un grupo vacío SHALL NOT mostrarse. Elegir un producto SHALL enviar su código como `codigo`.
+
+#### Scenario: Filtrar por un producto activo
+- **WHEN** el usuario elige `A-01 · Tornillo` en "Activos" y pulsa "Generar"
+- **THEN** la llamada incluye `codigo=A-01` y la tabla muestra solo `A-01`
+
+#### Scenario: Filtrar por un producto dado de baja
+- **GIVEN** `C-99` "Viejo" está dado de baja y se usó x 2 en una orden del 2026-11-12
+- **WHEN** el usuario elige `C-99 · Viejo` en el grupo "Dados de baja" con el rango 2026-11-01 a 2026-11-24 y pulsa "Generar"
+- **THEN** la llamada incluye `codigo=C-99` y la tabla muestra solo `C-99` con cantidad 2, 1 orden y la marca "dado de baja"
+
+#### Scenario: Productos nunca usados no se ofrecen
+- **GIVEN** el producto activo `B-02` nunca se usó en una orden
+- **WHEN** el usuario abre el selector
+- **THEN** `B-02` no está entre las opciones
+
+#### Scenario: Lista de productos no disponible
+- **WHEN** falla `GET /api/reportes/productos-usados` al abrir la página
+- **THEN** el selector ofrece solo "Todos los productos" y el reporte se puede generar igual
+
+### Requirement: Productos dados de baja en el resultado
+Una fila de un producto dado de baja SHALL mostrar junto al nombre la marca de texto "dado de baja" (no solo un color).
+
+#### Scenario: Dado de baja en el reporte general
+- **GIVEN** `C-99` "Viejo" dado de baja se usó en una orden del rango
+- **WHEN** se genera el reporte sin filtro de producto
+- **THEN** la fila de `C-99` muestra "Viejo" con la marca "dado de baja"
+
+### Requirement: Estados del reporte
+Mientras la API no responde, `/reportes` SHALL mostrar "Generando reporte…" y deshabilitar "Generar" y "Exportar PDF". Si la API devuelve 422, SHALL mostrar su `detail` junto a los filtros; ante un error de red o del servidor, SHALL mostrar el error con "Reintentar", que repite la última consulta.
+
+#### Scenario: Generando
+- **GIVEN** la API todavía no respondió
+- **THEN** se ve "Generando reporte…" y "Generar" y "Exportar PDF" están deshabilitados
+
+#### Scenario: Error del servidor
+- **WHEN** la API responde 500 o no hay red
+- **THEN** se ve el mensaje de error con el botón "Reintentar", que repite la última consulta
+
+### Requirement: Reporte vacío en pantalla
+Si la API devuelve `[]`, `/reportes` SHALL mostrar en lugar de la tabla el cartel "No hay productos usados en órdenes entre AAAA-MM-DD y AAAA-MM-DD" o, si se filtró por un producto, "«CÓDIGO · Nombre» no se usó en órdenes entre AAAA-MM-DD y AAAA-MM-DD", con el `hasta` efectivo.
+
+#### Scenario: Período sin consumo
+- **WHEN** el reporte del 2026-10-01 al 2026-10-31 devuelve `[]`
+- **THEN** se ve "No hay productos usados en órdenes entre 2026-10-01 y 2026-10-31" y no se ve la tabla
+
+#### Scenario: Producto sin consumo
+- **GIVEN** la fecha local 2026-11-24
+- **WHEN** el reporte filtrado por `A-01 · Tornillo` desde el 2026-11-01 con Hasta vacío devuelve `[]`
+- **THEN** se ve "«A-01 · Tornillo» no se usó en órdenes entre 2026-11-01 y 2026-11-24"
+
+### Requirement: Validación de fechas del reporte en el navegador
+Antes de llamar a la API, `/reportes` SHALL validar que Desde esté completo y sea una fecha real `AAAA-MM-DD`, que Hasta, si está completo, también lo sea, y que Desde no sea posterior a Hasta (o a hoy si Hasta está vacío); si no, SHALL mostrar el error junto al campo afectado, marcarlo como inválido, llevar el foco a él y no llamar a la API.
+
+#### Scenario: Desde vacío
+- **WHEN** el usuario borra Desde y pulsa "Generar"
+- **THEN** se ve "La fecha es obligatoria." bajo Desde y no se llama a la API
+
+#### Scenario: Hasta vacío es válido
+- **WHEN** el usuario borra Hasta y pulsa "Generar"
+- **THEN** no hay error y se llama a la API sin `hasta`
+
+#### Scenario: Rango invertido
+- **WHEN** el usuario pone Desde `2026-11-30`, Hasta `2026-11-01` y pulsa "Generar"
+- **THEN** se ve el error de rango bajo Hasta y no se llama a la API
+
+#### Scenario: Desde posterior a hoy sin Hasta
+- **GIVEN** la fecha local 2026-11-24
+- **WHEN** el usuario pone Desde `2026-12-01`, deja Hasta vacío y pulsa "Generar"
+- **THEN** se ve un error de rango bajo Desde y no se llama a la API
+
+### Requirement: Exportar el reporte a PDF
+`/reportes` SHALL tener un botón "Exportar PDF" que exporta, según `exportacion-pdf`, solo la tabla del último reporte generado (columnas Código, Nombre, Cantidad y Órdenes, con "dado de baja" en texto), sin los filtros. El botón SHALL estar deshabilitado antes de la primera generación, mientras se genera, ante un error o con el reporte vacío.
+
+#### Scenario: Exportar sin filtros en el papel
+- **GIVEN** un reporte generado con 5 productos
+- **WHEN** el usuario pulsa "Exportar PDF"
+- **THEN** se abre el diálogo de impresión y el documento no muestra los filtros, la navegación ni los botones
+
+#### Scenario: Reporte vacío
+- **WHEN** el reporte generado no tiene filas
+- **THEN** "Exportar PDF" está deshabilitado
+
+### Requirement: Encabezado del PDF del reporte
+El documento exportado del reporte SHALL empezar con el título "Reporte de productos en órdenes" y una sola línea "AAAA-MM-DD a AAAA-MM-DD · N productos" con el `hasta` efectivo del reporte generado, precedida de "CÓDIGO · Nombre · " cuando se filtró por un producto; sin usuario ni hora.
+
+#### Scenario: Encabezado del reporte del mes
+- **GIVEN** un reporte generado del 2026-11-01 al 2026-11-24 con 5 productos
+- **WHEN** el usuario exporta
+- **THEN** el documento empieza con "Reporte de productos en órdenes" y "2026-11-01 a 2026-11-24 · 5 productos"
+
+#### Scenario: Encabezado con Hasta vacío
+- **GIVEN** un reporte generado el 2026-11-24 con Desde `2026-11-01` y Hasta vacío, con 3 productos
+- **WHEN** el usuario exporta
+- **THEN** la línea del encabezado es "2026-11-01 a 2026-11-24 · 3 productos"
+
+#### Scenario: Encabezado de un producto
+- **GIVEN** un reporte generado de `A-01 · Tornillo` del 2026-11-01 al 2026-11-24
+- **WHEN** el usuario exporta
+- **THEN** la línea del encabezado es "A-01 · Tornillo · 2026-11-01 a 2026-11-24 · 1 producto"

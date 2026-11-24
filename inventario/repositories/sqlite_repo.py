@@ -11,6 +11,8 @@ from inventario.domain.entities import (
     Movimiento,
     Orden,
     Producto,
+    ProductoEnOrdenes,
+    ProductoUsado,
     Reintegro,
     ResultadoBorradoOrden,
     ResultadoIngreso,
@@ -542,6 +544,22 @@ def _a_ordenes(filas):
     return ordenes
 
 
+# Reporte: COUNT(*) = ordenes por producto (la PK (orden_id, producto_id) garantiza una linea por orden).
+_SQL_REPORTE_EN_ORDENES = (
+    "SELECT p.codigo, p.nombre, p.activo, SUM(i.cantidad) AS cantidad, COUNT(*) AS ordenes "
+    "FROM orden_items i JOIN ordenes o ON o.id = i.orden_id "
+    "JOIN productos p ON p.id = i.producto_id "
+    "WHERE o.fecha >= ? AND o.fecha <= ?"
+)
+_GRUPO_REPORTE_EN_ORDENES = (
+    " GROUP BY p.id, p.codigo, p.nombre, p.activo ORDER BY cantidad DESC, p.codigo"
+)
+_SQL_PRODUCTOS_USADOS = (
+    "SELECT DISTINCT p.codigo, p.nombre, p.activo "
+    "FROM orden_items i JOIN productos p ON p.id = i.producto_id ORDER BY p.codigo"
+)
+
+
 class SqliteOrdenRepository(OrdenRepository):
     def __init__(self, conn):
         self._conn = conn
@@ -607,6 +625,22 @@ class SqliteOrdenRepository(OrdenRepository):
             sql += " WHERE " + " AND ".join(condiciones)
         filas = self._conn.execute(sql + _ORDEN_LISTAR_ORDENES, parametros).fetchall()
         return _a_ordenes(filas)
+
+    def productos_en_ordenes(self, desde, hasta, codigo):
+        sql = _SQL_REPORTE_EN_ORDENES
+        parametros = [desde.isoformat(), hasta.isoformat()]
+        if codigo is not None:
+            sql += " AND p.codigo = ?"
+            parametros.append(codigo)
+        filas = self._conn.execute(sql + _GRUPO_REPORTE_EN_ORDENES, parametros).fetchall()
+        return [
+            ProductoEnOrdenes(f["codigo"], f["nombre"], bool(f["activo"]), f["cantidad"], f["ordenes"])
+            for f in filas
+        ]
+
+    def productos_usados(self):
+        filas = self._conn.execute(_SQL_PRODUCTOS_USADOS).fetchall()
+        return [ProductoUsado(f["codigo"], f["nombre"], bool(f["activo"])) for f in filas]
 
     def existe_numero(self, numero):
         return self._conn.execute(_SQL_ORDEN_EXISTE, (numero,)).fetchone() is not None

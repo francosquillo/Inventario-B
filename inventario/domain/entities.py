@@ -111,3 +111,23 @@ class ResultadoBorradoOrden:
     orden: Orden
     reintegrado: bool
     reintegros: "tuple[Reintegro, ...]"
+
+
+@dataclass(frozen=True)
+class ProductoEnOrdenes:
+    """Total de un producto en las ordenes de un rango (reporte)."""
+
+    codigo: str
+    nombre: str
+    activo: bool
+    cantidad: int
+    ordenes: int
+
+
+@dataclass(frozen=True)
+class ProductoUsado:
+    """Producto que figura en al menos una orden."""
+
+    codigo: str
+    nombre: str
+    activo: bool

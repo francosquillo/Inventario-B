@@ -19,6 +19,7 @@ from inventario.api.routers import (
     ordenes,
     paginas,
     productos,
+    reportes,
     stock,
 )
 from inventario.domain.errors import (
@@ -105,6 +106,7 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
     app.include_router(movimientos.router)
     app.include_router(ordenes.router)
     app.include_router(productos.router)
+    app.include_router(reportes.router)
     app.include_router(paginas.router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 

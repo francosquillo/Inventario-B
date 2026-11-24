@@ -7,6 +7,8 @@ from inventario.domain.entities import (
     Movimiento,
     Orden,
     Producto,
+    ProductoEnOrdenes,
+    ProductoUsado,
     ResultadoBorradoOrden,
     ResultadoIngreso,
     ResultadoModificacion,
@@ -111,6 +113,26 @@ class OrdenRepository(ABC):
         son opcionales y se combinan con AND: `numero` exacto (ya normalizado) y
         `desde`/`hasta` inclusivos sobre la fecha de la orden. Incluye los componentes
         de productos dados de baja.
+        """
+
+    @abstractmethod
+    def productos_en_ordenes(
+        self, desde: date, hasta: date, codigo: "str | None"
+    ) -> "list[ProductoEnOrdenes]":
+        """Total por producto de las ordenes con fecha en [desde, hasta] (ambos inclusivos).
+
+        Fechas ya validadas (`hasta` ya resuelto) y `codigo` ya normalizado (o None).
+        `cantidad` = suma de cantidades; `ordenes` = cantidad de ordenes (un producto aparece
+        a lo sumo una vez por orden por la PK (orden_id, producto_id), asi que COUNT(*) basta).
+        Orden: cantidad DESC y luego codigo. Incluye productos dados de baja. Solo lectura.
+        En Postgres sera la funcion RPC `productos_en_ordenes(p_desde, p_hasta, p_codigo)`.
+        """
+
+    @abstractmethod
+    def productos_usados(self) -> "list[ProductoUsado]":
+        """Productos (activos y dados de baja) que figuran en al menos una orden, por codigo.
+
+        En Postgres sera la funcion RPC `productos_usados()`.
         """
 
     @abstractmethod

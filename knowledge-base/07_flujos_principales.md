@@ -153,7 +153,24 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 3. Estilos de impresión: página clara, controles y columna de acciones ocultos, stock 0 como "0 (sin stock)", encabezados de tabla repetidos por página.
 
 **Casos especiales**:
-- No existe exportación de la lista completa de órdenes (solo por orden); C-06d reutilizará `exportar.js`.
+- No existe exportación de la lista completa de órdenes (solo por orden); el reporte de C-06d (Flujo 5d) reutiliza `exportar.js`.
+
+## Flujo 5d: Reporte de productos usados en órdenes por fechas (C-06d)
+**Disparador**: pestaña "Reportes" (`/reportes`) y botón "Generar".
+**Actor**: Usuario autenticado.
+
+**Pasos**:
+1. La pantalla carga `GET /api/reportes/productos-usados` para poblar el selector de producto (solo productos usados en alguna orden, agrupados en "Activos" y "Dados de baja"). "Desde" y "Hasta" arrancan con el mes en curso; no se genera nada hasta pulsar "Generar".
+2. Se valida en el navegador (Desde obligatorio, fechas `YYYY-MM-DD`, desde <= hasta) y se llama a `GET /api/reportes/productos-en-ordenes?desde=&hasta=&codigo=`. "Hasta" vacío = hoy (UTC-03:00).
+3. El backend valida de nuevo y agrega por producto sobre las órdenes con fecha en el rango (inclusivo). Responde `codigo`, `nombre`, `activo`, `cantidad` y `ordenes`, ordenado por cantidad descendente y luego por código.
+4. La web muestra la tabla (Código, Nombre, Cantidad, Órdenes) y el resumen; los productos dados de baja se marcan "dado de baja".
+5. "Exportar PDF" arma el documento con `exportar.js`: "Reporte de productos en órdenes" + "AAAA-MM-DD a AAAA-MM-DD · N productos" (con filtro: "CÓDIGO · Nombre · " al inicio); nombre propuesto `reporte-AAAA-MM-DD_AAAA-MM-DD`.
+
+**Casos de error / especiales**:
+- Sin sesión válida → 401 (antes de validar parámetros).
+- `desde` faltante o vacío, fecha mal formada o inexistente, `desde` posterior al `hasta` efectivo, o `codigo` demasiado largo → 422 con `detail` en español; la web lo muestra y no modifica la tabla previa.
+- Código desconocido o rango sin órdenes → lista vacía (no es un error); la web muestra un mensaje de sin resultados.
+- El endpoint es de solo lectura: no modifica stock ni órdenes.
 
 ## Flujo 6: Borrar orden
 **Disparador**: `DELETE /api/ordenes/{numero}?reintegrar=true|false` (Fase 1, `/docs`) / modal de borrado (Fase 2). La orden se identifica por su número normalizado, nunca por id (C-05).

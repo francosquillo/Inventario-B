@@ -16,6 +16,11 @@
     return limpia + "-" + fecha(date);
   }
 
+  // Nombre completo ya armado (reportes): solo [A-Za-z0-9_-]; el resto pasa a "-", repetidos colapsados.
+  function limpiarArchivo(texto) {
+    return String(texto).replace(/[^A-Za-z0-9_-]+/g, "-").replace(/-{2,}/g, "-").replace(/^-+|-+$/g, "");
+  }
+
   // Llena el encabezado de la hoja (#print-head: titulo y una linea, solo con textContent).
   function llenarEncabezado(titulo, linea) {
     var cab = document.getElementById("print-head");
@@ -29,13 +34,13 @@
     cab.appendChild(p);
   }
 
-  // opciones: { titulo, linea, base, modo, alRestaurar }. Abre el dialogo de impresion ("Guardar como PDF").
+  // opciones: { titulo, linea, base | archivo, modo, alRestaurar }; `archivo` (nombre completo) tiene prioridad sobre `base`. Abre el dialogo de impresion ("Guardar como PDF").
   function imprimir(opciones) {
     var body = document.body;
     var tituloOriginal = document.title;
     llenarEncabezado(opciones.titulo, opciones.linea);
     body.setAttribute("data-exportando", opciones.modo);
-    document.title = nombreArchivo(opciones.base, new Date());
+    document.title = opciones.archivo ? limpiarArchivo(opciones.archivo) : nombreArchivo(opciones.base, new Date());
 
     var hecho = false;
     var consulta = window.matchMedia ? window.matchMedia("print") : null;
@@ -57,5 +62,5 @@
     window.print();
   }
 
-  window.Exportar = { fecha: fecha, nombreArchivo: nombreArchivo, imprimir: imprimir };
+  window.Exportar = { fecha: fecha, nombreArchivo: nombreArchivo, limpiarArchivo: limpiarArchivo, imprimir: imprimir };
 })();

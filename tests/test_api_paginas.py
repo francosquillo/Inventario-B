@@ -22,7 +22,7 @@ class PaginasTest(unittest.TestCase):
         self.assertIn("<form", r.text)
 
     def test_inventario_y_ordenes_sin_sesion_redirigen_al_login(self):
-        for ruta in ("/inventario", "/ordenes"):
+        for ruta in ("/inventario", "/ordenes", "/reportes"):
             with self.subTest(ruta=ruta):
                 r = self.client.get(ruta)
                 self.assertEqual(r.status_code, 303)
@@ -30,7 +30,7 @@ class PaginasTest(unittest.TestCase):
 
     def test_inventario_y_ordenes_con_sesion_devuelven_html(self):
         login(self.client)
-        for ruta in ("/inventario", "/ordenes"):
+        for ruta in ("/inventario", "/ordenes", "/reportes"):
             with self.subTest(ruta=ruta):
                 r = self.client.get(ruta)
                 self.assertEqual(r.status_code, 200)
@@ -62,6 +62,15 @@ class PaginasTest(unittest.TestCase):
         self.assertNotIn("A-01", r.text)
         self.assertNotIn("Tornillo", r.text)
 
+    def test_reportes_html_sin_datos(self):
+        sembrar(self.ruta, [("A-01", "Tornillo", 5, 1)])
+        login(self.client)
+        r = self.client.get("/reportes")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.headers["content-type"].startswith("text/html"))
+        self.assertNotIn("A-01", r.text)
+        self.assertNotIn("Tornillo", r.text)
+
     def test_ordenes_html_y_api_json(self):
         login(self.client)
         self.assertTrue(self.client.get("/ordenes").headers["content-type"].startswith("text/html"))
@@ -80,7 +89,7 @@ class PaginasTest(unittest.TestCase):
 
     def test_paginas_y_static_fuera_de_openapi(self):
         paths = self.client.get("/openapi.json").json()["paths"]
-        for ruta in ("/", "/inventario", "/ordenes", "/static"):
+        for ruta in ("/", "/inventario", "/ordenes", "/reportes", "/static"):
             self.assertNotIn(ruta, paths)
         self.assertFalse([p for p in paths if p.startswith("/static")])
 
@@ -105,7 +114,7 @@ class CabecerasPaginasTest(unittest.TestCase):
 
     def test_inventario_y_ordenes_con_sesion_incluyen_cabeceras(self):
         login(self.client)
-        for ruta in ("/inventario", "/ordenes"):
+        for ruta in ("/inventario", "/ordenes", "/reportes"):
             with self.subTest(ruta=ruta):
                 self.assertCabeceras(self.client.get(ruta))
 

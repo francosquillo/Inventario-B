@@ -164,6 +164,34 @@ def movimiento_out(movimiento):
     )
 
 
+class ProductoEnOrdenesOut(BaseModel):
+    codigo: str
+    nombre: str
+    activo: bool
+    cantidad: int
+    ordenes: int
+
+
+def producto_en_ordenes_out(fila):
+    return ProductoEnOrdenesOut(
+        codigo=fila.codigo,
+        nombre=fila.nombre,
+        activo=fila.activo,
+        cantidad=fila.cantidad,
+        ordenes=fila.ordenes,
+    )
+
+
+class ProductoUsadoOut(BaseModel):
+    codigo: str
+    nombre: str
+    activo: bool
+
+
+def producto_usado_out(producto):
+    return ProductoUsadoOut(codigo=producto.codigo, nombre=producto.nombre, activo=producto.activo)
+
+
 # `fecha` NO se recorta: el formato AAAA-MM-DD es estricto y lo valida el service;
 # el recorte solo aplica a numero y codigo (que el service normaliza igual).
 TextoRecortado = Annotated[str, StringConstraints(strip_whitespace=True)]

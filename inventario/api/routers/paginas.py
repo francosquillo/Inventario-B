@@ -47,3 +47,10 @@ def ordenes(request: Request, conn=Depends(get_conexion)):
     if usuario_de_sesion(request, conn) is None:
         return _redirigir("/")
     return _html("ordenes.html")
+
+
+@router.get("/reportes")
+def reportes(request: Request, conn=Depends(get_conexion)):
+    if usuario_de_sesion(request, conn) is None:
+        return _redirigir("/")
+    return _html("reportes.html")

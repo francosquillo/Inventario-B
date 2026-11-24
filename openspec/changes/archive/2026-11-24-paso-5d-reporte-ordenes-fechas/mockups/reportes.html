@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reportes — maqueta C-06d</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<link rel="stylesheet" href="assets/mockup-5c.css">
+<link rel="stylesheet" href="assets/mockup-5d.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Reportes (/reportes) — paso-5d-reporte-ordenes-fechas">
+
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta">
+  <div class="mk-bar-in">
+    <span class="mk-tag">Maqueta</span>
+    <label class="sr-only" for="mk-state">Estado</label>
+    <select id="mk-state">
+      <option value="R0" data-desc="Estado inicial: Desde 2026-11-01 y Hasta 2026-11-24 precompletados, cartel neutro, sin tabla, 'Exportar PDF' deshabilitado (no se pidió el reporte)." data-desde="2026-11-01" data-hasta="2026-11-24" data-prod="" data-k="inicial">R0 · inicial (mes precompletado, sin generar)</option>
+      <option value="N1" data-desc="Cabecera con las tres pestañas Inventario / Órdenes / Reportes, vista en cada una de las tres páginas (arriba la pestaña actual de cada una). Probar a 390 px y 1440 px." data-k="nav">N1 · navegación (3 pestañas)</option>
+      <option value="R1" data-desc="Mes en curso generado: 5 productos (uno 'dado de baja'), ordenado por cantidad desc., 'Exportar PDF' habilitado." data-desde="2026-11-01" data-hasta="2026-11-24" data-prod="" data-k="datos" data-set="TODOS" data-res="5 productos · 2026-11-01 a 2026-11-24">R1 · mes generado (5 productos)</option>
+      <option value="R2" data-desc="Filtrado por A-01 · Tornillo M8: una fila." data-desde="2026-11-01" data-hasta="2026-11-24" data-prod="A-01" data-k="datos" data-set="A-01" data-res="1 producto · 2026-11-01 a 2026-11-24">R2 · filtrado por un producto</option>
+      <option value="R3" data-desc="Vacío: octubre sin consumo; cartel con el rango, sin tabla, 'Exportar PDF' deshabilitado." data-desde="2026-10-01" data-hasta="2026-10-31" data-prod="" data-k="vacio">R3 · vacío</option>
+      <option value="R4" data-desc="Validación: rango invertido (Desde 2026-12-01 posterior a Hasta 2026-11-24); error bajo Hasta, campo inválido, sin llamar a la API." data-desde="2026-12-01" data-hasta="2026-11-24" data-prod="" data-k="inicial" data-err="hasta">R4 · rango invertido</option>
+      <option value="R4b" data-desc="Variante de validación: Desde vacío; error bajo Desde." data-desde="" data-hasta="2026-11-24" data-prod="" data-k="inicial" data-err="desde">R4b · Desde vacío</option>
+      <option value="R5" data-desc="Generando: 'Generando reporte…', 'Generar' y 'Exportar PDF' deshabilitados." data-desde="2026-11-01" data-hasta="2026-11-24" data-prod="" data-k="cargando">R5 · generando</option>
+      <option value="R6" data-desc="Error de servidor con 'Reintentar'." data-desde="2026-11-01" data-hasta="2026-11-24" data-prod="" data-k="error">R6 · error de servidor</option>
+      <option value="R7" data-desc="Selector de producto desplegado (ilustración): solo productos usados en alguna orden, en grupos 'Activos' y 'Dados de baja'." data-desde="2026-11-01" data-hasta="2026-11-24" data-prod="" data-k="inicial" data-open="1">R7 · selector desplegado</option>
+      <option value="R8" data-desc="Filtrado por un producto dado de baja (C-99 · Junta tórica): una fila con la marca 'dado de baja'." data-desde="2026-11-01" data-hasta="2026-11-24" data-prod="C-99" data-k="datos" data-set="C-99" data-res="1 producto · 2026-11-01 a 2026-11-24">R8 · producto dado de baja</option>
+      <option value="R9" data-desc="Generado con Hasta vacío (ayuda 'Vacío = hoy'): el resumen muestra el hasta efectivo, hoy 2026-11-24." data-desde="2026-11-01" data-hasta="" data-prod="" data-k="datos" data-set="TODOS" data-res="5 productos · 2026-11-01 a 2026-11-24">R9 · Hasta vacío = hoy</option>
+      <option value="P4" data-desc="Impresión del reporte del mes: encabezado mínimo (título + rango · N productos), tabla clara, sin filtros ni navegación." data-k="print">P4 · imprimir reporte del mes</option>
+      <option value="P5" data-desc="Impresión de un reporte largo (60 productos): varias páginas, encabezado de tabla repetido en cada una." data-k="print">P5 · imprimir reporte largo (60 filas)</option>
+    </select>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-prev" aria-label="Estado anterior">&larr;</button>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-next" aria-label="Estado siguiente">&rarr;</button>
+    <a href="../../archive/2026-11-24-paso-5c-buscador-pdf/mockups/ordenes.html#O1">Órdenes (5c)</a>
+    <span>C-06d · paso-5d-reporte-ordenes-fechas</span>
+    <p class="mk-desc" id="mk-desc"></p>
+  </div>
+</div>
+
+<!-- N1: la cabecera de las tres páginas -->
+<div data-show="N1" class="space-y-6 pb-8">
+  <div>
+    <p class="mk-cap">Inventario (<code>/inventario</code>)</p>
+    <header class="bg-surface border-b border-line">
+      <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+        <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+        <nav aria-label="Secciones (Inventario)" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+          <a class="navlink" href="#N1" aria-current="page">Inventario</a>
+          <a class="navlink" href="#N1">Órdenes</a>
+          <a class="navlink" href="#R0">Reportes</a>
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">franco</strong></span>
+          <button class="btn btn-secondary" type="button">Cerrar sesión</button>
+        </div>
+      </div>
+    </header>
+  </div>
+  <div>
+    <p class="mk-cap">Órdenes (<code>/ordenes</code>)</p>
+    <header class="bg-surface border-b border-line">
+      <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+        <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+        <nav aria-label="Secciones (Órdenes)" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+          <a class="navlink" href="#N1">Inventario</a>
+          <a class="navlink" href="#N1" aria-current="page">Órdenes</a>
+          <a class="navlink" href="#R0">Reportes</a>
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">franco</strong></span>
+          <button class="btn btn-secondary" type="button">Cerrar sesión</button>
+        </div>
+      </div>
+    </header>
+  </div>
+  <div>
+    <p class="mk-cap">Reportes (<code>/reportes</code>)</p>
+    <header class="bg-surface border-b border-line">
+      <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+        <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+        <nav aria-label="Secciones (Reportes)" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+          <a class="navlink" href="#N1">Inventario</a>
+          <a class="navlink" href="#N1">Órdenes</a>
+          <a class="navlink" href="#R0" aria-current="page">Reportes</a>
+        </nav>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">franco</strong></span>
+          <button class="btn btn-secondary" type="button">Cerrar sesión</button>
+        </div>
+      </div>
+    </header>
+  </div>
+</div>
+
+<!-- Pantalla /reportes -->
+<div data-hide="N1 P4 P5">
+<header class="bg-surface border-b border-line">
+  <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+    <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+    <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+      <a class="navlink" href="#N1">Inventario</a>
+      <a class="navlink" href="#N1">Órdenes</a>
+      <a class="navlink" href="#R0" aria-current="page">Reportes</a>
+    </nav>
+    <div class="ml-auto flex items-center gap-3 text-sm">
+      <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">franco</strong></span>
+      <button class="btn btn-secondary" type="button">Cerrar sesión</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+  <div>
+    <h1 class="text-2xl font-bold">Reportes</h1>
+  </div>
+
+  <section class="bg-surface border border-line rounded-lg" aria-labelledby="t-rep">
+    <h2 id="t-rep" class="sec-title px-3 pt-3 mb-0">Productos usados en órdenes</h2>
+
+    <form id="form-reporte" class="p-3 border-b border-line space-y-3" novalidate aria-label="Filtros del reporte">
+      <div class="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-start">
+        <div class="sm:w-44">
+          <label class="label" for="r-desde">Desde <span class="text-muted font-normal">(obligatorio)</span></label>
+          <input class="field num" id="r-desde" type="date">
+          <p class="err" id="r-desde-e" role="alert" data-show="R4b" hidden>La fecha es obligatoria.</p>
+        </div>
+        <div class="sm:w-44">
+          <label class="label" for="r-hasta">Hasta <span class="text-muted font-normal">(opcional)</span></label>
+          <input class="field num" id="r-hasta" type="date">
+          <p class="help" data-hide="R4">Vacío = hoy</p>
+          <p class="err" id="r-hasta-e" role="alert" data-show="R4" hidden>Desde no puede ser posterior a Hasta.</p>
+        </div>
+        <div class="col-span-2 sm:w-72">
+          <label class="label" for="r-producto">Producto</label>
+          <select class="field" id="r-producto" data-opts></select>
+          <div data-show="R7" hidden class="mt-2">
+            <p class="mk-cap-sm">Desplegable abierto (ilustración; el real es el <code>&lt;select&gt;</code> nativo)</p>
+            <select class="field mk-open" size="9" id="r-producto-abierto" aria-label="Opciones del selector de producto (ilustración)" tabindex="-1"></select>
+          </div>
+        </div>
+        <div class="col-span-2 flex gap-2 sm:pt-6">
+          <button id="btn-generar" class="btn btn-primary" type="submit">Generar</button>
+          <button id="btn-exportar-rep" class="btn btn-secondary" type="button">Exportar PDF</button>
+        </div>
+      </div>
+    </form>
+
+    <p id="rep-resumen" class="px-3 pt-3 text-sm text-muted no-print" data-show="datos-ok" hidden></p>
+
+    <div id="rep-inicial" role="status" data-show="R0 R4 R4b R7" hidden class="m-3 border border-dashed border-line rounded-lg p-8 text-center">
+      <p class="text-sm text-muted">Elegí el período y pulsá «Generar» para ver el reporte.</p>
+    </div>
+
+    <div id="rep-cargando" role="status" aria-live="polite" data-show="R5" hidden class="p-8 text-center text-sm text-muted">Generando reporte…</div>
+
+    <div id="rep-error" data-show="R6" hidden class="p-3">
+      <div role="alert" class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">
+        <p class="flex-1 min-w-[12rem]">No se pudo generar el reporte. Intentá de nuevo en un momento.</p>
+        <button class="btn btn-secondary" type="button">Reintentar</button>
+      </div>
+    </div>
+
+    <div id="rep-vacio" role="status" data-show="R3" hidden class="m-3 border border-dashed border-line rounded-lg p-8 text-center">
+      <p class="font-semibold">No hay productos usados en órdenes entre 2026-10-01 y 2026-10-31</p>
+      <p class="text-sm text-muted mt-1">Probá con otro período o con otro producto.</p>
+    </div>
+
+    <div id="rep-tabla" data-show="datos-ok" hidden class="pt-2 overflow-x-auto" tabindex="0" role="region" aria-label="Productos usados en órdenes">
+      <table class="tbl tbl-fit tbl-rep">
+        <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th><th scope="col" class="r">Órdenes</th></tr></thead>
+        <tbody data-rep-body></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</div>
+
+<!-- Hoja de impresión del reporte (P4 / P5) -->
+<article class="sheet" data-show="P4 P5" hidden aria-label="Hoja de impresión del reporte">
+  <header class="sheet-head">
+    <h1>Reporte de productos en órdenes</h1>
+    <p class="sheet-meta" id="sheet-meta"></p>
+  </header>
+  <table>
+    <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th><th scope="col" class="r">Órdenes</th></tr></thead>
+    <tbody data-sheet-body></tbody>
+  </table>
+</article>
+
+<script src="assets/mockup.js"></script>
+</body>
+</html>

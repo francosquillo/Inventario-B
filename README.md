@@ -43,6 +43,14 @@ La sesión dura 12 horas desde la última petición.
 - **Exportar el inventario**: "Exportar PDF" exporta las filas que se ven (todas si no hay búsqueda). En `/ordenes`, cada orden tiene su propio "Exportar PDF".
 - **Cómo se guarda**: el botón abre el diálogo de impresión del navegador; elegí el destino "Guardar como PDF". Si no querés la URL y la fecha del navegador en los bordes de la hoja, desactivá "Encabezados y pies de página" en las opciones del diálogo.
 
+## Reporte de productos en órdenes
+
+- **Pantalla `/reportes`** (pestaña "Reportes"): muestra cuánto se usó de cada producto en las órdenes de un período, con la cantidad total y en cuántas órdenes figura. Ordena por cantidad (de mayor a menor) y marca los productos "dado de baja".
+- **Fechas**: "Desde" es obligatorio; "Hasta" es opcional y vacío significa hoy (hora de Argentina). Al abrir la pantalla vienen cargadas con el mes en curso, pero el reporte no se genera hasta pulsar "Generar".
+- **Producto**: por defecto "Todos los productos"; también se puede filtrar por uno de los productos usados en alguna orden (activos y dados de baja).
+- **Exportar PDF**: exporta el último reporte generado (título, rango, cantidad de productos y tabla); el archivo se propone como `reporte-AAAA-MM-DD_AAAA-MM-DD`.
+- **API** (requieren sesión, solo lectura): `GET /api/reportes/productos-en-ordenes?desde=&hasta=&codigo=` y `GET /api/reportes/productos-usados`.
+
 ## Tests
 
 ```bash

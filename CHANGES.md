@@ -233,7 +233,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 
 ### [C-06d] `paso-5d-reporte-ordenes-fechas`
 > Change intermedio agregado el 2026-11-24 (pedido del usuario). Sin cambios de esquema; consulta agregada nueva.
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-24)
 - **Scope**:
   - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
   - Reporte de **cantidad de cada producto usada en órdenes dentro de un rango de fechas** (desde/hasta `YYYY-MM-DD`, validado en frontend y backend; desde <= hasta): un total por producto en el rango
@@ -302,7 +302,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
   - Selector de backend por variable de entorno (p. ej. `INVENTARIO_BACKEND=sqlite|supabase`, por defecto `sqlite`), para poder seguir probando en local tras la migración
   - `.env.example` solo con nombres de variables; el usuario crea su `.env`
   - Paridad con C-06b: `movimientos.tipo` admite `ajuste` con `stock_anterior`/`stock_nuevo`; funciones RPC para el alta de producto (`POST /api/productos`) y la modificación de stock en lote (`POST /api/stock/modificaciones`)
-  - Paridad con C-06c..C-06f: búsqueda de productos, reporte de productos en órdenes por fechas, categorías de productos y procesos de órdenes (tablas, migraciones y RPC equivalentes en Postgres)
+  - Paridad con C-06c..C-06f: búsqueda de productos, reporte de productos en órdenes por fechas (RPC `productos_en_ordenes` y `productos_usados`), categorías de productos y procesos de órdenes (tablas, migraciones y RPC equivalentes en Postgres)
 - **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-06f`
 - **Governance**: CRITICO (`service_role` key, migración de datos)

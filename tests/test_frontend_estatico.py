@@ -9,7 +9,7 @@ from tests.helpers import cliente_de_test
 RAIZ = Path(__file__).resolve().parents[1]
 STATIC = RAIZ / "static"
 DESIGN = RAIZ / "design-system"
-PAGINAS = ("login.html", "index.html", "ordenes.html")
+PAGINAS = ("login.html", "index.html", "ordenes.html", "reportes.html")
 
 PROHIBIDOS_JS = ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval(")
 PALETA_TAILWIND = re.compile(
@@ -57,7 +57,7 @@ class PaginasTest(unittest.TestCase):
         for nombre in PAGINAS:
             for ruta in ATRIBUTO_LOCAL.findall(leer(STATIC / nombre)):
                 with self.subTest(pagina=nombre, ruta=ruta):
-                    if ruta in ("/", "/inventario", "/ordenes"):
+                    if ruta in ("/", "/inventario", "/ordenes", "/reportes"):
                         continue  # paginas: dependen de la sesion
                     self.assertEqual(client.get(ruta).status_code, 200)
 
@@ -356,7 +356,7 @@ class ExportarPdfEstaticoTest(unittest.TestCase):
                 self.assertIn(fragmento, css)
 
     def test_paginas_tienen_el_encabezado_de_impresion_y_cargan_exportar(self):
-        for nombre in ("index.html", "ordenes.html"):
+        for nombre in ("index.html", "ordenes.html", "reportes.html"):
             html = leer(STATIC / nombre)
             with self.subTest(pagina=nombre):
                 self.assertRegex(
@@ -420,6 +420,82 @@ class ExportarOrdenEstaticoTest(unittest.TestCase):
             with self.subTest(fragmento=fragmento):
                 self.assertIn(fragmento, self.js)
         self.assertNotIn("fetch", self.js)
+
+
+class NavegacionReportesTest(unittest.TestCase):
+    """C-06d: pestaña "Reportes" en las tres paginas protegidas (mockup N1)."""
+
+    def test_pestana_reportes_y_una_sola_pagina_actual(self):
+        for nombre in ("index.html", "ordenes.html", "reportes.html"):
+            html = leer(STATIC / nombre)
+            with self.subTest(pagina=nombre):
+                nav = re.search(r'<nav aria-label="Secciones".*?</nav>', html, re.S).group(0)
+                self.assertRegex(nav, r'<a class="navlink" href="/reportes"[^>]*>Reportes</a>')
+                self.assertEqual(nav.count('aria-current="page"'), 1)
+        propia = {"index.html": "/inventario", "ordenes.html": "/ordenes", "reportes.html": "/reportes"}
+        for nombre, href in propia.items():
+            nav = re.search(r'<nav aria-label="Secciones".*?</nav>', leer(STATIC / nombre), re.S).group(0)
+            with self.subTest(propia=nombre):
+                self.assertRegex(nav, r'href="%s" aria-current="page"' % href)
+
+
+class ReportesPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):
+    """C-06d: pantalla /reportes (mockups R0-R9)."""
+
+    def setUp(self):
+        self.html = leer(STATIC / "reportes.html")
+        self.js = leer(STATIC / "js" / "reportes.js")
+
+    def test_carga_los_modulos_en_orden(self):
+        posiciones = [self.html.index("/static/js/%s.js" % m) for m in
+                      ("validacion", "api", "ui", "sesion", "exportar", "reportes")]
+        self.assertEqual(posiciones, sorted(posiciones))
+
+    def test_encabezado_de_impresion_y_campos(self):
+        self.assertRegex(self.html, r'<header id="print-head" class="print-only" aria-hidden="true">\s*</header>')
+        for ident in ("r-desde", "r-hasta"):
+            self.assertRegex(self.html, r'<input[^>]*id="%s"[^>]*type="date"|<input[^>]*type="date"[^>]*id="%s"' % (ident, ident))
+        self.assertIn('id="r-producto"', self.html)
+        self.comprobar_etiquetas(self.html)
+
+    def test_rotulos_de_los_filtros(self):
+        self.assertRegex(self.html, r'for="r-desde">Desde <span[^>]*>\(obligatorio\)</span>')
+        self.assertRegex(self.html, r'for="r-hasta">Hasta <span[^>]*>\(opcional\)</span>')
+        self.assertIn("Vacío = hoy", self.html)
+
+    def test_estados_y_botones(self):
+        for ident in ("rep-inicial", "rep-cargando", "rep-error", "rep-vacio", "rep-resumen",
+                      "rep-tabla", "btn-generar", "btn-exportar-rep"):
+            with self.subTest(ident=ident):
+                self.assertIn('id="%s"' % ident, self.html)
+        for texto in ("Generar", "Exportar PDF", "Reintentar", "Generando reporte…"):
+            self.assertIn(texto, self.html)
+        inicial = re.search(r'<div[^>]*id="rep-inicial"[^>]*>', self.html).group(0)
+        self.assertNotIn("hidden", inicial)
+        self.assertIn("Elegí el período y pulsá «Generar» para ver el reporte.", self.html)
+        boton = re.search(r'<button[^>]*id="btn-exportar-rep"[^>]*>', self.html).group(0)
+        self.assertIn(" disabled", boton)
+        self.assertIn("no-print", re.search(r'<p[^>]*id="rep-resumen"[^>]*>', self.html).group(0))
+
+    def test_tabla_con_columnas_en_orden(self):
+        cab = re.search(r"<thead>.*?</thead>", self.html, re.S).group(0)
+        self.assertEqual(re.findall(r"<th[^>]*>([^<]*)</th>", cab), ["Código", "Nombre", "Cantidad", "Órdenes"])
+        self.assertIn("tbl-rep", self.html)
+
+    def test_js_endpoints_y_validacion(self):
+        for fragmento in ("/api/reportes/productos-en-ordenes", "/api/reportes/productos-usados",
+                          "optgroup", "Activos", "Dados de baja", "Validacion.rango", "Validacion.requerido",
+                          "dado de baja", "No hay productos usados en órdenes", "no se usó en órdenes"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, self.js)
+        for prohibido in ("/api/inventario", "/api/productos/inactivos"):
+            with self.subTest(prohibido=prohibido):
+                self.assertNotIn(prohibido, self.js)
+
+    def test_js_exporta_el_ultimo_reporte(self):
+        for fragmento in ("Exportar.imprimir", "Reporte de productos en órdenes", "archivo:", 'modo: "reporte"'):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, self.js)
 
 
 if __name__ == "__main__":

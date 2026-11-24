@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Reportes - Inventario</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/ui.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="/static/js/validacion.js" defer></script>
+  <script src="/static/js/api.js" defer></script>
+  <script src="/static/js/ui.js" defer></script>
+  <script src="/static/js/sesion.js" defer></script>
+  <script src="/static/js/exportar.js" defer></script>
+  <script src="/static/js/reportes.js" defer></script>
+</head>
+<body>
+  <header id="print-head" class="print-only" aria-hidden="true"></header>
+  <header class="bg-surface border-b border-line no-print">
+    <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+      <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+      <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+        <a class="navlink" href="/inventario">Inventario</a>
+        <a class="navlink" href="/ordenes">Órdenes</a>
+        <a class="navlink" href="/reportes" aria-current="page">Reportes</a>
+      </nav>
+      <div class="ml-auto flex items-center gap-3 text-sm">
+        <span class="hidden sm:inline text-muted">Usuario: <strong id="usuario-nombre" class="text-ink font-semibold"></strong></span>
+        <button id="btn-logout" class="btn btn-secondary" type="button">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+    <div class="no-print">
+      <h1 class="text-2xl font-bold">Reportes</h1>
+    </div>
+
+    <section class="bg-surface border border-line rounded-lg" aria-labelledby="t-rep">
+      <h2 id="t-rep" class="sec-title px-3 pt-3 mb-0 no-print">Productos usados en órdenes</h2>
+
+      <form id="form-reporte" class="no-print p-3 border-b border-line space-y-3" novalidate aria-label="Filtros del reporte">
+        <div class="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-start">
+          <div class="sm:w-44">
+            <label class="label" for="r-desde">Desde <span class="text-muted font-normal">(obligatorio)</span></label>
+            <input class="field num" id="r-desde" type="date">
+          </div>
+          <div class="sm:w-44">
+            <label class="label" for="r-hasta">Hasta <span class="text-muted font-normal">(opcional)</span></label>
+            <input class="field num" id="r-hasta" type="date" aria-describedby="r-hasta-ayuda" data-desc-base="r-hasta-ayuda">
+            <p class="help" id="r-hasta-ayuda">Vacío = hoy</p>
+          </div>
+          <div class="col-span-2 sm:w-72">
+            <label class="label" for="r-producto">Producto</label>
+            <select class="field" id="r-producto"><option value="">Todos los productos</option></select>
+          </div>
+          <div class="col-span-2 flex gap-2 sm:pt-6">
+            <button id="btn-generar" class="btn btn-primary" type="submit">Generar</button>
+            <button id="btn-exportar-rep" class="btn btn-secondary" type="button" disabled>Exportar PDF</button>
+          </div>
+        </div>
+        <div id="filtros-alerta" hidden></div>
+      </form>
+
+      <p id="rep-resumen" class="px-3 pt-3 text-sm text-muted no-print" hidden></p>
+
+      <div id="rep-inicial" role="status" class="no-print m-3 border border-dashed border-line rounded-lg p-8 text-center">
+        <p class="text-sm text-muted">Elegí el período y pulsá «Generar» para ver el reporte.</p>
+      </div>
+
+      <div id="rep-cargando" role="status" aria-live="polite" hidden class="no-print p-8 text-center text-sm text-muted">Generando reporte…</div>
+
+      <div id="rep-error" hidden class="no-print p-3">
+        <div role="alert" class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">
+          <p id="rep-error-texto" class="flex-1 min-w-[12rem]"></p>
+          <button id="rep-reintentar" class="btn btn-secondary" type="button">Reintentar</button>
+        </div>
+      </div>
+
+      <div id="rep-vacio" role="status" hidden class="no-print m-3 border border-dashed border-line rounded-lg p-8 text-center">
+        <p id="rep-vacio-titulo" class="font-semibold"></p>
+        <p class="text-sm text-muted mt-1">Probá con otro período o con otro producto.</p>
+      </div>
+
+      <div id="rep-tabla" hidden class="pt-2 overflow-x-auto" tabindex="0" role="region" aria-label="Productos usados en órdenes">
+        <table class="tbl tbl-fit tbl-rep">
+          <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th><th scope="col" class="r">Órdenes</th></tr></thead>
+          <tbody id="rep-cuerpo"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

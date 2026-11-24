@@ -66,5 +66,32 @@ class FechaTest(unittest.TestCase):
         self.assertEqual(res, ["2026-01-05", "2026-12-31"])
 
 
+@unittest.skipUnless(NODE, "Node no esta instalado")
+class LimpiarArchivoTest(unittest.TestCase):
+    def test_conserva_guion_bajo_y_guiones(self):
+        res = ejecutar([["limpiarArchivo", ["reporte-A-01-2026-11-01_2026-11-24"]]])
+        self.assertEqual(res, ["reporte-A-01-2026-11-01_2026-11-24"])
+
+    def test_caracteres_raros_se_vuelven_guion_colapsado(self):
+        res = ejecutar([
+            ["limpiarArchivo", ["reporte A/01 .. x"]],
+            ["limpiarArchivo", ["--reporte--"]],
+            ["limpiarArchivo", ["rep#orte$$_2026"]],
+        ])
+        self.assertEqual(res, ["reporte-A-01-x", "reporte", "rep-orte-_2026"])
+
+    def test_nombre_archivo_de_c06c_no_cambia(self):
+        res = ejecutar([["nombreArchivo", ["inventario", fecha(2026, 10, 24)]]])
+        self.assertEqual(res, ["inventario-2026-11-24"])
+
+
+class ImprimirUsaArchivoTest(unittest.TestCase):
+    def test_imprimir_prefiere_opciones_archivo(self):
+        js = EXPORTAR.read_text(encoding="utf-8")
+        self.assertIn("opciones.archivo", js)
+        self.assertIn("limpiarArchivo(opciones.archivo)", js)
+        self.assertIn("nombreArchivo(opciones.base, new Date())", js)
+
+
 if __name__ == "__main__":
     unittest.main()

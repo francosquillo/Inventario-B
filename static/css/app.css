@@ -26,7 +26,11 @@
 @media (min-width: 640px) {
   .tbl-fit.tbl-inv { min-width:26rem; }
   .tbl-fit.tbl-comp { min-width:18rem; }
+  .tbl-fit.tbl-rep { min-width:30rem; }
 }
+
+/* Marca "dado de baja" junto al nombre (reporte). */
+.tbl .badge-baja { margin-left:.5rem; white-space:nowrap; }
 
 /* Línea de componente de la nueva orden.
    Móvil: [n | producto a todo el ancho] / [  | cantidad | Quitar]. Desde 640 px: una sola fila. */

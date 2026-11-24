@@ -151,7 +151,7 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 
 **Reglas relacionadas**: RN-PR-03, RN-PR-04, RN-PR-05, RN-VA-05
 
-## Épica 3b: Búsqueda y exportación (C-06c)
+## Épica 3b: Búsqueda, exportación y reportes (C-06c, C-06d)
 
 ### US-012 — Buscar productos en el inventario
 **Como** usuario
@@ -181,6 +181,24 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 - [ ] Cada orden tiene su botón "Exportar PDF" (no hay exportación de la lista completa); encabezado "Orden OT-XXXX" y "Fecha: YYYY-MM-DD · N componentes".
 - [ ] Página clara, sin controles ni columna de acciones; stock 0 se imprime "0 (sin stock)"; los encabezados de tabla se repiten en cada página.
 - [ ] La lógica vive en el módulo reutilizable `static/js/exportar.js` (lo reutilizará C-06d).
+
+### US-014 — Reporte de productos usados en órdenes por rango de fechas
+**Como** usuario
+**Quiero** ver cuánto se usó de cada producto en las órdenes de un rango de fechas
+**Para** saber qué piezas se consumen más y planificar compras
+
+**Paso**: 5d (pantalla `/reportes`; consulta de solo lectura, sin cambios de esquema)
+
+**Criterios de aceptación**:
+- [ ] Hay una pestaña "Reportes" (`/reportes`); "Desde" es obligatorio y "Hasta" opcional (vacío = hoy, hora local UTC-03:00); ambas fechas `YYYY-MM-DD` se validan en frontend y backend y desde <= hasta.
+- [ ] Los campos arrancan con el mes en curso, pero el reporte se genera solo al pulsar "Generar".
+- [ ] Filtro opcional por un solo producto: el selector lista solo productos usados en alguna orden, agrupados en "Activos" y "Dados de baja"; un código desconocido devuelve el reporte vacío.
+- [ ] La tabla muestra Código, Nombre, Cantidad (suma en el rango) y Órdenes (cantidad de órdenes en que aparece), ordenada por cantidad descendente y luego por código; el rango es inclusivo sobre la fecha de la orden.
+- [ ] Los productos dados de baja se incluyen y se marcan "dado de baja".
+- [ ] "Exportar PDF" reutiliza `static/js/exportar.js`: encabezado "Reporte de productos en órdenes" y "AAAA-MM-DD a AAAA-MM-DD · N productos" (con filtro, prefijado "CÓDIGO · Nombre · "); nombre de archivo `reporte-AAAA-MM-DD_AAAA-MM-DD`.
+- [ ] Endpoints de solo lectura `GET /api/reportes/productos-en-ordenes` (`desde`, `hasta`, `codigo`) y `GET /api/reportes/productos-usados` (para el selector).
+
+**Reglas relacionadas**: RN-VA-05, RN-PR-03
 
 ## Épica 4: Web y despliegue
 
