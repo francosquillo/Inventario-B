@@ -330,5 +330,97 @@ class OrdenesPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):
         self.assertRegex(self.js, r'consulta\s*\?\s*"No hay órdenes en ese período"\s*:\s*"No hay órdenes"')
 
 
+class ExportarPdfEstaticoTest(unittest.TestCase):
+    """C-06c: guardas de static/js/exportar.js, busqueda.js y la hoja de impresion."""
+
+    def test_exportar_js_usa_la_impresion_del_navegador(self):
+        js = leer(STATIC / "js" / "exportar.js")
+        for fragmento in ("window.print", "afterprint", "document.title", "matchMedia", "textContent",
+                          "data-exportando"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, js)
+        for prohibido in ("fetch", "XMLHttpRequest"):
+            with self.subTest(prohibido=prohibido):
+                self.assertNotIn(prohibido, js)
+
+    def test_busqueda_js_es_pura(self):
+        js = leer(STATIC / "js" / "busqueda.js")
+        for prohibido in ("fetch", "XMLHttpRequest", "document."):
+            with self.subTest(prohibido=prohibido):
+                self.assertNotIn(prohibido, js)
+
+    def test_hoja_de_impresion_en_app_css(self):
+        css = leer(STATIC / "css" / "app.css")
+        for fragmento in ("@media print", ".print-only", "table-header-group", "break-inside: avoid", "@page"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, css)
+
+    def test_paginas_tienen_el_encabezado_de_impresion_y_cargan_exportar(self):
+        for nombre in ("index.html", "ordenes.html"):
+            html = leer(STATIC / nombre)
+            with self.subTest(pagina=nombre):
+                self.assertRegex(
+                    html, r'<header id="print-head" class="print-only" aria-hidden="true">\s*</header>')
+                self.assertIn("/static/js/exportar.js", html)
+
+
+class BuscadorYExportacionInventarioTest(unittest.TestCase):
+    """C-06c: buscador y 'Exportar PDF' de /inventario."""
+
+    def setUp(self):
+        self.html = leer(STATIC / "index.html")
+        self.js = leer(STATIC / "js" / "inventario.js")
+
+    def test_carga_los_modulos_antes_de_inventario_js(self):
+        for modulo in ("busqueda.js", "exportar.js"):
+            with self.subTest(modulo=modulo):
+                self.assertLess(self.html.index("/static/js/" + modulo),
+                                self.html.index("/static/js/inventario.js"))
+
+    def test_campo_de_busqueda_etiquetado(self):
+        campo = re.search(r'<input[^>]*id="inv-buscar"[^>]*>', self.html).group(0)
+        self.assertIn('type="search"', campo)
+        self.assertRegex(self.html, r'<label[^>]*for="inv-buscar"[^>]*>Buscar por código o nombre</label>')
+
+    def test_boton_exportar_y_cartel_sin_coincidencias(self):
+        boton = re.search(r'<button[^>]*id="btn-exportar-inv"[^>]*>([^<]*)</button>', self.html)
+        self.assertEqual(boton.group(1), "Exportar PDF")
+        cartel = re.search(r'<div[^>]*id="inv-sin-coincidencias"[^>]*>', self.html).group(0)
+        self.assertIn("hidden", cartel)
+        self.assertIn('role="status"', cartel)
+        self.assertIn("Limpiar búsqueda", self.html)
+
+    def test_js_usa_los_modulos_y_no_busca_en_el_servidor(self):
+        for fragmento in ("Ningún producto coincide con", "Busqueda.filtrar", "Busqueda.conteo",
+                          "Exportar.imprimir", "(sin stock)", "Escape"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, self.js)
+        self.assertNotIn("q=", self.js)
+
+    def test_las_regiones_de_pantalla_no_salen_en_papel(self):
+        # Cabecera, acciones, aviso y cabecera del panel (buscador/exportar) llevan no-print.
+        self.assertRegex(self.html, r'<header class="[^"]*no-print')
+        self.assertRegex(self.html, r'<div id="aviso-exito"[^>]*no-print')
+
+
+class ExportarOrdenEstaticoTest(unittest.TestCase):
+    """C-06c: 'Exportar PDF' por orden en /ordenes (sin exportacion global)."""
+
+    def setUp(self):
+        self.html = leer(STATIC / "ordenes.html")
+        self.js = leer(STATIC / "js" / "ordenes.js")
+
+    def test_carga_exportar_y_no_hay_boton_global(self):
+        self.assertLess(self.html.index("/static/js/exportar.js"), self.html.index("/static/js/ordenes.js"))
+        self.assertNotIn("Exportar PDF", self.html)
+
+    def test_boton_por_orden_accesible_y_conectado(self):
+        for fragmento in ("data-exportar-orden", "Exportar PDF de la orden ", "Exportar.imprimir",
+                          'modo: "orden"', "data-exportar"):
+            with self.subTest(fragmento=fragmento):
+                self.assertIn(fragmento, self.js)
+        self.assertNotIn("fetch", self.js)
+
+
 if __name__ == "__main__":
     unittest.main()

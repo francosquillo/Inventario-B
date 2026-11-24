@@ -151,6 +151,37 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 
 **Reglas relacionadas**: RN-PR-03, RN-PR-04, RN-PR-05, RN-VA-05
 
+## Épica 3b: Búsqueda y exportación (C-06c)
+
+### US-012 — Buscar productos en el inventario
+**Como** usuario
+**Quiero** filtrar el inventario escribiendo un código o parte del nombre
+**Para** encontrar rápido una pieza sin recorrer toda la lista
+
+**Paso**: 5c (solo frontend; sin endpoints nuevos)
+
+**Criterios de aceptación**:
+- [ ] El filtro se aplica en el navegador sobre la lista ya cargada, por código o nombre parcial, sin distinguir mayúsculas ni acentos.
+- [ ] Se muestra el conteo "N productos"; con filtro activo que reduce la lista, "V de N productos" (solo cuando V < N).
+- [ ] Sin coincidencias se muestra un mensaje y el botón "Limpiar búsqueda"; la tecla Escape también limpia el filtro.
+- [ ] La búsqueda se conserva al recargar la lista (tras ingreso, modificación, orden o borrado).
+
+**Reglas relacionadas**: RN-PR-02
+
+### US-013 — Exportar a PDF
+**Como** usuario
+**Quiero** exportar el inventario visible y cada orden a PDF
+**Para** imprimirlos o archivarlos
+
+**Paso**: 5c (solo frontend; sin PDF en el servidor)
+
+**Criterios de aceptación**:
+- [ ] "Exportar PDF" abre el diálogo de impresión del navegador (el usuario elige "Guardar como PDF"); no hay endpoint ni dependencia de PDF en el servidor.
+- [ ] PDF de inventario: solo las filas visibles (respeta la búsqueda), encabezado "Inventario" y "N productos · YYYY-MM-DD".
+- [ ] Cada orden tiene su botón "Exportar PDF" (no hay exportación de la lista completa); encabezado "Orden OT-XXXX" y "Fecha: YYYY-MM-DD · N componentes".
+- [ ] Página clara, sin controles ni columna de acciones; stock 0 se imprime "0 (sin stock)"; los encabezados de tabla se repiten en cada página.
+- [ ] La lógica vive en el módulo reutilizable `static/js/exportar.js` (lo reutilizará C-06d).
+
 ## Épica 4: Web y despliegue
 
 ### US-010 — Migración a Supabase y frontend web

@@ -37,6 +37,12 @@ Control de stock de piezas y órdenes de trabajo para un taller o pyme chica. Ba
 
 La sesión dura 12 horas desde la última petición.
 
+## Buscar y exportar a PDF
+
+- **Buscar**: en `/inventario`, el campo "Buscar por código o nombre" filtra la tabla mientras escribís (sin distinguir mayúsculas ni tildes). Escape o "Limpiar búsqueda" la vacían.
+- **Exportar el inventario**: "Exportar PDF" exporta las filas que se ven (todas si no hay búsqueda). En `/ordenes`, cada orden tiene su propio "Exportar PDF".
+- **Cómo se guarda**: el botón abre el diálogo de impresión del navegador; elegí el destino "Guardar como PDF". Si no querés la URL y la fecha del navegador en los bordes de la hoja, desactivá "Encabezados y pies de página" en las opciones del diálogo.
+
 ## Tests
 
 ```bash

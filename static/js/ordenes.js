@@ -32,6 +32,10 @@
     cab.appendChild(UI.el("span", { "class": "text-sm text-muted" }, n + (n === 1 ? " componente" : " componentes")));
     cab.appendChild(UI.el("button", {
       "class": "btn btn-secondary btn-sm ml-auto", type: "button",
+      "data-exportar-orden": o.numero, "aria-label": "Exportar PDF de la orden " + o.numero
+    }, "Exportar PDF"));
+    cab.appendChild(UI.el("button", {
+      "class": "btn btn-secondary btn-sm", type: "button",
       "data-borrar": o.numero, "aria-label": "Eliminar orden " + o.numero
     }, "Eliminar"));
     art.appendChild(cab);
@@ -99,6 +103,26 @@
         }
       }
     );
+  }
+
+  // ---------------------------------------------------------------- exportar una orden
+
+  // Exporta solo esa orden: la marca (data-exportar) deja visible su <article> en la hoja de impresion.
+  function exportarOrden(numero) {
+    const o = ordenes.find((x) => x.numero === numero);
+    if (!o) return;
+    const articulo = Array.from($("ord-lista").querySelectorAll("article.ord"))
+      .find((a) => a.getAttribute("aria-labelledby") === "ord-t-" + o.id);
+    if (!articulo) return;
+    const n = o.componentes.length;
+    articulo.setAttribute("data-exportar", "");
+    Exportar.imprimir({
+      titulo: "Orden " + o.numero,
+      linea: "Fecha: " + o.fecha + " · " + n + (n === 1 ? " componente" : " componentes"),
+      base: "orden-" + o.numero,
+      modo: "orden",
+      alRestaurar: () => { articulo.removeAttribute("data-exportar"); }
+    });
   }
 
   // ---------------------------------------------------------------- filtros
@@ -272,6 +296,8 @@
     $("f-limpiar").addEventListener("click", verTodas);
     $("ord-reintentar").addEventListener("click", () => cargar(true));
     $("ord-lista").addEventListener("click", (e) => {
+      const x = e.target.closest("[data-exportar-orden]");
+      if (x) { exportarOrden(x.getAttribute("data-exportar-orden")); return; }
       const b = e.target.closest("[data-borrar]");
       if (b) abrirBorrar(b.getAttribute("data-borrar"));
     });

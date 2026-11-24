@@ -30,8 +30,12 @@ C-01 paso-1-base-cli
                 └── C-05 paso-4b-borrado-ordenes-productos
                      └── C-06 paso-5-web-local
                           └── C-06b paso-5b-fixes-menores
-                               └── C-07 paso-6-migracion-supabase
-                                    └── C-08 paso-7-despliegue-vercel
+                               └── C-06c paso-5c-buscador-pdf
+                                    └── C-06d paso-5d-reporte-ordenes-fechas
+                                         └── C-06e paso-5e-categorias-productos
+                                              └── C-06f paso-5f-procesos-ordenes
+                                                   └── C-07 paso-6-migracion-supabase
+                                                        └── C-08 paso-7-despliegue-vercel
 ```
 
 ### Paralelismo por fase
@@ -44,11 +48,12 @@ GATE 0: (inicio)
 GATE 1..7: cada change archivado desbloquea únicamente el siguiente (sin fork).
 ```
 
-### Camino crítico (9 changes — mínimo irreducible)
+### Camino crítico (13 changes — mínimo irreducible)
 
-C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-07 → C-08
+C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d → C-06e → C-06f → C-07 → C-08
 
 > C-06b (`paso-5b-fixes-menores`) es un change intermedio agregado el 2026-11-20 a pedido del usuario, entre C-06 y C-07.
+> C-06c..C-06f son changes intermedios agregados el 2026-11-24 a pedido del usuario, antes de C-07, ordenados de más simple a más complejo: los dos primeros no tocan el esquema; los dos últimos agregan tablas/columnas con migración.
 
 ### Plan óptimo con 3 agentes
 
@@ -61,6 +66,10 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-07 → C-08
 | 5 | C-05 | — | — |
 | 6 | C-06 (mockups + apply) | — | — |
 | 6b | C-06b (mockups + apply) | — | — |
+| 6c | C-06c (mockups + apply) | — | — |
+| 6d | C-06d (mockups + apply) | — | — |
+| 6e | C-06e (mockups + apply) | — | — |
+| 6f | C-06f (mockups + apply) | — | — |
 | 7 | C-07 | — | — |
 | 8 | C-08 | — | — |
 
@@ -204,6 +213,80 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-07 → C-08
   - `design-system/README.md`
   - `openspec/changes/archive/2026-11-20-paso-5-web-local/` (mockups y design de C-06)
 
+### [C-06c] `paso-5c-buscador-pdf`
+> Change intermedio agregado el 2026-11-24 (pedido del usuario). El más simple de los cuatro: sin cambios de esquema.
+- **Estado**: `[x]` archivado (2026-11-24)
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`, design system Revision 2. Mockups aprobados ANTES de `apply`
+  - Buscador de productos en el inventario por **código o nombre parcial** (sin distinguir mayúsculas; definir en propose si filtra en el navegador o con un parámetro `q` en `GET /api/productos`)
+  - **Exportar a PDF** el resultado de la búsqueda del inventario y el listado de órdenes (el pedido dice "importar"; se interpreta como exportar/descargar, confirmar en propose)
+  - Decidir en propose el mecanismo de PDF: impresión del navegador con hoja de estilos `@media print` (sin dependencias nuevas) vs. generación en el servidor con una librería declarada en `requirements.txt`
+  - Al archivar: actualizar KB 06 y 07
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
+- **Dependencias**: `C-06b`
+- **Governance**: BAJO/MEDIO (lectura y presentación; sin cambios de datos) con componente visual
+- **Leer antes**:
+  - `knowledge-base/06_funcionalidades.md`
+  - `knowledge-base/07_flujos_principales.md`
+  - `design-system/README.md`
+  - `openspec/changes/archive/2026-11-23-paso-5b-fixes-menores/` (mockups y design de C-06b)
+
+### [C-06d] `paso-5d-reporte-ordenes-fechas`
+> Change intermedio agregado el 2026-11-24 (pedido del usuario). Sin cambios de esquema; consulta agregada nueva.
+- **Estado**: `[ ]` pendiente
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
+  - Reporte de **cantidad de cada producto usada en órdenes dentro de un rango de fechas** (desde/hasta `YYYY-MM-DD`, validado en frontend y backend; desde <= hasta): un total por producto en el rango
+  - Filtro opcional por **un solo producto** (si se elige, el reporte muestra solo ese producto en el rango)
+  - **Exportar el resultado a PDF**, reutilizando el módulo `static/js/exportar.js` y los estilos `@media print` de C-06c (impresión del navegador, sin PDF en el servidor)
+  - Endpoint nuevo de solo lectura (p. ej. `GET /api/reportes/productos-en-ordenes?desde=&hasta=&codigo=`) con la agregación en el repositorio
+  - Pantalla aparte (p. ej. `/reportes`), recomendada frente a una sección dentro de órdenes; confirmar en propose
+  - Al archivar: actualizar KB 06 y 07
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
+- **Dependencias**: `C-06c`
+- **Governance**: MEDIO (consulta agregada sobre datos existentes) con componente visual
+- **Leer antes**:
+  - `knowledge-base/04_modelo_de_datos.md` §ordenes, §orden_items
+  - `knowledge-base/05_reglas_de_negocio.md` §RN-VA (fechas)
+  - `knowledge-base/06_funcionalidades.md`
+  - `design-system/README.md`
+
+### [C-06e] `paso-5e-categorias-productos`
+> Change intermedio agregado el 2026-11-24 (pedido del usuario). Cambia el esquema de `productos`.
+- **Estado**: `[ ]` pendiente
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
+  - Categoría por producto, con 3 de ejemplo: **motor, aceite, filtro**. Decidir en propose si es una tabla `categorias` (ampliable) o un valor fijo con CHECK, y si la categoría es obligatoria
+  - Migración idempotente al arrancar sobre `productos` existentes (qué categoría reciben los productos actuales: a definir en propose)
+  - Elegir/cambiar la categoría en "Nuevo ingreso" y "Modificar stock"; filtro por categoría en el inventario (combinable con el buscador de C-06c)
+  - Al archivar: actualizar KB 04, 05, 06 y 07
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
+- **Dependencias**: `C-06d`
+- **Governance**: MEDIO/ALTO (migración de esquema sobre datos existentes) con componente visual
+- **Leer antes**:
+  - `knowledge-base/04_modelo_de_datos.md` §productos
+  - `knowledge-base/05_reglas_de_negocio.md` §RN-PR
+  - `knowledge-base/06_funcionalidades.md` §US-004, §US-005
+  - `openspec/changes/archive/2026-11-23-paso-5b-fixes-menores/` (patrón de migración idempotente)
+
+### [C-06f] `paso-5f-procesos-ordenes`
+> Change intermedio agregado el 2026-11-24 (pedido del usuario). El más complejo: tabla nueva ligada a órdenes.
+- **Estado**: `[ ]` pendiente
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
+  - Sección en las órdenes para registrar los **procesos hechos a la lancha**, con 3 de ejemplo: **cambio motor, cambio filtro, limpieza**. Decidir en propose: catálogo en tabla vs. valores fijos, uno o varios procesos por orden, texto libre opcional
+  - Tabla(s) nueva(s) (p. ej. `orden_procesos`) con migración idempotente; las órdenes existentes quedan sin procesos
+  - Crear orden con procesos dentro de la misma transacción que descuenta stock (regla dura 3); listado/detalle de órdenes y PDF de órdenes (C-06c) muestran los procesos; borrar orden borra sus procesos
+  - Al archivar: actualizar KB 04, 05, 06 y 07
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
+- **Dependencias**: `C-06e`
+- **Governance**: ALTO (toca la creación/borrado atómicos de órdenes + migración de esquema) con componente visual
+- **Leer antes**:
+  - `knowledge-base/04_modelo_de_datos.md` §ordenes, §orden_items
+  - `knowledge-base/05_reglas_de_negocio.md` §RN-OR
+  - `knowledge-base/06_funcionalidades.md`
+  - `knowledge-base/07_flujos_principales.md`
+
 ---
 
 ## FASE 3 — Supabase
@@ -219,8 +302,9 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-07 → C-08
   - Selector de backend por variable de entorno (p. ej. `INVENTARIO_BACKEND=sqlite|supabase`, por defecto `sqlite`), para poder seguir probando en local tras la migración
   - `.env.example` solo con nombres de variables; el usuario crea su `.env`
   - Paridad con C-06b: `movimientos.tipo` admite `ajuste` con `stock_anterior`/`stock_nuevo`; funciones RPC para el alta de producto (`POST /api/productos`) y la modificación de stock en lote (`POST /api/stock/modificaciones`)
+  - Paridad con C-06c..C-06f: búsqueda de productos, reporte de productos en órdenes por fechas, categorías de productos y procesos de órdenes (tablas, migraciones y RPC equivalentes en Postgres)
 - **Test runner**: `unittest` + `TestClient` (Strict TDD)
-- **Dependencias**: `C-06b`
+- **Dependencias**: `C-06f`
 - **Governance**: CRITICO (`service_role` key, migración de datos)
 - **Leer antes**:
   - `knowledge-base/08_arquitectura_propuesta.md`
@@ -262,7 +346,11 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-07 → C-08
 | C-05 | paso-4b-borrado-ordenes-productos | 1 | C-04 | ALTO |
 | C-06 | paso-5-web-local (antes paso-5-supabase-api-web) | 2 | C-05 | ALTO |
 | C-06b | paso-5b-fixes-menores | 2 | C-06 | MEDIO/ALTO |
-| C-07 | paso-6-migracion-supabase | 3 | C-06b | CRITICO |
+| C-06c | paso-5c-buscador-pdf | 2 | C-06b | BAJO/MEDIO |
+| C-06d | paso-5d-reporte-ordenes-fechas | 2 | C-06c | MEDIO |
+| C-06e | paso-5e-categorias-productos | 2 | C-06d | MEDIO/ALTO |
+| C-06f | paso-5f-procesos-ordenes | 2 | C-06e | ALTO |
+| C-07 | paso-6-migracion-supabase | 3 | C-06f | CRITICO |
 | C-08 | paso-7-despliegue-vercel (antes paso-6-despliegue-vercel) | 4 | C-07 | ALTO |
 
 Primer change recomendado: `C-01` (`paso-1-base-cli`).

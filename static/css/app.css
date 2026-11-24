@@ -106,3 +106,41 @@
 /* Resumen de la modificación */
 .sum-list { margin:.25rem 0 0; padding-left:1.125rem; list-style:disc; }
 .sum-list li { margin-top:.125rem; }
+
+/* ---------- C. Exportar a PDF (paso-5c-buscador-pdf): hoja de impresion ---------- */
+
+/* En pantalla, lo que es solo de papel no se ve. */
+.print-only { display:none; }
+
+@media print {
+  :root { color-scheme: light;
+    --color-bg:#fff; --color-surface:#fff; --color-surface-2:#fff; --color-border:#ccc; --color-border-strong:#999;
+    --color-text:#111; --color-text-muted:#444; --color-warning-fg:#111; --color-warning-subtle:transparent; }
+  @page { margin: 15mm; }
+  html, body { background:#fff !important; color:#111 !important; overflow:visible; font-size:11pt; }
+
+  /* Encabezado de la hoja: solo mientras se exporta (data-exportando lo pone exportar.js) */
+  body[data-exportando] #print-head { display:block; padding-bottom:.5rem; margin-bottom:.75rem; border-bottom:2px solid #111; break-after:avoid; }
+  #print-head h1 { font-size:18pt; font-weight:700; margin:0; color:#111; }
+  #print-head p { margin:.25rem 0 0; font-size:10pt; color:#444; }
+  span.print-only { display:inline; }
+
+  /* Fuera del papel: cabecera, navegacion, controles, avisos, modales y acciones por fila */
+  .no-print, .btn, .overlay, input, select, .icon-btn, .tbl-inv th:last-child, .tbl-inv td:last-child { display:none !important; }
+  main { max-width:none; padding:0; margin:0; }
+  main section { border:0 !important; background:transparent !important; }
+
+  /* Tablas: sin scroll, encabezado repetido en cada pagina y filas sin partir */
+  [role="region"], .overflow-x-auto { overflow:visible !important; }
+  .tbl { font-size:10.5pt; }
+  .tbl thead { display:table-header-group; }
+  .tbl th { background:#fff; color:#444; border-bottom:1.5px solid #111; }
+  .tbl td { border-bottom:1px solid #ccc; color:#111; }
+  .tbl tr { break-inside: avoid; }
+  .badge { background:transparent !important; color:#111 !important; padding:0; font-size:inherit; font-weight:700; }
+
+  /* Una sola orden: las demas y su propio encabezado de pantalla no salen */
+  body[data-exportando="orden"] .ord:not([data-exportar]) { display:none !important; }
+  body[data-exportando="orden"] .ord-head { display:none !important; }
+  .ord + .ord { border-top:0; }
+}

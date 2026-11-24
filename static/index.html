@@ -14,10 +14,13 @@
   <script src="/static/js/api.js" defer></script>
   <script src="/static/js/ui.js" defer></script>
   <script src="/static/js/sesion.js" defer></script>
+  <script src="/static/js/busqueda.js" defer></script>
+  <script src="/static/js/exportar.js" defer></script>
   <script src="/static/js/inventario.js" defer></script>
 </head>
 <body>
-  <header class="bg-surface border-b border-line">
+  <header id="print-head" class="print-only" aria-hidden="true"></header>
+  <header class="bg-surface border-b border-line no-print">
     <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
       <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
       <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
@@ -35,24 +38,32 @@
     <h1 class="sr-only">Inventario</h1>
 
     <!-- Aviso de éxito: persistente hasta cerrarlo o hasta la próxima acción -->
-    <div id="aviso-exito" role="status" hidden class="flex items-center gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm"></div>
+    <div id="aviso-exito" role="status" hidden class="no-print flex items-center gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm"></div>
 
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap gap-2 no-print">
       <button id="btn-nuevo" class="btn btn-primary" type="button">Nuevo ingreso</button>
       <button id="btn-modificar" class="btn btn-primary" type="button">Modificar stock</button>
       <button id="btn-orden" class="btn btn-primary" type="button">Nueva orden</button>
       <a class="btn btn-secondary" href="/ordenes">Ver órdenes</a>
     </div>
 
-    <div id="inv-vacio" hidden class="bg-surface border border-dashed border-line rounded-lg p-8 text-center">
+    <div id="inv-vacio" hidden class="no-print bg-surface border border-dashed border-line rounded-lg p-8 text-center">
       <h2 class="font-semibold">Todavía no hay productos</h2>
       <p class="text-sm text-muted mt-1">Creá el primero con Nuevo ingreso.</p>
     </div>
 
     <section id="inv-panel" class="bg-surface border border-line rounded-lg" aria-labelledby="t-inv">
-      <div class="flex items-center justify-between gap-3 p-3 border-b border-line">
-        <h2 id="t-inv" class="font-bold">Inventario</h2>
-        <span id="inv-conteo" class="text-sm text-muted"></span>
+      <div class="no-print flex flex-wrap items-center gap-x-3 gap-y-2 p-3 border-b border-line">
+        <div class="flex items-center gap-3 mr-auto">
+          <h2 id="t-inv" class="font-bold">Inventario</h2>
+          <span id="inv-conteo" class="text-sm text-muted" aria-live="polite"></span>
+        </div>
+        <!-- Móvil: el buscador baja a su propia fila a todo el ancho; "Exportar PDF" queda junto al título -->
+        <div class="order-last w-full sm:order-none sm:w-72">
+          <label class="sr-only" for="inv-buscar">Buscar por código o nombre</label>
+          <input class="field" id="inv-buscar" type="search" placeholder="Buscar por código o nombre" autocomplete="off">
+        </div>
+        <button id="btn-exportar-inv" class="btn btn-secondary" type="button" disabled>Exportar PDF</button>
       </div>
 
       <div id="inv-cargando" role="status" aria-live="polite" class="p-8 text-center text-sm text-muted">Cargando inventario…</div>
@@ -62,6 +73,12 @@
           <p id="inv-error-texto" class="flex-1 min-w-[12rem]"></p>
           <button id="inv-reintentar" class="btn btn-secondary" type="button">Reintentar</button>
         </div>
+      </div>
+
+      <div id="inv-sin-coincidencias" role="status" hidden class="no-print m-3 border border-dashed border-line rounded-lg p-8 text-center">
+        <p id="inv-sin-coincidencias-msg" class="font-semibold"></p>
+        <p class="text-sm text-muted mt-1">Probá con otra parte del código o del nombre.</p>
+        <button id="inv-limpiar" class="btn btn-secondary mt-3" type="button">Limpiar búsqueda</button>
       </div>
 
       <div id="inv-tabla" hidden class="overflow-x-auto" tabindex="0" role="region" aria-label="Tabla de inventario">

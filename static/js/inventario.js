@@ -9,6 +9,8 @@
   const MENOS = "−";
 
   let productos = [];
+  let visibles = [];        // filas que deja pasar el buscador (lo que se exporta)
+  let estadoActual = "cargando";
   let inactivos = [];
   let bajaActual = null;
   let secuenciaLinea = 0;
@@ -17,10 +19,18 @@
 
   // ---------------------------------------------------------------- lista
 
+  function hayBusqueda() {
+    return Busqueda.normalizar($("inv-buscar").value) !== "";
+  }
+
   function mostrarEstado(estado) {
+    estadoActual = estado;
+    const sinCoincidencias = estado === "datos" && hayBusqueda() && visibles.length === 0;
+    $("inv-sin-coincidencias").hidden = !sinCoincidencias;
+    $("btn-exportar-inv").disabled = estado !== "datos" || visibles.length === 0;
     $("inv-cargando").hidden = estado !== "cargando";
     $("inv-error").hidden = estado !== "error";
-    $("inv-tabla").hidden = estado !== "datos";
+    $("inv-tabla").hidden = estado !== "datos" || sinCoincidencias;
     $("inv-conteo").hidden = estado !== "datos";
     $("inv-vacio").hidden = estado !== "vacio";
     $("inv-panel").hidden = estado === "vacio";
@@ -31,6 +41,7 @@
     if (p.sin_stock) {
       const badge = UI.el("span", { "class": "badge bg-warning-subtle text-warning-fg" }, String(p.stock));
       badge.appendChild(UI.el("span", { "class": "sr-only" }, ", sin stock"));
+      badge.appendChild(UI.el("span", { "class": "print-only", "aria-hidden": "true" }, " (sin stock)"));
       celda.appendChild(badge);
     } else {
       celda.textContent = String(p.stock);
@@ -40,7 +51,9 @@
 
   function pintarTabla() {
     const cuerpo = UI.vaciar($("inv-cuerpo"));
-    productos.forEach((p) => {
+    const texto = $("inv-buscar").value;
+    visibles = Busqueda.filtrar(productos, texto);
+    visibles.forEach((p) => {
       const fila = UI.el("tr");
       fila.appendChild(UI.el("td", { "class": "num" }, p.codigo));
       fila.appendChild(UI.el("td", null, p.nombre));
@@ -53,7 +66,33 @@
       fila.appendChild(accion);
       cuerpo.appendChild(fila);
     });
-    $("inv-conteo").textContent = productos.length + (productos.length === 1 ? " producto" : " productos");
+    $("inv-conteo").textContent = Busqueda.conteo(visibles.length, productos.length, hayBusqueda());
+    $("inv-sin-coincidencias-msg").textContent = "Ningún producto coincide con «" + texto.trim() + "»";
+  }
+
+  // Repinta la tabla con el texto actual del buscador (solo si ya hay datos en pantalla).
+  function aplicarBusqueda() {
+    if (estadoActual !== "datos") return;
+    pintarTabla();
+    mostrarEstado("datos");
+  }
+
+  function limpiarBusqueda() {
+    const campo = $("inv-buscar");
+    campo.value = "";
+    aplicarBusqueda();
+    campo.focus();
+  }
+
+  function exportarInventario() {
+    const n = visibles.length;
+    if (estadoActual !== "datos" || n === 0) return;
+    Exportar.imprimir({
+      titulo: "Inventario",
+      linea: n + (n === 1 ? " producto" : " productos") + " · " + Exportar.fecha(new Date()),
+      base: "inventario",
+      modo: "inventario"
+    });
   }
 
   function etiquetaProducto(p) {
@@ -805,6 +844,12 @@
     $("btn-modificar").addEventListener("click", abrirModificar);
     $("btn-orden").addEventListener("click", abrirOrden);
     $("inv-reintentar").addEventListener("click", () => { ocultarExito(); cargar(true); });
+    $("inv-buscar").addEventListener("input", aplicarBusqueda);
+    $("inv-buscar").addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && $("inv-buscar").value !== "") { e.preventDefault(); limpiarBusqueda(); }
+    });
+    $("inv-limpiar").addEventListener("click", limpiarBusqueda);
+    $("btn-exportar-inv").addEventListener("click", exportarInventario);
 
     $("inv-cuerpo").addEventListener("click", (e) => {
       const boton = e.target.closest("[data-baja]");

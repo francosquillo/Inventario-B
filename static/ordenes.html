@@ -14,10 +14,12 @@
   <script src="/static/js/api.js" defer></script>
   <script src="/static/js/ui.js" defer></script>
   <script src="/static/js/sesion.js" defer></script>
+  <script src="/static/js/exportar.js" defer></script>
   <script src="/static/js/ordenes.js" defer></script>
 </head>
 <body>
-  <header class="bg-surface border-b border-line">
+  <header id="print-head" class="print-only" aria-hidden="true"></header>
+  <header class="bg-surface border-b border-line no-print">
     <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
       <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
       <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
@@ -32,19 +34,19 @@
   </header>
 
   <main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
-    <div>
+    <div class="no-print">
       <a href="/inventario" class="text-sm font-semibold text-accent-text underline">&larr; Inventario</a>
       <h1 class="text-2xl font-bold mt-1">Órdenes</h1>
     </div>
 
     <!-- Resumen del borrado: persistente hasta cerrarlo o hasta la próxima acción -->
-    <div id="aviso-exito" role="status" hidden class="flex items-start gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm"></div>
+    <div id="aviso-exito" role="status" hidden class="no-print flex items-start gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm"></div>
 
     <section class="bg-surface border border-line rounded-lg" aria-labelledby="t-ord">
       <h2 id="t-ord" class="sr-only">Lista de órdenes</h2>
 
       <!-- Filtros: los vacíos no se envían -->
-      <form id="form-filtros" class="p-3 border-b border-line space-y-3" novalidate aria-label="Filtros de órdenes">
+      <form id="form-filtros" class="no-print p-3 border-b border-line space-y-3" novalidate aria-label="Filtros de órdenes">
         <div class="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-start">
           <div class="sm:w-44"><label class="label" for="f-desde">Desde</label><input class="field num" id="f-desde" type="date"></div>
           <div class="sm:w-44"><label class="label" for="f-hasta">Hasta</label><input class="field num" id="f-hasta" type="date"></div>
@@ -57,7 +59,7 @@
         <div id="filtros-alerta" hidden></div>
       </form>
 
-      <p id="ord-conteo" class="px-3 pt-3 text-sm text-muted" hidden></p>
+      <p id="ord-conteo" class="no-print px-3 pt-3 text-sm text-muted" hidden></p>
 
       <div id="ord-cargando" role="status" aria-live="polite" class="p-8 text-center text-sm text-muted">Cargando órdenes…</div>
 

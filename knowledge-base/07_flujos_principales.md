@@ -131,6 +131,30 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 - Sin resultados → lista vacía.
 - Sin sesión válida → 401.
 
+## Flujo 5b: Buscar en el inventario (C-06c)
+**Disparador**: el usuario escribe en el buscador de la pantalla de inventario.
+**Actor**: Usuario autenticado.
+
+**Pasos**:
+1. La web filtra en el navegador la lista cargada por código o nombre parcial (sin distinguir mayúsculas ni acentos); no hay llamada al servidor.
+2. Se muestra "N productos" o, con filtro que reduce la lista, "V de N productos".
+3. Tras recargar la lista (ingreso, modificación, orden, borrado) se reaplica la búsqueda vigente.
+
+**Casos especiales**:
+- Sin coincidencias → mensaje y botón "Limpiar búsqueda" (Escape hace lo mismo).
+
+## Flujo 5c: Exportar a PDF (C-06c)
+**Disparador**: botón "Exportar PDF" en el inventario o en una orden.
+**Actor**: Usuario autenticado.
+
+**Pasos**:
+1. `static/js/exportar.js` arma el documento de impresión con el contenido visible: inventario (filas visibles, "Inventario" + "N productos · YYYY-MM-DD") u orden individual ("Orden OT-XXXX" + "Fecha: YYYY-MM-DD · N componentes").
+2. Se abre el diálogo de impresión del navegador; el usuario elige "Guardar como PDF". No se genera PDF en el servidor.
+3. Estilos de impresión: página clara, controles y columna de acciones ocultos, stock 0 como "0 (sin stock)", encabezados de tabla repetidos por página.
+
+**Casos especiales**:
+- No existe exportación de la lista completa de órdenes (solo por orden); C-06d reutilizará `exportar.js`.
+
 ## Flujo 6: Borrar orden
 **Disparador**: `DELETE /api/ordenes/{numero}?reintegrar=true|false` (Fase 1, `/docs`) / modal de borrado (Fase 2). La orden se identifica por su número normalizado, nunca por id (C-05).
 **Actor**: Usuario autenticado.
