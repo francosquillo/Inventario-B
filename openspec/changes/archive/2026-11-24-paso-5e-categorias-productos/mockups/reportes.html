@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reportes — maqueta C-06e</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<link rel="stylesheet" href="assets/mockup-5c.css">
+<link rel="stylesheet" href="assets/mockup-5e.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Reportes (/reportes) — paso-5e-categorias-productos">
+
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta">
+  <div class="mk-bar-in">
+    <span class="mk-tag">Maqueta</span>
+    <label class="sr-only" for="mk-state">Estado</label>
+    <select id="mk-state">
+      <option value="R10" data-desc="Reporte del mes generado: columnas Código, Nombre, Categoría, Cantidad y Órdenes ('Sin categoría' atenuado; un producto dado de baja con su marca); sin filtro de categoría. En 390 px la categoría baja bajo el nombre.">R10 · reporte del mes con Categoría</option>
+      <option value="P2" data-desc="PDF del reporte: columna Categoría en texto ('Sin categoría', 'dado de baja' en negrita), hoja clara, sin filtros ni navegación.">P2 · imprimir reporte</option>
+    </select>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-prev" aria-label="Estado anterior">&larr;</button>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-next" aria-label="Estado siguiente">&rarr;</button>
+    <a href="inventario.html#I1">&larr; Inventario</a>
+    <span>C-06e · paso-5e-categorias-productos</span>
+    <p class="mk-desc" id="mk-desc"></p>
+  </div>
+</div>
+
+<div data-hide="P2">
+<header class="bg-surface border-b border-line">
+  <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+    <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+    <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+      <a class="navlink" href="inventario.html#I1">Inventario</a>
+      <a class="navlink" href="../../archive/2026-11-24-paso-5c-buscador-pdf/mockups/ordenes.html#O1">Órdenes</a>
+      <a class="navlink" href="reportes.html#R10" aria-current="page">Reportes</a>
+    </nav>
+    <div class="ml-auto flex items-center gap-3 text-sm">
+      <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">franco</strong></span>
+      <button class="btn btn-secondary" type="button">Cerrar sesión</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+  <div><h1 class="text-2xl font-bold">Reportes</h1></div>
+
+  <section class="bg-surface border border-line rounded-lg" aria-labelledby="t-rep">
+    <h2 id="t-rep" class="sec-title px-3 pt-3 mb-0">Productos usados en órdenes</h2>
+
+    <form id="form-reporte" class="p-3 border-b border-line space-y-3" novalidate aria-label="Filtros del reporte">
+      <div class="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-start">
+        <div class="sm:w-44">
+          <label class="label" for="r-desde">Desde <span class="text-muted font-normal">(obligatorio)</span></label>
+          <input class="field num" id="r-desde" type="date" value="2026-11-01">
+        </div>
+        <div class="sm:w-44">
+          <label class="label" for="r-hasta">Hasta <span class="text-muted font-normal">(opcional)</span></label>
+          <input class="field num" id="r-hasta" type="date" value="2026-11-24">
+          <p class="help">Vacío = hoy</p>
+        </div>
+        <div class="col-span-2 sm:w-72">
+          <label class="label" for="r-producto">Producto</label>
+          <select class="field" id="r-producto" data-opts><option>Todos los productos</option></select>
+        </div>
+        <div class="col-span-2 flex gap-2 sm:pt-6">
+          <button id="btn-generar" class="btn btn-primary" type="submit">Generar</button>
+          <button id="btn-exportar-rep" class="btn btn-secondary" type="button" data-goto="#P2">Exportar PDF</button>
+        </div>
+      </div>
+    </form>
+
+    <p id="rep-resumen" class="px-3 pt-3 text-sm text-muted no-print"></p>
+
+    <div id="rep-tabla" class="pt-2 overflow-x-auto" tabindex="0" role="region" aria-label="Productos usados en órdenes">
+      <table class="tbl tbl-fit tbl-rep">
+        <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="cat-col">Categoría</th><th scope="col" class="r">Cantidad</th><th scope="col" class="r">Órdenes</th></tr></thead>
+        <tbody data-rep-body></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</div>
+
+<article class="sheet" data-show="P2" hidden aria-label="Hoja de impresión del reporte">
+  <header class="sheet-head">
+    <h1>Reporte de productos en órdenes</h1>
+    <p class="sheet-meta" id="sheet-meta"></p>
+  </header>
+  <table>
+    <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="cat">Categoría</th><th scope="col" class="r">Cantidad</th><th scope="col" class="r">Órdenes</th></tr></thead>
+    <tbody data-sheet-body></tbody>
+  </table>
+</article>
+
+<script src="assets/mockup-rep.js"></script>
+</body>
+</html>

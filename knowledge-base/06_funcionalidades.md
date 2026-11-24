@@ -200,6 +200,25 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 
 **Reglas relacionadas**: RN-VA-05, RN-PR-03
 
+## Épica 3c: Categorías de productos (C-06e)
+
+### US-015 — Clasificar productos por categoría
+**Como** usuario
+**Quiero** asignar una categoría (motor, aceite, filtro u otras) a cada producto y filtrar por ella
+**Para** ubicar rápido las piezas de un tipo, también al armar una orden
+
+**Paso**: 5e (cambia el esquema: tabla `categorias` + `productos.categoria_id`; migración idempotente)
+
+**Criterios de aceptación**:
+- [ ] La categoría es opcional; los productos existentes quedan "Sin categoría" tras la migración, sin perder datos.
+- [ ] "Nuevo ingreso" y cada línea de "Modificar stock" tienen un selector de categoría (en Modificar stock se precarga la actual); reactivar por Nuevo ingreso reemplaza la categoría.
+- [ ] El inventario muestra la columna "Categoría" y un filtro (Todas / categorías / Sin categoría) combinable con el buscador; conteo "V de N productos"; sin coincidencias ofrece "Limpiar filtros".
+- [ ] "Exportar PDF" del inventario imprime las filas visibles con la columna Categoría; con categoría elegida el encabezado la incluye ("Aceite · 3 productos · AAAA-MM-DD"). El reporte de `/reportes` y su PDF suman la columna Categoría (sin filtro por categoría).
+- [ ] En "Nueva orden" cada línea tiene un filtro de categoría que acota los productos del selector; el cuerpo de `POST /api/ordenes` no cambia.
+- [ ] `GET /api/categorias` lista el catálogo; `POST /api/categorias` crea y `PATCH /api/categorias/{clave}` renombra (solo por API, sin pantalla ni borrado).
+
+**Reglas relacionadas**: RN-PR-11, RN-PR-12, RN-PR-13, RN-PR-14
+
 ## Épica 4: Web y despliegue
 
 ### US-010 — Migración a Supabase y frontend web

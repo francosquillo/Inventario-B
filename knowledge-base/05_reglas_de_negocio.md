@@ -23,6 +23,10 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 - **RN-PR-08**: El alta explícita (`POST /api/productos`, "Nuevo ingreso" en la web) exige código (hasta 50, normalizado con recorte + MAYÚSCULAS), nombre (1 a 120) y stock inicial entero de 0 a 10.000; con stock 0 el producto queda activo sin stock y sin movimiento.
 - **RN-PR-09**: Dar de alta el código de un producto activo se rechaza con 409 "Ya existe un producto con código 'X'." sin modificar nada.
 - **RN-PR-10**: Dar de alta el código de un producto dado de baja lo reactiva reemplazando su nombre y su stock por los nuevos (`reactivado: true`); registra un `ajuste` si el stock cambia y ningún movimiento si no cambia.
+- **RN-PR-11** (C-06e): La categoría de un producto es opcional (`null`/ausente = "Sin categoría"). Se envía como clave (se normaliza con recorte + minúsculas); una clave desconocida se rechaza con 422 "La categoría 'x' no existe." (en lotes, con prefijo "Línea N: ").
+- **RN-PR-12** (C-06e): Dar de alta (Nuevo ingreso) el código de un producto dado de baja reemplaza también su categoría por la indicada (o la quita); la categoría no influye en el 409 por código activo ni en la decisión de reactivar.
+- **RN-PR-13** (C-06e): En "Modificar stock", una línea puede traer `categoria` (clave, o `null` para quitarla; ausente = no cambia). Cambiar solo la categoría no registra movimiento y no reactiva un producto dado de baja.
+- **RN-PR-14** (C-06e): Las categorías se administran solo por la API (sin pantalla web): `POST /api/categorias` (clave opcional, derivada del nombre si falta) y `PATCH /api/categorias/{clave}` (solo renombra; la clave es inmutable, enviarla da 422). No existe borrado. Clave repetida → 409 "Ya existe una categoría con clave 'x'."; nombre repetido (sin distinguir mayúsculas) → 409 "…con nombre 'X'."; clave inexistente → 404.
 
 ## Dominio: Stock y movimientos (RN-ST)
 

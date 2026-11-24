@@ -14,6 +14,7 @@
   <script src="/static/js/api.js" defer></script>
   <script src="/static/js/ui.js" defer></script>
   <script src="/static/js/sesion.js" defer></script>
+  <script src="/static/js/busqueda.js" defer></script>
   <script src="/static/js/exportar.js" defer></script>
   <script src="/static/js/reportes.js" defer></script>
 </head>
@@ -87,7 +88,7 @@
 
       <div id="rep-tabla" hidden class="pt-2 overflow-x-auto" tabindex="0" role="region" aria-label="Productos usados en órdenes">
         <table class="tbl tbl-fit tbl-rep">
-          <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th><th scope="col" class="r">Órdenes</th></tr></thead>
+          <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="cat-col">Categoría</th><th scope="col" class="r">Cantidad</th><th scope="col" class="r">Órdenes</th></tr></thead>
           <tbody id="rep-cuerpo"></tbody>
         </table>
       </div>

@@ -69,6 +69,8 @@ def modificar(datos: ModificacionRequest, usuario: Usuario, stock: Servicio):
             modo=linea.modo,
             valor=linea.stock if linea.modo == "fijar" else linea.cantidad,
             nombre=linea.nombre,
+            cambia_categoria="categoria" in linea.model_fields_set,
+            categoria=linea.categoria,
         )
         for linea in datos.lineas
     ]

@@ -28,6 +28,9 @@ class EsquemaTest(unittest.TestCase):
         esperadas = {"usuarios", "productos", "ordenes", "orden_items", "movimientos"}
         self.assertTrue(esperadas <= self.nombres("table"))
 
+    def test_crea_la_tabla_categorias(self):
+        self.assertIn("categorias", self.nombres("table"))
+
     def test_crea_los_indices(self):
         esperados = {
             "idx_ordenes_fecha",
@@ -279,3 +282,55 @@ class NormalizacionFechasLegadasTest(unittest.TestCase):
                 inicializar_esquema(self.conn)
         self.assertEqual(self.fechas(), ["basura"])
 
+
+
+class CategoriasConstraintsTest(unittest.TestCase):
+    def setUp(self):
+        self.conn = conexion_inicializada()
+        self.addCleanup(self.conn.close)
+        self.conn.execute("DELETE FROM categorias")
+
+    def insertar(self, clave, nombre):
+        return self.conn.execute(
+            "INSERT INTO categorias (clave, nombre) VALUES (?, ?)", (clave, nombre)
+        )
+
+    def assertRechaza(self, clave, nombre):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.insertar(clave, nombre)
+
+    def test_clave_valida(self):
+        for clave in ("motor", "tren-delantero", "a1", "x" * 30):
+            with self.subTest(clave=clave):
+                self.insertar(clave, "N" + clave)
+
+    def test_clave_duplicada(self):
+        self.insertar("motor", "Motor")
+        self.assertRechaza("motor", "Otro")
+
+    def test_nombre_unico_sin_distinguir_mayusculas(self):
+        self.insertar("aceite", "Aceite")
+        self.assertRechaza("lubricante", "ACEITE")
+
+    def test_clave_con_formato_invalido(self):
+        for clave in ("Motor", "mo tor", "mo_tor", "-motor", "motor-", "mo--tor", "", "x" * 31):
+            with self.subTest(clave=clave):
+                self.assertRechaza(clave, "N")
+
+    def test_nombre_vacio_o_largo(self):
+        for nombre in ("", "   ", "x" * 41):
+            with self.subTest(nombre=len(nombre)):
+                self.assertRechaza("ok", nombre)
+
+    def test_producto_con_categoria_inexistente(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute(
+                "INSERT INTO productos (codigo, nombre, stock, categoria_id) VALUES ('Z','Z',1,999)"
+            )
+
+    def test_producto_con_categoria_existente(self):
+        cid = self.insertar("motor", "Motor").lastrowid
+        self.conn.execute(
+            "INSERT INTO productos (codigo, nombre, stock, categoria_id) VALUES ('Z','Z',1,?)",
+            (cid,),
+        )

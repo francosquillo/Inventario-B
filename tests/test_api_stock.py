@@ -78,6 +78,7 @@ class IngresoConSesionTest(StockBase):
                 "nombre": "Tornillo",
                 "stock": 8,
                 "sin_stock": False,
+                "categoria": None,
                 "creado": False,
                 "reactivado": False,
             },
@@ -130,7 +131,7 @@ class EgresoConSesionTest(StockBase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(
             r.json(),
-            {"codigo": "A-01", "nombre": "Tornillo", "stock": 3, "sin_stock": False},
+            {"codigo": "A-01", "nombre": "Tornillo", "stock": 3, "sin_stock": False, "categoria": None},
         )
 
     def test_egreso_de_todo_marca_sin_stock(self):

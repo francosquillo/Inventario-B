@@ -1,4 +1,7 @@
 """Normalizacion del codigo de producto: unica puerta de entrada (D3/D7)."""
+import re
+import unicodedata
+
 from inventario.domain.errors import DatosInvalidos
 
 CODIGO_MAX = 50
@@ -36,3 +39,56 @@ def validar_cantidad(cantidad):
     if type(cantidad) is not int or not 1 <= cantidad <= CANTIDAD_MAX:
         raise DatosInvalidos(MENSAJE_CANTIDAD)
     return cantidad
+
+
+# --- Categorias (C-06e) ---
+CATEGORIA_CLAVE_MAX = 30
+CATEGORIA_NOMBRE_MAX = 40
+MENSAJE_CATEGORIA_TIPO = "El campo categoria debe ser texto."
+MENSAJE_CLAVE_CATEGORIA = (
+    "La clave de la categoría admite solo minúsculas sin tilde, números y guiones "
+    "(hasta 30 caracteres)."
+)
+MENSAJE_NOMBRE_CATEGORIA_OBLIGATORIO = "El campo nombre es obligatorio."
+MENSAJE_NOMBRE_CATEGORIA_LARGO = (
+    f"El nombre de la categoría admite hasta {CATEGORIA_NOMBRE_MAX} caracteres."
+)
+_CLAVE_CATEGORIA = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
+
+
+def normalizar_categoria(valor):
+    """Clave de categoria de un producto: None o blanco = sin categoria; recorta y minusculas."""
+    if valor is None:
+        return None
+    if not isinstance(valor, str):
+        raise DatosInvalidos(MENSAJE_CATEGORIA_TIPO)
+    return valor.strip().lower() or None
+
+
+def clave_desde_texto(texto):
+    """Deriva una clave: sin tildes, minusculas, tramos no alfanumericos -> '-', hasta 30."""
+    sin_tildes = "".join(
+        c for c in unicodedata.normalize("NFKD", texto) if not unicodedata.combining(c)
+    )
+    clave = re.sub(r"[^a-z0-9]+", "-", sin_tildes.lower()).strip("-")
+    clave = clave[:CATEGORIA_CLAVE_MAX].rstrip("-")
+    if not clave:
+        raise DatosInvalidos(MENSAJE_CLAVE_CATEGORIA)
+    return clave
+
+
+def validar_clave_categoria(clave):
+    """Clave ya normalizada (recorte + minusculas): formato y largo."""
+    if len(clave) > CATEGORIA_CLAVE_MAX or not _CLAVE_CATEGORIA.fullmatch(clave):
+        raise DatosInvalidos(MENSAJE_CLAVE_CATEGORIA)
+    return clave
+
+
+def normalizar_nombre_categoria(nombre):
+    """Nombre para mostrar: recortado, 1 a 40 caracteres."""
+    if not isinstance(nombre, str) or not nombre.strip():
+        raise DatosInvalidos(MENSAJE_NOMBRE_CATEGORIA_OBLIGATORIO)
+    nombre = nombre.strip()
+    if len(nombre) > CATEGORIA_NOMBRE_MAX:
+        raise DatosInvalidos(MENSAJE_NOMBRE_CATEGORIA_LARGO)
+    return nombre

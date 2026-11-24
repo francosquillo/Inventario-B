@@ -108,5 +108,121 @@ class ConteoTest(unittest.TestCase):
         ])
 
 
+CON_CATEGORIA = [
+    {"codigo": "A-01", "nombre": "Tornillo M8", "categoria": "motor"},
+    {"codigo": "A-02", "nombre": "Aceite 10W40", "categoria": "aceite"},
+    {"codigo": "B-10", "nombre": "Tuerca M8", "categoria": None},
+    {"codigo": "C-03", "nombre": "Filtro de aceite", "categoria": "aceite"},
+    {"codigo": "D-04", "nombre": "Junta tórica"},
+]
+
+
+def filtrar3(texto, categoria, productos=None):
+    return codigos(ejecutar([["filtrar", [productos or CON_CATEGORIA, texto, categoria]]])[0])
+
+
+@unittest.skipUnless(NODE, "Node no esta instalado")
+class FiltrarPorCategoriaTest(unittest.TestCase):
+    def test_solo_los_de_la_categoria_en_orden(self):
+        self.assertEqual(filtrar3("", "aceite"), ["A-02", "C-03"])
+
+    def test_todas_y_sin_tercer_parametro_no_filtran(self):
+        self.assertEqual(filtrar3("", ""), codigos(CON_CATEGORIA))
+        self.assertEqual(filtrar("m8", CON_CATEGORIA), ["A-01", "B-10"])
+
+    def test_sin_categoria_incluye_null_y_ausente(self):
+        self.assertEqual(filtrar3("", "__sin__"), ["B-10", "D-04"])
+
+    def test_texto_y_categoria_se_combinan(self):
+        self.assertEqual(filtrar3("aceite", "aceite"), ["A-02", "C-03"])
+        self.assertEqual(filtrar3("filtro", "aceite"), ["C-03"])
+        self.assertEqual(filtrar3("m8", "aceite"), [])
+        self.assertEqual(filtrar3("torica", "__sin__"), ["D-04"])
+
+    def test_categoria_sin_productos(self):
+        self.assertEqual(filtrar3("", "frenos"), [])
+
+    def test_conteo_con_filtro_de_categoria(self):
+        res = ejecutar([["conteo", [2, 5, True]], ["conteo", [5, 5, True]]])
+        self.assertEqual(res, ["2 de 5 productos", "5 productos"])
+
+
+@unittest.skipUnless(NODE, "Node no esta instalado")
+class MensajeSinCoincidenciasTest(unittest.TestCase):
+    def test_tres_variantes(self):
+        casos = [
+            ["xyz", ""],
+            ["  xyz ", None],
+            ["", "Motor"],
+            ["tor", "Aceite"],
+            ["", ""],
+        ]
+        res = ejecutar([["mensajeSinCoincidencias", c] for c in casos])
+        self.assertEqual(res, [
+            "Ningún producto coincide con «xyz»",
+            "Ningún producto coincide con «xyz»",
+            "Ningún producto en la categoría «Motor»",
+            "Ningún producto coincide con «tor» en la categoría «Aceite»",
+            "Ningún producto coincide con los filtros",
+        ])
+
+
+@unittest.skipUnless(NODE, "Node no esta instalado")
+class EtiquetasDeCategoriaTest(unittest.TestCase):
+    MAPA = {"aceite": "Aceite", "motor": "Motor"}
+
+    def test_nombre_de_categoria(self):
+        casos = [
+            [None, self.MAPA],
+            ["aceite", self.MAPA],
+            ["frenos", self.MAPA],
+            ["frenos", {}],
+            ["", self.MAPA],
+        ]
+        res = ejecutar([["nombreCategoria", c] for c in casos])
+        self.assertEqual(res, ["Sin categoría", "Aceite", "frenos", "frenos", "Sin categoría"])
+
+    def test_linea_del_pdf_del_inventario(self):
+        casos = [
+            [3, "Aceite", "2026-11-24"],
+            [1, "Motor", "2026-11-24"],
+            [12, "", "2026-11-24"],
+            [1, None, "2026-11-24"],
+        ]
+        res = ejecutar([["lineaInventario", c] for c in casos])
+        self.assertEqual(res, [
+            "Aceite · 3 productos · 2026-11-24",
+            "Motor · 1 producto · 2026-11-24",
+            "12 productos · 2026-11-24",
+            "1 producto · 2026-11-24",
+        ])
+
+
+@unittest.skipUnless(NODE, "Node no esta instalado")
+class OrdenPorCategoriaTest(unittest.TestCase):
+    def test_por_categoria(self):
+        res = ejecutar([
+            ["porCategoria", [CON_CATEGORIA, ""]],
+            ["porCategoria", [CON_CATEGORIA, "aceite"]],
+            ["porCategoria", [CON_CATEGORIA, "__sin__"]],
+            ["porCategoria", [CON_CATEGORIA, "frenos"]],
+        ])
+        self.assertEqual([codigos(r) for r in res], [
+            codigos(CON_CATEGORIA), ["A-02", "C-03"], ["B-10", "D-04"], [],
+        ])
+
+    def test_producto_sigue_visible(self):
+        casos = [
+            ["A-02", CON_CATEGORIA, "aceite"],
+            ["A-01", CON_CATEGORIA, "aceite"],
+            ["A-01", CON_CATEGORIA, ""],
+            ["", CON_CATEGORIA, ""],
+            ["ZZZ", CON_CATEGORIA, ""],
+            ["B-10", CON_CATEGORIA, "__sin__"],
+        ]
+        res = ejecutar([["productoSigueVisible", c] for c in casos])
+        self.assertEqual(res, [True, False, True, False, False, True])
+
+
 if __name__ == "__main__":
     unittest.main()

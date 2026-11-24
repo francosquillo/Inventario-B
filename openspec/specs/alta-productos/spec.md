@@ -6,12 +6,17 @@ Permite a un usuario autenticado dar de alta un producto de forma explícita, co
 ## Requirements
 
 ### Requirement: Alta de producto con código, nombre y stock
-El alta SHALL recibir código, nombre y stock inicial, los tres obligatorios, y crear un producto activo con el código normalizado (recorte + MAYÚSCULAS, hasta 50 caracteres), el nombre recortado (1 a 120 caracteres) y ese stock.
+El alta SHALL recibir código, nombre y stock inicial, los tres obligatorios, y opcionalmente una categoría del catálogo; SHALL crear un producto activo con el código normalizado (recorte + MAYÚSCULAS, hasta 50 caracteres), el nombre recortado (1 a 120 caracteres), ese stock y la categoría indicada (normalizada según `categorias-productos`) o ninguna si no se indica.
 
 #### Scenario: Alta con stock
 - **GIVEN** que no existe ningún producto con código `N-01`
 - **WHEN** se da de alta `N-01` "Arandela 6mm" con stock 10
-- **THEN** existe el producto activo `N-01` "Arandela 6mm" con stock 10 y aparece en el inventario general
+- **THEN** existe el producto activo `N-01` "Arandela 6mm" con stock 10, sin categoría, y aparece en el inventario general
+
+#### Scenario: Alta con categoría
+- **GIVEN** que no existe ningún producto con código `AC-10`
+- **WHEN** se da de alta `AC-10` "Aceite 10W40" con stock 4 y categoría `aceite`
+- **THEN** existe el producto activo `AC-10` con stock 4 y categoría `aceite`
 
 #### Scenario: Código y nombre normalizados
 - **GIVEN** que no existe ningún producto `RD-6204`
@@ -21,6 +26,10 @@ El alta SHALL recibir código, nombre y stock inicial, los tres obligatorios, y 
 #### Scenario: Falta un dato obligatorio
 - **WHEN** se intenta dar de alta un producto sin código, sin nombre (o con nombre de solo espacios) o sin stock
 - **THEN** el alta se rechaza con un mensaje que nombra el campo y no se crea ningún producto ni movimiento
+
+#### Scenario: Categoría inexistente
+- **WHEN** se intenta dar de alta `N-06` "Bujía" con stock 2 y categoría `encendido`
+- **THEN** el alta se rechaza con "La categoría 'encendido' no existe." y no se crea ningún producto ni movimiento
 
 ### Requirement: Stock inicial entero de 0 a 10.000
 El stock inicial del alta SHALL ser un entero de 0 a 10.000; cualquier otro valor SHALL rechazarse con el mensaje "El stock debe ser un entero entre 0 y 10.000." sin modificar datos. Esta excepción a "cantidad > 0" rige solo para el stock inicial del alta y el stock fijado por un ajuste.
@@ -53,7 +62,7 @@ El alta con el código de un producto activo SHALL rechazarse con el mensaje "Ya
 - **THEN** exactamente una crea el producto y la otra se rechaza con "Ya existe un producto con código 'N-04'."
 
 ### Requirement: Alta de un código dado de baja lo reactiva
-El alta con el código de un producto dado de baja SHALL reactivarlo, reemplazar su nombre por el nuevo y su stock conservado por el stock indicado, sin crear otro producto, e informar que fue reactivado.
+El alta con el código de un producto dado de baja SHALL reactivarlo, reemplazar su nombre por el nuevo, su stock conservado por el stock indicado y su categoría por la indicada (o ninguna si no se indica), sin crear otro producto, e informar que fue reactivado. La categoría SHALL NOT influir en si el alta se acepta, reactiva o rechaza.
 
 #### Scenario: Reactivación con datos nuevos
 - **GIVEN** el producto inactivo `C-99` "Junta" con stock 2
@@ -64,6 +73,11 @@ El alta con el código de un producto dado de baja SHALL reactivarlo, reemplazar
 - **GIVEN** el producto inactivo `C-99` con stock 2
 - **WHEN** se da de alta `C-99` "Junta" con stock 0
 - **THEN** `C-99` queda activo con stock 0 y figura sin stock en el inventario
+
+#### Scenario: Reactivación reemplaza la categoría
+- **GIVEN** el producto inactivo `C-99` "Junta" con categoría `motor`
+- **WHEN** se da de alta `C-99` "Junta" con stock 1 y categoría `filtro`, o sin categoría
+- **THEN** `C-99` queda activo con categoría `filtro`, o sin categoría, respectivamente
 
 ### Requirement: Movimientos del alta
 El alta SHALL registrar en la bitácora, con la fecha local de Argentina y el usuario autenticado: un `ingreso` por el stock inicial si el producto es nuevo y el stock es mayor que 0; ningún movimiento si es nuevo con stock 0; un `ajuste` con stock anterior y nuevo si reactiva y el stock cambia; ninguno si reactiva con el mismo stock.

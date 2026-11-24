@@ -56,6 +56,7 @@ class AltaExitosaTest(AltaBase):
                 "nombre": "Arandela 6mm",
                 "stock": 0,
                 "sin_stock": True,
+                "categoria": None,
                 "creado": True,
                 "reactivado": False,
             },
@@ -85,6 +86,7 @@ class AltaExitosaTest(AltaBase):
                 "nombre": "Junta tórica",
                 "stock": 6,
                 "sin_stock": False,
+                "categoria": None,
                 "creado": False,
                 "reactivado": True,
             },
@@ -153,8 +155,8 @@ class InactivosTest(unittest.TestCase):
         self.assertEqual(
             r.json(),
             [
-                {"codigo": "B-02", "nombre": "Tuerca", "stock": 0, "sin_stock": True},
-                {"codigo": "C-99", "nombre": "Junta", "stock": 2, "sin_stock": False},
+                {"codigo": "B-02", "nombre": "Tuerca", "stock": 0, "sin_stock": True, "categoria": None},
+                {"codigo": "C-99", "nombre": "Junta", "stock": 2, "sin_stock": False, "categoria": None},
             ],
         )
 

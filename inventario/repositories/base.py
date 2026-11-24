@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 
 from inventario.domain.entities import (
+    Categoria,
     LineaModificacion,
     Movimiento,
     Orden,
@@ -43,6 +44,23 @@ class ProductoRepository(ABC):
         """
 
 
+class CategoriaRepository(ABC):
+    @abstractmethod
+    def listar(self) -> "list[Categoria]":
+        """Catalogo ordenado por nombre (y clave)."""
+
+    @abstractmethod
+    def obtener(self, clave: str) -> "Categoria | None": ...
+
+    @abstractmethod
+    def crear(self, clave: str, nombre: str) -> Categoria:
+        """Datos ya validados. Lanza CategoriaDuplicada si la clave o el nombre ya existen."""
+
+    @abstractmethod
+    def renombrar(self, clave: str, nombre: str) -> Categoria:
+        """Cambia solo el nombre. Lanza CategoriaNoEncontrada o CategoriaDuplicada."""
+
+
 class StockRepository(ABC):
     """Cada metodo es una unidad de trabajo atomica (en Postgres sera una funcion RPC)."""
 
@@ -58,9 +76,17 @@ class StockRepository(ABC):
 
     @abstractmethod
     def dar_de_alta(
-        self, codigo: str, nombre: str, stock: int, usuario_id: int, fecha: datetime
+        self,
+        codigo: str,
+        nombre: str,
+        stock: int,
+        usuario_id: int,
+        fecha: datetime,
+        categoria: "str | None" = None,
     ) -> ResultadoIngreso:
         """Alta explicita (datos ya validados y normalizados); todo o nada.
+
+        `categoria` es la clave de una categoria existente o None; una reactivacion la reemplaza.
 
         Producto nuevo: activo con `stock` y, si stock > 0, un `ingreso`. Activo existente:
         ProductoDuplicado. Inactivo: se reactiva con nombre y stock nuevos y, si el stock

@@ -10,7 +10,10 @@ from inventario.domain.errors import (
     StockInsuficiente,
 )
 from inventario.domain.tiempo import ZONA_AR
-from inventario.repositories.sqlite_repo import SqliteStockRepository
+from inventario.repositories.sqlite_repo import (
+    SqliteCategoriaRepository,
+    SqliteStockRepository,
+)
 from inventario.services.stock_service import StockService
 from tests.helpers import conexion_inicializada, insertar_producto, insertar_usuario, movimientos
 
@@ -27,7 +30,8 @@ class ServiceBase(unittest.TestCase):
         insertar_producto(self.conn, "A-01", "Tornillo", 5)
         self.conn.commit()
         self.llamadas = 0
-        self.service = StockService(SqliteStockRepository(self.conn), ahora=self._reloj)
+        self.service = StockService(
+            SqliteStockRepository(self.conn), SqliteCategoriaRepository(self.conn), ahora=self._reloj)
 
     def _reloj(self):
         self.llamadas += 1
@@ -160,7 +164,8 @@ class RelojTest(ServiceBase):
         self.assertEqual(self.llamadas, 0)
 
     def test_reloj_por_defecto_usa_offset_argentina(self):
-        service = StockService(SqliteStockRepository(self.conn))
+        service = StockService(
+            SqliteStockRepository(self.conn), SqliteCategoriaRepository(self.conn))
         service.ingresar("A-01", 1, None, self.uid)
         self.assertTrue(movimientos(self.conn)[0][4].endswith("-03:00"))
 

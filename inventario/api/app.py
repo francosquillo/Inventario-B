@@ -14,6 +14,7 @@ from inventario.api.errores_validacion import mensaje_validacion
 from inventario.api.routers.paginas import STATIC_DIR
 from inventario.api.routers import (
     auth,
+    categorias,
     inventario,
     movimientos,
     ordenes,
@@ -23,6 +24,8 @@ from inventario.api.routers import (
     stock,
 )
 from inventario.domain.errors import (
+    CategoriaDuplicada,
+    CategoriaNoEncontrada,
     CredencialesInvalidas,
     DatosInvalidos,
     MENSAJE_CREDENCIALES_INVALIDAS,
@@ -102,6 +105,7 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
     )
     app.include_router(auth.router)
     app.include_router(inventario.router)
+    app.include_router(categorias.router)
     app.include_router(stock.router)
     app.include_router(movimientos.router)
     app.include_router(ordenes.router)
@@ -129,6 +133,8 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
         (OrdenNoEncontrada, 404),
         (ProductosNoEncontrados, 404),
         (ProductoDuplicado, 409),
+        (CategoriaDuplicada, 409),
+        (CategoriaNoEncontrada, 404),
     ):
         app.add_exception_handler(tipo, _responder(status))
 

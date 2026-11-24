@@ -1,0 +1,58 @@
+/* Piezas nuevas de paso-5e-categorias-productos (candidatas a static/css/app.css en el apply). Solo tokens de design-system/tokens.css,
+   salvo la hoja de impresión (colores de papel fijos). Se carga después de mockup.css y mockup-5c.css (copias de C-06d). */
+
+/* ---------- Categoría en las tablas ---------- */
+/* Desde 640 px: columna propia "Categoría". En móvil: sin columna; la categoría va como segunda línea bajo el nombre (la tabla no entra con 5 columnas en 390 px). */
+.tbl .cat-col { display:none; }
+.tbl .cat-inline { display:block; font-size:var(--text-xs); color:var(--color-text-muted); margin-top:.125rem; font-weight:var(--weight-medium); }
+@media (min-width: 640px) {
+  .tbl .cat-col { display:table-cell; }
+  .tbl .cat-inline { display:none; }
+  .tbl-fit.tbl-inv { min-width:34rem; }
+  .tbl-fit.tbl-rep { min-width:36rem; }
+}
+/* "Sin categoría" atenuado (columna y línea móvil) */
+.cat-none { color:var(--color-text-muted); }
+.tbl td.cat-none, .tbl td.cat-col.cat-none { color:var(--color-text-muted); }
+
+/* ---------- Barra del inventario: buscador + filtro de categoría ---------- */
+/* Móvil: buscador y filtro apilados, cada uno a todo el ancho (order-last los baja de la fila del título). Desde 640 px: en línea. */
+.inv-filtros { display:grid; gap:.5rem; width:100%; order:9; }
+@media (min-width: 640px) {
+  .inv-filtros { display:flex; width:auto; order:0; align-items:center; }
+  .inv-filtros .inv-buscar { width:16rem; }
+  .inv-filtros .inv-cat { width:12.5rem; }
+}
+
+/* ---------- Línea de "Nueva orden": categoría antes del producto ---------- */
+/* Desde 640 px: [n] [categoría] [producto] [cantidad] [Quitar].
+   Móvil: [n | categoría | producto] / [   | cantidad | Quitar ] (categoría y producto en una fila, cantidad y Quitar en otra). */
+.line { grid-template-columns: 1rem 6.75rem minmax(0,1fr); grid-template-areas: "n cat sel" ". cant quitar"; }
+.line > select[data-cat] { grid-area:cat; }
+.line > button { justify-self:end; }
+@media (max-width: 639.98px) {
+  select[data-cat] { font-size:var(--text-sm); padding-left:.5rem; padding-right:.25rem; }
+}
+@media (min-width: 640px) {
+  .line { grid-template-columns: 1.5rem 9rem minmax(0,1fr) 4.5rem auto; grid-template-areas: "n cat sel cant quitar"; }
+}
+/* Ayuda bajo la línea cuando la categoría no tiene productos */
+.line-help { padding-left:1.375rem; margin-top:.25rem; }
+@media (min-width: 640px) { .line-help { padding-left:2rem; } }
+
+/* ---------- "Modificar stock": nombre y categoría en la misma fila ---------- */
+.mline-two { display:grid; gap:.5rem; }
+@media (min-width: 640px) { .mline-two { grid-template-columns: minmax(0,1fr) 12rem; } }
+
+/* ---------- Rótulos y ayudas de la maqueta ---------- */
+.mk-cap-sm { font-size:var(--text-xs); color:var(--color-text-muted); margin-bottom:.25rem; }
+.mk-open-sm { min-height:0 !important; }
+.tbl .badge-baja { margin-left:.5rem; white-space:nowrap; }
+@media (max-width: 639.98px) { .tbl .badge-baja { display:inline-flex; margin-left:0; margin-top:.25rem; } }
+
+/* ---------- Impresión de la app real (sobre static/css/app.css @media print) ---------- */
+@media print {
+  .tbl .cat-inline { display:none !important; }
+  .tbl .cat-col { display:table-cell !important; color:#111 !important; }
+}
+.sheet th.cat, .sheet td.cat { white-space:nowrap; }

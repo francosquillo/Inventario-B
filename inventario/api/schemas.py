@@ -1,6 +1,6 @@
 """Modelos Pydantic estrictos (D10). Pydantic solo vive en inventario/api/."""
 from datetime import date, datetime
-from typing import Annotated, List, Literal, Optional, Union
+from typing import Annotated, Any, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -22,6 +22,28 @@ class ProductoOut(BaseModel):
     nombre: str
     stock: int
     sin_stock: bool
+    categoria: Optional[str] = None
+
+
+class CategoriaOut(BaseModel):
+    clave: str
+    nombre: str
+
+
+# Los campos de categoria y nombre se declaran sin tipo estricto (`Any`): los valida el service,
+# para que un valor que no sea texto reciba el mensaje de dominio y no el 422 generico.
+class CategoriaAltaRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    nombre: Optional[Any] = None
+    clave: Optional[Any] = None
+
+
+class CategoriaRenombreRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    nombre: Optional[Any] = None
+    clave: Optional[Any] = None  # solo para rechazarla: la clave es inmutable
 
 
 class ErrorOut(BaseModel):
@@ -56,6 +78,7 @@ class AltaProductoRequest(BaseModel):
     codigo: str = Field(min_length=1, max_length=50)
     nombre: str = Field(min_length=1, max_length=120)
     stock: Stock
+    categoria: Optional[Any] = None
 
 
 class _LineaBase(BaseModel):
@@ -63,6 +86,8 @@ class _LineaBase(BaseModel):
 
     codigo: str = Field(min_length=1, max_length=50)
     nombre: Optional[str] = Field(default=None, max_length=120)
+    # Ausente = no cambia; null = quitar la categoria; texto = asignar (lo valida el service).
+    categoria: Optional[Any] = None
 
 
 class LineaFijar(_LineaBase):
@@ -89,6 +114,7 @@ class LineaModificadaOut(ProductoOut):
     stock_anterior: int
     nombre_anterior: str
     reactivado: bool
+    categoria_anterior: Optional[str] = None
 
 
 class ModificacionOut(BaseModel):
@@ -103,6 +129,8 @@ def modificacion_out(resultados):
                 nombre=r.nombre,
                 stock=r.stock,
                 sin_stock=r.sin_stock,
+                categoria=r.categoria,
+                categoria_anterior=r.categoria_anterior,
                 modo=r.modo,
                 stock_anterior=r.stock_anterior,
                 nombre_anterior=r.nombre_anterior,
@@ -129,6 +157,7 @@ def producto_out(producto):
         nombre=producto.nombre,
         stock=producto.stock,
         sin_stock=producto.sin_stock,
+        categoria=producto.categoria,
     )
 
 
@@ -168,6 +197,7 @@ class ProductoEnOrdenesOut(BaseModel):
     codigo: str
     nombre: str
     activo: bool
+    categoria: Optional[str] = None
     cantidad: int
     ordenes: int
 
@@ -177,6 +207,7 @@ def producto_en_ordenes_out(fila):
         codigo=fila.codigo,
         nombre=fila.nombre,
         activo=fila.activo,
+        categoria=fila.categoria,
         cantidad=fila.cantidad,
         ordenes=fila.ordenes,
     )

@@ -253,7 +253,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 
 ### [C-06e] `paso-5e-categorias-productos`
 > Change intermedio agregado el 2026-11-24 (pedido del usuario). Cambia el esquema de `productos`.
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-24)
 - **Scope**:
   - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
   - Categoría por producto, con 3 de ejemplo: **motor, aceite, filtro**. Decidir en propose si es una tabla `categorias` (ampliable) o un valor fijo con CHECK, y si la categoría es obligatoria
@@ -303,6 +303,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
   - `.env.example` solo con nombres de variables; el usuario crea su `.env`
   - Paridad con C-06b: `movimientos.tipo` admite `ajuste` con `stock_anterior`/`stock_nuevo`; funciones RPC para el alta de producto (`POST /api/productos`) y la modificación de stock en lote (`POST /api/stock/modificaciones`)
   - Paridad con C-06c..C-06f: búsqueda de productos, reporte de productos en órdenes por fechas (RPC `productos_en_ordenes` y `productos_usados`), categorías de productos y procesos de órdenes (tablas, migraciones y RPC equivalentes en Postgres)
+  - Paridad con C-06e (categorías): tabla `categorias` (`clave` única con CHECK, índice único sobre `lower(nombre)`) + `productos.categoria_id` nullable FK; seed `motor`/`aceite`/`filtro` solo con catálogo vacío; RPC de alta y modificación de productos con `p_categoria` (clave); RPC `productos_en_ordenes` devuelve `categoria`; crear (`POST`) y renombrar (`PATCH`) categorías como operaciones directas de una fila (23505 → 409), sin RPC
 - **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-06f`
 - **Governance**: CRITICO (`service_role` key, migración de datos)

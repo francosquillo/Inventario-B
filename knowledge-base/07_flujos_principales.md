@@ -172,6 +172,26 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 - Código desconocido o rango sin órdenes → lista vacía (no es un error); la web muestra un mensaje de sin resultados.
 - El endpoint es de solo lectura: no modifica stock ni órdenes.
 
+## Flujo 5e: Categorías de productos (C-06e)
+**Actor**: Usuario autenticado.
+
+**Filtrar el inventario por categoría**:
+1. La página carga `GET /api/inventario` y `GET /api/categorias` en paralelo (si el catálogo falla, se muestra la clave cruda y el filtro queda solo con "Todas").
+2. El `<select>` de categoría (Todas / categorías / "Sin categoría") se combina con el buscador (AND), en el navegador. Conteo "V de N productos"; sin coincidencias, mensaje según el caso y "Limpiar filtros". El filtro y el texto se conservan al recargar la lista.
+3. "Exportar PDF" imprime lo visible con la columna Categoría; con categoría elegida, el encabezado la incluye.
+
+**Asignar categoría**:
+- "Nuevo ingreso": selector opcional (por defecto "Sin categoría"); si el código está dado de baja, la reactivación reemplaza nombre, stock y categoría.
+- "Modificar stock": cada línea precarga la categoría actual; la web envía `categoria` (clave o `null`); el backend solo escribe si cambió, sin movimiento y sin reactivar. El resumen muestra "categoría: Filtro → Aceite".
+
+**Nueva orden**: cada línea tiene su filtro de categoría ("Todas" por defecto); al cambiarlo se conserva el producto si pertenece, si no la línea vuelve a "Elegí un producto…"; sin activos en la categoría, "No hay productos en esta categoría.".
+
+**Administrar categorías (solo API, desde `/docs`)**: `POST /api/categorias {nombre, clave?}` → 201; `PATCH /api/categorias/{clave} {nombre}` → 200. La web ve los cambios al recargar.
+
+**Casos de error**:
+- Sin sesión → 401. Categoría desconocida en alta o modificación → 422 "La categoría 'x' no existe." (en lotes con "Línea N: "); `categoria` no textual → 422 "El campo categoria debe ser texto.".
+- Alta con clave o nombre repetido → 409; nombre vacío o de más de 40, o clave que queda vacía → 422; renombrar con `clave` en el cuerpo → 422; renombrar clave inexistente → 404.
+
 ## Flujo 6: Borrar orden
 **Disparador**: `DELETE /api/ordenes/{numero}?reintegrar=true|false` (Fase 1, `/docs`) / modal de borrado (Fase 2). La orden se identifica por su número normalizado, nunca por id (C-05).
 **Actor**: Usuario autenticado.

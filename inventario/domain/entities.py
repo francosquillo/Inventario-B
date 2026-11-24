@@ -18,12 +18,19 @@ class UsuarioAutenticado:
 
 
 @dataclass(frozen=True)
+class Categoria:
+    clave: str
+    nombre: str
+
+
+@dataclass(frozen=True)
 class Producto:
     id: int
     codigo: str
     nombre: str
     stock: int
     activo: bool
+    categoria: "str | None" = None  # clave de la categoria; None = sin categoria
 
     @property
     def sin_stock(self):
@@ -57,6 +64,8 @@ class LineaModificacion:
     modo: str
     valor: int
     nombre: "str | None"
+    cambia_categoria: bool = False  # False = no tocar; True = asignar `categoria` (None quita)
+    categoria: "str | None" = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +77,8 @@ class ResultadoModificacion:
     stock_anterior: int
     nombre_anterior: str
     reactivado: bool
+    categoria: "str | None" = None
+    categoria_anterior: "str | None" = None
 
     @property
     def sin_stock(self):
@@ -122,6 +133,7 @@ class ProductoEnOrdenes:
     activo: bool
     cantidad: int
     ordenes: int
+    categoria: "str | None" = None
 
 
 @dataclass(frozen=True)

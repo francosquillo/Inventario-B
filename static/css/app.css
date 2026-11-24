@@ -148,3 +148,54 @@
   body[data-exportando="orden"] .ord-head { display:none !important; }
   .ord + .ord { border-top:0; }
 }
+
+/* ---------- D. Categorías de producto (paso-5e-categorias-productos; aprobado en los mockups) ---------- */
+
+/* Categoría en las tablas: desde 640 px columna propia; en móvil, segunda línea bajo el nombre
+   (la tabla no entra con una columna más en 390 px). */
+.tbl .cat-col { display:none; }
+.tbl .cat-inline { display:block; font-size:var(--text-xs); color:var(--color-text-muted); margin-top:.125rem; font-weight:var(--weight-medium); }
+@media (min-width: 640px) {
+  .tbl .cat-col { display:table-cell; }
+  .tbl .cat-inline { display:none; }
+  .tbl-fit.tbl-inv { min-width:34rem; }
+  .tbl-fit.tbl-rep { min-width:36rem; }
+}
+/* "Sin categoría" atenuado (columna y línea móvil) */
+.cat-none, .tbl td.cat-none { color:var(--color-text-muted); }
+@media (max-width: 639.98px) { .tbl .badge-baja { display:inline-flex; margin-left:0; margin-top:.25rem; } }
+
+/* Barra del inventario: móvil, buscador y filtro apilados a todo el ancho (bajan de la fila del título);
+   desde 640 px, en línea. */
+.inv-filtros { display:grid; gap:.5rem; width:100%; order:9; }
+@media (min-width: 640px) {
+  .inv-filtros { display:flex; width:auto; order:0; align-items:center; }
+  .inv-filtros .inv-buscar { width:16rem; }
+  .inv-filtros .inv-cat { width:12.5rem; }
+}
+
+/* Línea de "Nueva orden": categoría antes del producto.
+   Desde 640 px: [n] [categoría] [producto] [cantidad] [Quitar]. Móvil: categoría y producto en una fila,
+   cantidad y Quitar debajo. */
+.line { grid-template-columns: 1rem 6.75rem minmax(0,1fr); grid-template-areas: "n cat sel" ". cant quitar"; }
+.line > select[data-cat] { grid-area:cat; }
+.line > button { justify-self:end; }
+@media (max-width: 639.98px) {
+  select[data-cat] { font-size:var(--text-sm); padding-left:.5rem; padding-right:.25rem; }
+}
+@media (min-width: 640px) {
+  .line { grid-template-columns: 1.5rem 9rem minmax(0,1fr) 4.5rem auto; grid-template-areas: "n cat sel cant quitar"; }
+}
+/* Ayuda bajo la línea cuando la categoría no tiene productos */
+.line-help { padding-left:1.375rem; margin-top:.25rem; }
+@media (min-width: 640px) { .line-help { padding-left:2rem; } }
+
+/* "Modificar stock": nombre y categoría en la misma fila desde 640 px */
+.mline-two { display:grid; gap:.5rem; }
+@media (min-width: 640px) { .mline-two { grid-template-columns: minmax(0,1fr) 12rem; } }
+
+/* Impresión: la categoría sale como columna de texto y no como segunda línea */
+@media print {
+  .tbl .cat-inline { display:none !important; }
+  .tbl .cat-col { display:table-cell !important; color:#111 !important; }
+}

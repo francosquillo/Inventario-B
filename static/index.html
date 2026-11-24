@@ -59,10 +59,16 @@
           <h2 id="t-inv" class="font-bold">Inventario</h2>
           <span id="inv-conteo" class="text-sm text-muted" aria-live="polite"></span>
         </div>
-        <!-- Móvil: el buscador baja a su propia fila a todo el ancho; "Exportar PDF" queda junto al título -->
-        <div class="order-last w-full sm:order-none sm:w-72">
-          <label class="sr-only" for="inv-buscar">Buscar por código o nombre</label>
-          <input class="field" id="inv-buscar" type="search" placeholder="Buscar por código o nombre" autocomplete="off">
+        <!-- Móvil: buscador y filtro bajan a su propia fila, apilados a todo el ancho; "Exportar PDF" queda junto al título -->
+        <div class="inv-filtros">
+          <div class="inv-buscar">
+            <label class="sr-only" for="inv-buscar">Buscar por código o nombre</label>
+            <input class="field" id="inv-buscar" type="search" placeholder="Buscar por código o nombre" autocomplete="off">
+          </div>
+          <div class="inv-cat">
+            <label class="sr-only" for="inv-categoria">Categoría</label>
+            <select class="field" id="inv-categoria"></select>
+          </div>
         </div>
         <button id="btn-exportar-inv" class="btn btn-secondary" type="button" disabled>Exportar PDF</button>
       </div>
@@ -78,13 +84,13 @@
 
       <div id="inv-sin-coincidencias" role="status" hidden class="no-print m-3 border border-dashed border-line rounded-lg p-8 text-center">
         <p id="inv-sin-coincidencias-msg" class="font-semibold"></p>
-        <p class="text-sm text-muted mt-1">Probá con otra parte del código o del nombre.</p>
-        <button id="inv-limpiar" class="btn btn-secondary mt-3" type="button">Limpiar búsqueda</button>
+        <p class="text-sm text-muted mt-1">Probá con otra parte del código o del nombre, o con otra categoría.</p>
+        <button id="inv-limpiar" class="btn btn-secondary mt-3" type="button">Limpiar filtros</button>
       </div>
 
       <div id="inv-tabla" hidden class="overflow-x-auto" tabindex="0" role="region" aria-label="Tabla de inventario">
         <table class="tbl tbl-fit tbl-inv">
-          <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Stock</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+          <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="cat-col">Categoría</th><th scope="col" class="r">Stock</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
           <tbody id="inv-cuerpo"></tbody>
         </table>
       </div>
@@ -101,7 +107,7 @@
         <div>
           <label class="label" for="nu-codigo">Código</label>
           <input class="field num" id="nu-codigo" maxlength="50" autocomplete="off" aria-describedby="nu-codigo-h" data-desc-base="nu-codigo-h">
-          <p class="hint" id="nu-aviso" aria-live="polite" hidden>Este código está dado de baja: se va a reactivar con el nombre y el stock que indiques.</p>
+          <p class="hint" id="nu-aviso" aria-live="polite" hidden>Este código está dado de baja: se va a reactivar con el nombre, el stock y la categoría que indiques.</p>
           <p class="help" id="nu-codigo-h">Se guarda en mayúsculas.</p>
         </div>
         <div>
@@ -112,6 +118,10 @@
           <label class="label" for="nu-stock">Stock</label>
           <input class="field num" id="nu-stock" inputmode="numeric" autocomplete="off" aria-describedby="nu-stock-h" data-desc-base="nu-stock-h">
           <p class="help" id="nu-stock-h">Entero de 0 a 10.000. Puede ser 0 si todavía no hay unidades.</p>
+        </div>
+        <div>
+          <label class="label" for="nu-categoria">Categoría <span class="text-muted font-normal">(opcional)</span></label>
+          <select class="field" id="nu-categoria"></select>
         </div>
         <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="nu-enviar" class="btn btn-primary" type="submit">Crear producto</button></div>
       </form>
@@ -161,9 +171,15 @@
           <input class="field num" data-valor inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea">
           <span class="delta" data-delta aria-live="polite"></span>
         </div>
-        <div>
-          <label class="mlabel" data-nombre-etiqueta>Nuevo nombre (opcional)</label>
-          <input class="field" data-nombre maxlength="120" autocomplete="off" aria-label="Nuevo nombre (opcional) de la línea">
+        <div class="mline-two">
+          <div>
+            <label class="mlabel" data-nombre-etiqueta>Nuevo nombre (opcional)</label>
+            <input class="field" data-nombre maxlength="120" autocomplete="off" aria-label="Nuevo nombre (opcional) de la línea">
+          </div>
+          <div>
+            <label class="mlabel" data-categoria-etiqueta>Categoría</label>
+            <select class="field" data-categoria aria-label="Categoría de la línea"></select>
+          </div>
         </div>
       </div>
     </li>

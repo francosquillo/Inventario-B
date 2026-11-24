@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException, Request
 
 from inventario.domain.entities import UsuarioAutenticado
 from inventario.repositories.sqlite_repo import (
+    SqliteCategoriaRepository,
     SqliteMovimientoRepository,
     SqliteOrdenRepository,
     SqliteProductoRepository,
@@ -12,6 +13,7 @@ from inventario.repositories.sqlite_repo import (
     SqliteUsuarioRepository,
 )
 from inventario.services.auth_service import AuthService
+from inventario.services.categoria_service import CategoriaService
 from inventario.services.inventario_service import InventarioService
 from inventario.services.movimientos_service import MovimientosService
 from inventario.services.orden_service import OrdenService
@@ -51,7 +53,11 @@ def get_inventario_service(conn=Depends(get_conexion)):
 
 
 def get_stock_service(conn=Depends(get_conexion)):
-    return StockService(SqliteStockRepository(conn))
+    return StockService(SqliteStockRepository(conn), SqliteCategoriaRepository(conn))
+
+
+def get_categoria_service(conn=Depends(get_conexion)):
+    return CategoriaService(SqliteCategoriaRepository(conn))
 
 
 def get_movimientos_service(conn=Depends(get_conexion)):

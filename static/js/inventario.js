@@ -14,6 +14,8 @@
   let inactivos = [];
   let bajaActual = null;
   let secuenciaLinea = 0;
+  let categorias = [];      // catalogo [{clave, nombre}] ordenado por nombre (vacio si fallo la carga)
+  let mapaCategorias = {};  // clave -> nombre
 
   const $ = (id) => document.getElementById(id);
 
@@ -23,9 +25,69 @@
     return Busqueda.normalizar($("inv-buscar").value) !== "";
   }
 
+  // Valor del filtro de categoria: "" (todas), la clave o Busqueda.SIN_CATEGORIA.
+  function categoriaElegida() {
+    return $("inv-categoria").value;
+  }
+
+  function hayFiltros() {
+    return hayBusqueda() || categoriaElegida() !== "";
+  }
+
+  // Nombre a mostrar del filtro elegido ("" si son todas).
+  function nombreFiltroCategoria() {
+    const valor = categoriaElegida();
+    if (valor === "") return "";
+    return valor === Busqueda.SIN_CATEGORIA ? "Sin categoría" : Busqueda.nombreCategoria(valor, mapaCategorias);
+  }
+
+  function nombreCategoriaDe(clave) {
+    return Busqueda.nombreCategoria(clave, mapaCategorias);
+  }
+
+  // Llena un <select> de categoria. `primera`: texto de la opcion vacia ("Todas las categorias", "Sin categoria", "Todas").
+  // `conSin`: agrega "Sin categoria" (solo filtros). Conserva el valor previo si sigue existiendo.
+  function llenarSelectCategoria(select, primera, conSin) {
+    const previo = select.value;
+    UI.vaciar(select);
+    select.appendChild(UI.el("option", { value: "" }, primera));
+    categorias.forEach((c) => select.appendChild(UI.el("option", { value: c.clave }, c.nombre)));
+    if (conSin) select.appendChild(UI.el("option", { value: Busqueda.SIN_CATEGORIA }, "Sin categoría"));
+    const existe = Array.from(select.options).some((o) => o.value === previo);
+    select.value = existe ? previo : "";
+  }
+
+  // Selector de categoria de una linea (nuevo ingreso / modificar): una clave que el catalogo no tiene se agrega para no perderla.
+  function elegirCategoria(select, clave) {
+    if (clave && !Array.from(select.options).some((o) => o.value === clave)) {
+      select.appendChild(UI.el("option", { value: clave }, nombreCategoriaDe(clave)));
+    }
+    select.value = clave || "";
+  }
+
+  function llenarSelectoresCategoria() {
+    llenarSelectCategoria($("inv-categoria"), "Todas las categorías", true);
+    llenarSelectCategoria($("nu-categoria"), "Sin categoría", false);
+    document.querySelectorAll("#mod-lineas select[data-categoria]").forEach((s) => llenarSelectCategoria(s, "Sin categoría", false));
+    document.querySelectorAll("#ord-lineas select[data-cat]").forEach((s) => llenarSelectCategoria(s, "Todas", true));
+  }
+
+  // Catalogo de categorias; si falla, la tabla muestra la clave cruda y los filtros solo ofrecen "Todas".
+  function cargarCategorias() {
+    return Api.get("/api/categorias").then(
+      (lista) => { categorias = lista; },
+      () => { categorias = []; }
+    ).then(() => {
+      mapaCategorias = {};
+      categorias.forEach((c) => { mapaCategorias[c.clave] = c.nombre; });
+      llenarSelectoresCategoria();
+      aplicarBusqueda(); // repinta con los nombres si la tabla ya se mostro con claves
+    });
+  }
+
   function mostrarEstado(estado) {
     estadoActual = estado;
-    const sinCoincidencias = estado === "datos" && hayBusqueda() && visibles.length === 0;
+    const sinCoincidencias = estado === "datos" && hayFiltros() && visibles.length === 0;
     $("inv-sin-coincidencias").hidden = !sinCoincidencias;
     $("btn-exportar-inv").disabled = estado !== "datos" || visibles.length === 0;
     $("inv-cargando").hidden = estado !== "cargando";
@@ -52,11 +114,16 @@
   function pintarTabla() {
     const cuerpo = UI.vaciar($("inv-cuerpo"));
     const texto = $("inv-buscar").value;
-    visibles = Busqueda.filtrar(productos, texto);
+    visibles = Busqueda.filtrar(productos, texto, categoriaElegida());
     visibles.forEach((p) => {
       const fila = UI.el("tr");
+      const sinCat = p.categoria == null;
       fila.appendChild(UI.el("td", { "class": "num" }, p.codigo));
-      fila.appendChild(UI.el("td", null, p.nombre));
+      const nombre = UI.el("td", null, p.nombre);
+      // Móvil: la categoría va como segunda línea bajo el nombre; desde 640 px y en el papel es una columna.
+      nombre.appendChild(UI.el("span", { "class": "cat-inline" + (sinCat ? " cat-none" : "") }, nombreCategoriaDe(p.categoria)));
+      fila.appendChild(nombre);
+      fila.appendChild(UI.el("td", { "class": "cat-col" + (sinCat ? " cat-none" : "") }, nombreCategoriaDe(p.categoria)));
       fila.appendChild(textoStock(p));
       const accion = UI.el("td", { "class": "r" });
       accion.appendChild(UI.el("button", {
@@ -66,8 +133,8 @@
       fila.appendChild(accion);
       cuerpo.appendChild(fila);
     });
-    $("inv-conteo").textContent = Busqueda.conteo(visibles.length, productos.length, hayBusqueda());
-    $("inv-sin-coincidencias-msg").textContent = "Ningún producto coincide con «" + texto.trim() + "»";
+    $("inv-conteo").textContent = Busqueda.conteo(visibles.length, productos.length, hayFiltros());
+    $("inv-sin-coincidencias-msg").textContent = Busqueda.mensajeSinCoincidencias(texto, nombreFiltroCategoria());
   }
 
   // Repinta la tabla con el texto actual del buscador (solo si ya hay datos en pantalla).
@@ -77,6 +144,7 @@
     mostrarEstado("datos");
   }
 
+  // Escape en "Buscar": limpia solo el texto.
   function limpiarBusqueda() {
     const campo = $("inv-buscar");
     campo.value = "";
@@ -84,12 +152,18 @@
     campo.focus();
   }
 
+  // "Limpiar filtros": texto y categoria; el foco vuelve a "Buscar".
+  function limpiarFiltros() {
+    $("inv-categoria").value = "";
+    limpiarBusqueda();
+  }
+
   function exportarInventario() {
     const n = visibles.length;
     if (estadoActual !== "datos" || n === 0) return;
     Exportar.imprimir({
       titulo: "Inventario",
-      linea: n + (n === 1 ? " producto" : " productos") + " · " + Exportar.fecha(new Date()),
+      linea: Busqueda.lineaInventario(n, nombreFiltroCategoria(), Exportar.fecha(new Date())),
       base: "inventario",
       modo: "inventario"
     });
@@ -100,12 +174,14 @@
   }
 
   // Llena un <select> con los productos activos. `conservar`: si el valor previo ya no esta, se deja visible.
-  function llenarSelect(select, conservar) {
+  // `categoria` filtra la lista ("" = todas; "__sin__" = sin categoria); si el producto elegido no pertenece, se resetea.
+  function llenarSelect(select, conservar, categoria) {
     const previo = select.value;
+    const lista = Busqueda.porCategoria(productos, categoria);
     UI.vaciar(select);
     select.appendChild(UI.el("option", { value: "" }, "Elegí un producto…"));
-    productos.forEach((p) => select.appendChild(UI.el("option", { value: p.codigo }, etiquetaProducto(p))));
-    if (previo && productos.some((p) => p.codigo === previo)) {
+    lista.forEach((p) => select.appendChild(UI.el("option", { value: p.codigo }, etiquetaProducto(p))));
+    if (previo && Busqueda.productoSigueVisible(previo, productos, categoria)) {
       select.value = previo;
     } else if (previo && conservar) {
       select.appendChild(UI.el("option", { value: previo }, previo + " · (ya no está activo)"));
@@ -113,8 +189,29 @@
     }
   }
 
+  function selectProducto(li) { return li.querySelector("select[data-opts]"); }
+  function selectCategoria(li) { return li.querySelector("select[data-cat]"); }
+
+  // Ayuda "No hay productos en esta categoria." bajo la linea cuando el filtro no deja ninguno.
+  function actualizarAyudaLinea(li) {
+    const categoria = selectCategoria(li).value;
+    const vacia = Busqueda.porCategoria(productos, categoria).length === 0;
+    const id = "ord-" + li.getAttribute("data-k") + "-vacio";
+    const previa = document.getElementById(id);
+    if (previa) previa.remove();
+    selectProducto(li).removeAttribute("aria-describedby");
+    if (!vacia || categoria === "") return;
+    li.appendChild(UI.el("p", { "class": "help line-help", id: id }, "No hay productos en esta categoría."));
+    selectProducto(li).setAttribute("aria-describedby", id);
+  }
+
+  function refrescarLinea(li, conservar) {
+    llenarSelect(selectProducto(li), conservar, selectCategoria(li).value);
+    actualizarAyudaLinea(li);
+  }
+
   function refrescarSelects(conservar) {
-    document.querySelectorAll("#ord-lineas select").forEach((s) => llenarSelect(s, conservar));
+    lineas().forEach((li) => refrescarLinea(li, conservar));
   }
 
   function aplicarProductos(lista) {
@@ -200,6 +297,7 @@
     ocultarExito();
     const form = $("form-nuevo");
     form.reset();
+    $("nu-categoria").value = "";
     UI.limpiarErrores(form);
     UI.ocultarAlerta($("nu-alerta"));
     $("nu-aviso").hidden = true;
@@ -229,7 +327,8 @@
     const cuerpo = {
       codigo: $("nu-codigo").value.trim(),
       nombre: $("nu-nombre").value.trim(),
-      stock: Number($("nu-stock").value.trim())
+      stock: Number($("nu-stock").value.trim()),
+      categoria: $("nu-categoria").value === "" ? null : $("nu-categoria").value
     };
     const restaurar = UI.ocupado(boton, "Creando…");
     Api.post("/api/productos", cuerpo).then(
@@ -249,6 +348,7 @@
         if (err.status === 409) campo = $("nu-codigo");
         else if (err.status === 422 && /nombre/i.test(err.detail)) campo = $("nu-nombre");
         else if (err.status === 422 && /stock/i.test(err.detail)) campo = $("nu-stock");
+        else if (err.status === 422 && /categor/i.test(err.detail)) campo = $("nu-categoria");
         else if (err.status === 422 && /c[oó]digo/i.test(err.detail)) campo = $("nu-codigo");
         if (campo) {
           UI.invalido(campo, "nu-alerta");
@@ -307,10 +407,10 @@
   // Rellena todos los selectores: cada uno deshabilita los productos elegidos en las demás líneas.
   function refrescarSelectsMod(conservar) {
     const filas = lineasMod();
-    const valores = filas.map((li) => li.querySelector("select").value);
+    const valores = filas.map((li) => li.querySelector("select[data-producto]").value);
     filas.forEach((li, i) => {
       const ocupados = new Set(valores.filter((v, j) => j !== i && v !== ""));
-      llenarSelectMod(li.querySelector("select"), ocupados, conservar);
+      llenarSelectMod(li.querySelector("select[data-producto]"), ocupados, conservar);
     });
     filas.forEach(actualizarLineaMod);
   }
@@ -320,7 +420,11 @@
     filas.forEach((li, i) => {
       const n = i + 1, k = li.getAttribute("data-k");
       li.querySelector(".line-n").textContent = String(n);
-      li.querySelector("select").setAttribute("aria-label", "Producto de la línea " + n);
+      li.querySelector("select[data-producto]").setAttribute("aria-label", "Producto de la línea " + n);
+      const cat = li.querySelector("select[data-categoria]");
+      cat.setAttribute("aria-label", "Categoría de la línea " + n);
+      cat.id = "mod-" + k + "-cat";
+      li.querySelector("[data-categoria-etiqueta]").setAttribute("for", cat.id);
       li.querySelector("[data-modo]").setAttribute("aria-label", "Modo de la línea " + n);
       const nombre = li.querySelector("[data-nombre]");
       nombre.setAttribute("aria-label", "Nuevo nombre (opcional) de la línea " + n);
@@ -341,6 +445,7 @@
     secuenciaLinea += 1;
     li.setAttribute("data-k", String(secuenciaLinea));
     li.querySelectorAll('input[type="radio"]').forEach((r) => { r.name = "mod-" + secuenciaLinea + "-modo"; });
+    llenarSelectCategoria(li.querySelector("select[data-categoria]"), "Sin categoría", false);
     return li;
   }
 
@@ -350,7 +455,7 @@
     $("mod-lineas").appendChild(li);
     renumerarMod();
     refrescarSelectsMod(false);
-    li.querySelector("select").focus();
+    li.querySelector("select[data-producto]").focus();
   }
 
   function quitarLineaMod(li) {
@@ -360,7 +465,7 @@
     li.remove();
     renumerarMod();
     refrescarSelectsMod(false);
-    lineasMod()[Math.min(i, filas.length - 2)].querySelector("select").focus();
+    lineasMod()[Math.min(i, filas.length - 2)].querySelector("select[data-producto]").focus();
   }
 
   // Pone el valor propuesto (stock actual) al elegir un producto en "Fijar en" o al cambiar de modo.
@@ -368,10 +473,14 @@
     const li = e.target.closest("li");
     if (!li) return;
     const campoValor = li.querySelector("[data-valor]");
-    const info = buscarProducto(li.querySelector("select").value);
-    if (e.target.matches("select")) {
+    const info = buscarProducto(li.querySelector("select[data-producto]").value);
+    if (e.target.matches("select[data-producto]")) {
       refrescarSelectsMod(false);
       if (modoDe(li) === "fijar") campoValor.value = info ? String(info.p.stock) : "";
+      // La categoría se precarga con la del producto elegido (activo o dado de baja).
+      elegirCategoria(li.querySelector("select[data-categoria]"), info ? info.p.categoria : "");
+    } else if (e.target.matches("select[data-categoria]")) {
+      // solo cambia la categoria: no toca el stock propuesto
     } else if (e.target.matches('input[type="radio"]')) {
       campoValor.value = modoDe(li) === "fijar" && info ? String(info.p.stock) : "";
     }
@@ -385,7 +494,7 @@
     const campoValor = li.querySelector("[data-valor]");
     campoValor.setAttribute("aria-label",
       (modo === "fijar" ? "Stock nuevo de la línea " : "Cantidad a sumar de la línea ") + n);
-    const info = buscarProducto(li.querySelector("select").value);
+    const info = buscarProducto(li.querySelector("select[data-producto]").value);
     const delta = UI.vaciar(li.querySelector("[data-delta]"));
     const aviso = li.querySelector("[data-aviso]");
     const nombre = li.querySelector("[data-nombre]");
@@ -430,7 +539,8 @@
 
   function marcarLineaMod(li, campo, mensaje) {
     li.setAttribute("data-invalid", "");
-    const clave = campo.matches("select") ? "p" : campo.matches("[data-valor]") ? "v" : "n";
+    const clave = campo.matches("select[data-producto]") ? "p" : campo.matches("select[data-categoria]") ? "c"
+      : campo.matches("[data-valor]") ? "v" : "n";
     const id = "mod-" + li.getAttribute("data-k") + "-" + clave + "-e";
     const previo = document.getElementById(id);
     if (previo) previo.remove();
@@ -440,10 +550,11 @@
 
   function leerLineasMod() {
     return lineasMod().map((li) => ({
-      codigo: li.querySelector("select").value,
+      codigo: li.querySelector("select[data-producto]").value,
       modo: modoDe(li),
       valor: li.querySelector("[data-valor]").value,
-      nombre: li.querySelector("[data-nombre]").value
+      nombre: li.querySelector("[data-nombre]").value,
+      categoria: li.querySelector("select[data-categoria]").value
     }));
   }
 
@@ -485,7 +596,7 @@
     lineasMod().forEach((li, i) => {
       const e = r.porLinea[i];
       if (!e) return;
-      [[e.producto, li.querySelector("select")], [e.valor, li.querySelector("[data-valor]")],
+      [[e.producto, li.querySelector("select[data-producto]")], [e.valor, li.querySelector("[data-valor]")],
         [e.nombre, li.querySelector("[data-nombre]")]].forEach((par) => {
         if (!par[0]) return;
         marcarLineaMod(li, par[1], par[0]);
@@ -504,7 +615,7 @@
       cargarCatalogo().then(() => {
         refrescarSelectsMod(true);
         filas.forEach((li) => {
-          const select = li.querySelector("select");
+          const select = li.querySelector("select[data-producto]");
           if (err.codigos.indexOf(select.value) === -1) return;
           marcarLineaMod(li, select, NO_EXISTE);
           foco = foco || select;
@@ -522,7 +633,8 @@
       if (li) {
         const texto = m[2];
         let campo = li.querySelector("[data-valor]");
-        if (/producto|c[oó]digo/i.test(texto)) campo = li.querySelector("select");
+        if (/categor/i.test(texto)) campo = li.querySelector("select[data-categoria]");
+        else if (/producto|c[oó]digo/i.test(texto)) campo = li.querySelector("select[data-producto]");
         else if (/nombre/i.test(texto)) campo = li.querySelector("[data-nombre]");
         marcarLineaMod(li, campo, texto);
         foco = campo;
@@ -548,6 +660,11 @@
       if (l.nombre !== l.nombre_anterior) {
         li.appendChild(document.createTextNode(" · nombre antes: " + l.nombre_anterior));
       }
+      if (l.categoria !== l.categoria_anterior) {
+        li.appendChild(document.createTextNode(
+          " · categoría: " + nombreCategoriaDe(l.categoria_anterior) + " → " + nombreCategoriaDe(l.categoria)
+        ));
+      }
       if (l.reactivado) {
         li.appendChild(document.createTextNode(" · "));
         li.appendChild(UI.el("span", { "class": "tag-react" }, "reactivado"));
@@ -570,6 +687,7 @@
         linea[l.modo === "fijar" ? "stock" : "cantidad"] = Number(l.valor.trim());
         const nombre = l.nombre.trim();
         if (nombre !== "") linea.nombre = nombre;
+        linea.categoria = l.categoria === "" ? null : l.categoria;
         return linea;
       })
     };
@@ -618,7 +736,8 @@
     filas.forEach((li, i) => {
       const n = i + 1;
       li.querySelector(".line-n").textContent = String(n);
-      li.querySelector("select").setAttribute("aria-label", "Producto del componente " + n);
+      selectProducto(li).setAttribute("aria-label", "Producto del componente " + n);
+      selectCategoria(li).setAttribute("aria-label", "Categoría de la línea " + n);
       li.querySelector("input").setAttribute("aria-label", "Cantidad del componente " + n);
       const quitar = li.querySelector("[data-quitar]");
       quitar.setAttribute("aria-label", "Quitar componente " + n);
@@ -631,15 +750,18 @@
   }
 
   function nuevaLinea(codigo, cantidad) {
-    const li = UI.el("li", { "data-row": true });
+    secuenciaLinea += 1;
+    const li = UI.el("li", { "data-row": true, "data-k": String(secuenciaLinea) });
     const fila = UI.el("div", { "class": "line" });
     fila.appendChild(UI.el("span", { "class": "line-n", "aria-hidden": "true" }, "0"));
+    fila.appendChild(UI.el("select", { "class": "field", "data-cat": true }));
     const select = UI.el("select", { "class": "field", "data-opts": true });
     fila.appendChild(select);
     fila.appendChild(UI.el("input", { "class": "field num", inputmode: "numeric", autocomplete: "off", value: cantidad || "" }));
     fila.appendChild(UI.el("button", { "class": "btn btn-secondary", type: "button", "data-quitar": true }, "Quitar"));
     li.appendChild(fila);
-    llenarSelect(select, false);
+    llenarSelectCategoria(selectCategoria(li), "Todas", true);
+    llenarSelect(select, false, "");
     if (codigo) select.value = codigo;
     return li;
   }
@@ -649,7 +771,7 @@
     const li = nuevaLinea();
     $("ord-lineas").appendChild(li);
     renumerar();
-    li.querySelector("select").focus();
+    selectProducto(li).focus();
   }
 
   function quitarLinea(li) {
@@ -659,7 +781,7 @@
     li.remove();
     renumerar();
     const resto = lineas();
-    (resto[Math.min(i, resto.length - 1)].querySelector("select")).focus();
+    selectProducto(resto[Math.min(i, resto.length - 1)]).focus();
   }
 
   function abrirOrden() {
@@ -683,7 +805,7 @@
 
   function leerLineas() {
     return lineas().map((li) => ({
-      codigo: li.querySelector("select").value,
+      codigo: selectProducto(li).value,
       cantidad: li.querySelector("input").value
     }));
   }
@@ -708,8 +830,8 @@
       const e = r.porLinea[i];
       if (!e) return;
       if (e.producto) {
-        marcarLinea(li, li.querySelector("select"), e.producto, true);
-        primero = primero || li.querySelector("select");
+        marcarLinea(li, selectProducto(li), e.producto, true);
+        primero = primero || selectProducto(li);
       }
       if (e.cantidad) {
         marcarLinea(li, li.querySelector("input"), e.cantidad, true);
@@ -728,7 +850,7 @@
     if (err.status === 409 && err.faltantes) {
       err.faltantes.forEach((f) => {
         filas.forEach((li) => {
-          if (li.querySelector("select").value !== f.codigo) return;
+          if (selectProducto(li).value !== f.codigo) return;
           const campo = li.querySelector("input");
           marcarLinea(li, campo, "Disponible " + f.disponible + ", solicitado " + f.solicitado, false);
           foco = foco || campo;
@@ -742,7 +864,7 @@
       cargar(false).then(() => {
         refrescarSelects(true);
         filas.forEach((li) => {
-          const select = li.querySelector("select");
+          const select = selectProducto(li);
           if (citados.indexOf(select.value) === -1) return;
           marcarLinea(li, select, "Este producto ya no está activo: elegí otro o quitá la línea.", false);
           foco = foco || select;
@@ -754,7 +876,7 @@
       const m = /^Componente (\d+):\s*(.*)$/.exec(err.detail);
       if (m && filas[Number(m[1]) - 1]) {
         const li = filas[Number(m[1]) - 1];
-        const campo = /producto|código/i.test(m[2]) ? li.querySelector("select") : li.querySelector("input");
+        const campo = /producto|código/i.test(m[2]) ? selectProducto(li) : li.querySelector("input");
         marcarLinea(li, campo, m[2], false);
         foco = campo;
       } else if (/fecha/i.test(err.detail)) {
@@ -848,7 +970,8 @@
     $("inv-buscar").addEventListener("keydown", (e) => {
       if (e.key === "Escape" && $("inv-buscar").value !== "") { e.preventDefault(); limpiarBusqueda(); }
     });
-    $("inv-limpiar").addEventListener("click", limpiarBusqueda);
+    $("inv-categoria").addEventListener("change", aplicarBusqueda);
+    $("inv-limpiar").addEventListener("click", limpiarFiltros);
     $("btn-exportar-inv").addEventListener("click", exportarInventario);
 
     $("inv-cuerpo").addEventListener("click", (e) => {
@@ -876,10 +999,17 @@
       const q = e.target.closest("[data-quitar]");
       if (q) quitarLinea(q.closest("li"));
     });
+    $("ord-lineas").addEventListener("change", (e) => {
+      if (!e.target.matches("select[data-cat]")) return;
+      const li = e.target.closest("li");
+      refrescarLinea(li, false);
+    });
     $("form-orden").addEventListener("submit", enviarOrden);
 
     $("baja-confirmar").addEventListener("click", confirmarBaja);
 
+    llenarSelectoresCategoria();
+    cargarCategorias();
     cargar(true);
   });
 })();

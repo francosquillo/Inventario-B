@@ -12,10 +12,12 @@ def conexion_inicializada():
     return conn
 
 
-def insertar_producto(conn, codigo, nombre, stock=0, activo=1):
+def insertar_producto(conn, codigo, nombre, stock=0, activo=1, categoria=None):
+    """`categoria` es la clave (del catalogo sembrado: motor, aceite, filtro) o None."""
     cur = conn.execute(
-        "INSERT INTO productos (codigo, nombre, stock, activo) VALUES (?, ?, ?, ?)",
-        (codigo, nombre, stock, activo),
+        "INSERT INTO productos (codigo, nombre, stock, activo, categoria_id) "
+        "VALUES (?, ?, ?, ?, (SELECT id FROM categorias WHERE clave = ?))",
+        (codigo, nombre, stock, activo, categoria),
     )
     conn.commit()
     return cur.lastrowid

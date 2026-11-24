@@ -91,6 +91,7 @@
   var ultimo = null;    // ultimo reporte generado: {desde, hasta (efectivo), codigo, etiqueta, filas}
   var pedido = null;    // ultima consulta (para "Reintentar"): {desde, hasta, codigo}
   var generando = false;
+  var mapaCategorias = {};  // clave -> nombre (vacio si fallo la carga: se muestra la clave cruda)
 
   function mostrarEstado(estado) {
     $("rep-inicial").hidden = estado !== "inicial";
@@ -125,7 +126,12 @@
       tr.appendChild(UI.el("td", { "class": "num" }, f.codigo));
       var nombre = UI.el("td", null, f.nombre);
       if (!f.activo) nombre.appendChild(UI.el("span", { "class": "badge badge-baja bg-warning-subtle text-warning-fg" }, "dado de baja"));
+      // Móvil: la categoría va como segunda línea bajo el nombre; desde 640 px y en el papel es una columna.
+      var sinCat = f.categoria == null;
+      var textoCat = Busqueda.nombreCategoria(f.categoria, mapaCategorias);
+      nombre.appendChild(UI.el("span", { "class": "cat-inline" + (sinCat ? " cat-none" : "") }, textoCat));
       tr.appendChild(nombre);
+      tr.appendChild(UI.el("td", { "class": "cat-col" + (sinCat ? " cat-none" : "") }, textoCat));
       tr.appendChild(UI.el("td", { "class": "num r" }, String(f.cantidad)));
       tr.appendChild(UI.el("td", { "class": "num r" }, String(f.ordenes)));
       cuerpo.appendChild(tr);
@@ -214,6 +220,18 @@
     );
   }
 
+  // Catalogo de categorias para mostrar nombres; si falla, la tabla muestra la clave.
+  function cargarCategorias() {
+    return Api.get("/api/categorias").then(
+      function (lista) {
+        mapaCategorias = {};
+        lista.forEach(function (c) { mapaCategorias[c.clave] = c.nombre; });
+        if (ultimo && ultimo.filas.length) pintarTabla(ultimo.filas);
+      },
+      function () { /* sin catalogo: se muestran las claves */ }
+    );
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     var r = rangoPorDefecto(new Date());
     $("r-desde").value = r.desde;
@@ -223,5 +241,6 @@
     $("rep-reintentar").addEventListener("click", function () { if (pedido) consultar(pedido); });
     $("btn-exportar-rep").addEventListener("click", exportar);
     cargarProductos();
+    cargarCategorias();
   });
 })();

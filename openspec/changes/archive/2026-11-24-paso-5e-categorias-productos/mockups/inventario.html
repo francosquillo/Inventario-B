@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventario — maqueta C-06e</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<link rel="stylesheet" href="assets/mockup-5c.css">
+<link rel="stylesheet" href="assets/mockup-5e.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Inventario (/inventario) — paso-5e-categorias-productos">
+
+<!-- Barra de la maqueta (no es parte de la app; ?captura la oculta) -->
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta">
+  <div class="mk-bar-in">
+    <span class="mk-tag">Maqueta</span>
+    <label class="sr-only" for="mk-state">Estado</label>
+    <select id="mk-state">
+      <optgroup label="Inventario">
+        <option value="I1" data-desc="Tabla con la columna Categoría (Aceite / Filtro / Motor; 'Sin categoría' atenuado), filtro en 'Todas las categorías', '12 productos'. Escribí en el buscador o cambiá el filtro: filtra de verdad.">I1 · sin filtros</option>
+        <option value="I2" data-cat="aceite" data-desc="Filtro en 'Aceite': 3 filas y '3 de 12 productos'.">I2 · filtro 'Aceite'</option>
+        <option value="I3" data-q="aceite" data-cat="filtro" data-desc="Búsqueda 'aceite' + filtro 'Filtro' (AND): 1 fila (Filtro de aceite Ford) y '1 de 12 productos'.">I3 · búsqueda + filtro</option>
+        <option value="I4" data-cat="motor" data-ds="nomotor" data-desc="Categoría sin productos activos (muestra: catálogo donde los de Motor están dados de baja, 10 activos): 'Ningún producto en la categoría «Motor»' + 'Limpiar filtros'.">I4 · categoría sin productos</option>
+        <option value="I4b" data-q="tor" data-cat="aceite" data-desc="Búsqueda y categoría juntas sin coincidencias: 'Ningún producto coincide con «tor» en la categoría «Aceite»' + 'Limpiar filtros'.">I4b · búsqueda + categoría sin coincidencias</option>
+        <option value="I5" data-desc="Filtro desplegado (ilustración con size; el nativo no se captura abierto): Todas las categorías / Aceite / Filtro / Motor / Sin categoría.">I5 · filtro desplegado</option>
+        <option value="I6" data-q="10w" data-cat="aceite" data-desc="Barra completa con valores (buscador + filtro + Exportar PDF), pensada para 390 px: sin scroll horizontal de página.">I6 · barra con valores (390 px)</option>
+        <option value="M2" data-ds="m2" data-desc="Resumen tras 'Modificar stock': 'FIL-01 · Filtro de aceite: stock 9 sin cambios · categoría: Filtro → Aceite'; la tabla ya muestra FIL-01 en Aceite.">M2 · resumen con cambio de categoría</option>
+      </optgroup>
+      <optgroup label="Modal Nuevo ingreso">
+        <option value="A1" data-base="I1" data-desc="Categoría opcional: selector en 'Sin categoría' por defecto (entre las opciones: Aceite / Filtro / Motor).">A1 · Sin categoría (por defecto)</option>
+        <option value="A1b" data-base="I1" data-desc="Variante: producto nuevo con 'Aceite' elegido.">A1b · con 'Aceite' elegido</option>
+        <option value="A2" data-base="I1" data-desc="Código dado de baja (C-99): aviso '…con el nombre, el stock y la categoría que indiques.'; la categoría no se precarga.">A2 · código dado de baja</option>
+      </optgroup>
+      <optgroup label="Modal Modificar stock">
+        <option value="M1" data-base="I1" data-desc="Línea 1: FIL-01 con la categoría precargada 'Filtro' cambiada a 'Aceite'. Línea 2: C-99 dado de baja con su categoría 'Motor' precargada.">M1 · categoría por línea</option>
+      </optgroup>
+      <optgroup label="Modal Nueva orden">
+        <option value="O1" data-base="I1" data-desc="Línea 1: categoría 'Todas' y ACE-01 elegido. Línea 2: categoría 'Filtro' con su lista corta (ilustración desplegada).">O1 · categoría por línea</option>
+        <option value="O2" data-base="I1" data-ds="nomotor" data-desc="Categoría 'Motor' sin productos activos (muestra: catálogo sin activos de Motor): el producto ofrece solo 'Elegí un producto…' y la ayuda 'No hay productos en esta categoría.'.">O2 · categoría sin productos</option>
+      </optgroup>
+      <optgroup label="Impresión (hoja de papel; con print emulado es la página)">
+        <option value="P1" data-cat="aceite" data-desc="PDF del inventario filtrado por 'Aceite': encabezado 'Aceite · 3 productos · 2026-11-24', columnas Código / Nombre / Categoría / Stock, sin controles ni acciones.">P1 · imprimir filtrado por Aceite</option>
+      </optgroup>
+    </select>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-prev" aria-label="Estado anterior">&larr;</button>
+    <button type="button" class="btn btn-secondary btn-sm" id="mk-next" aria-label="Estado siguiente">&rarr;</button>
+    <a href="reportes.html#R10">Reportes &rarr;</a>
+    <span>C-06e · paso-5e-categorias-productos</span>
+    <p class="mk-desc" id="mk-desc"></p>
+  </div>
+</div>
+
+<div data-hide="P1">
+<header class="bg-surface border-b border-line">
+  <div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+    <p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+    <nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0">
+      <a class="navlink" href="inventario.html" aria-current="page">Inventario</a>
+      <a class="navlink" href="../../archive/2026-11-24-paso-5c-buscador-pdf/mockups/ordenes.html#O1">Órdenes</a>
+      <a class="navlink" href="reportes.html#R10">Reportes</a>
+    </nav>
+    <div class="ml-auto flex items-center gap-3 text-sm">
+      <span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">franco</strong></span>
+      <button class="btn btn-secondary" type="button">Cerrar sesión</button>
+    </div>
+  </div>
+</header>
+
+<main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+  <h1 class="sr-only">Inventario</h1>
+
+  <div data-show="M2" role="status" class="flex items-start gap-2 py-1 pl-3 pr-1 rounded-md border border-success bg-success-subtle text-success-fg text-sm" hidden>
+    <div class="flex-1 py-2"><p><strong>Listo.</strong> Stock modificado (2 productos):</p>
+      <ul class="sum-list">
+        <li><span class="num">FIL-01</span> · Filtro de aceite Ford: stock <span class="num">9</span> sin cambios · categoría: Filtro → Aceite</li>
+        <li><span class="num">C-99</span> · Junta tórica: stock <span class="num">2</span> sin cambios · dado de baja</li>
+      </ul></div>
+    <button class="icon-btn" type="button" aria-label="Cerrar aviso" data-goto="#I1">&times;</button>
+  </div>
+
+  <div class="flex flex-wrap gap-2">
+    <button class="btn btn-primary" type="button" data-goto="#A1">Nuevo ingreso</button>
+    <button class="btn btn-primary" type="button" data-goto="#M1">Modificar stock</button>
+    <button class="btn btn-primary" type="button" data-goto="#O1">Nueva orden</button>
+    <a class="btn btn-secondary" href="../../archive/2026-11-24-paso-5c-buscador-pdf/mockups/ordenes.html#O1">Ver órdenes</a>
+  </div>
+
+  <section class="bg-surface border border-line rounded-lg" aria-labelledby="t-inv">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2 p-3 border-b border-line">
+      <div class="flex items-center gap-3 mr-auto">
+        <h2 id="t-inv" class="font-bold">Inventario</h2>
+        <span id="inv-conteo" class="text-sm text-muted" aria-live="polite"></span>
+      </div>
+      <!-- Móvil: buscador y filtro bajan a su propia fila, apilados a todo el ancho; "Exportar PDF" queda junto al título -->
+      <div class="inv-filtros">
+        <div class="inv-buscar">
+          <label class="sr-only" for="inv-buscar">Buscar por código o nombre</label>
+          <input class="field" id="inv-buscar" type="search" placeholder="Buscar por código o nombre" autocomplete="off">
+        </div>
+        <div class="inv-cat">
+          <label class="sr-only" for="inv-categoria">Categoría</label>
+          <select class="field" id="inv-categoria" data-catsel data-first="Todas las categorías" data-sin></select>
+        </div>
+      </div>
+      <button class="btn btn-secondary" id="btn-exportar-inv" type="button" data-goto="#P1">Exportar PDF</button>
+    </div>
+
+    <div data-show="I5" hidden class="px-3 pt-3">
+      <p class="mk-cap-sm">Filtro desplegado (ilustración; el real es el <code>&lt;select&gt;</code> nativo)</p>
+      <select class="field mk-open mk-open-sm" size="5" aria-label="Opciones del filtro de categoría (ilustración)" tabindex="-1" style="max-width:20rem">
+        <option selected>Todas las categorías</option><option>Aceite</option><option>Filtro</option><option>Motor</option><option>Sin categoría</option>
+      </select>
+    </div>
+
+    <div id="inv-nomatch" role="status" class="m-3 border border-dashed border-line rounded-lg p-8 text-center" hidden>
+      <p class="font-semibold" id="inv-nomatch-msg"></p>
+      <p class="text-sm text-muted mt-1">Probá con otra parte del código o del nombre, o con otra categoría.</p>
+      <button class="btn btn-secondary mt-3" id="inv-limpiar" type="button">Limpiar filtros</button>
+    </div>
+
+    <div id="inv-tabla" class="overflow-x-auto" tabindex="0" role="region" aria-label="Tabla de inventario">
+      <table class="tbl tbl-fit tbl-inv">
+        <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="cat-col">Categoría</th><th scope="col" class="r">Stock</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+        <tbody data-inv-body></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</div>
+
+<!-- ===================== Nuevo ingreso ===================== -->
+<div class="overlay" data-show="A1" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="a1-t">
+    <div class="modal-head"><h2 id="a1-t">Nuevo ingreso</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <p class="text-sm text-muted">Alta de un producto. Para cambiar el stock de uno existente usá <strong class="text-ink">Modificar stock</strong>.</p>
+      <div><label class="label" for="a1-cod">Código</label><input class="field num" id="a1-cod" autocomplete="off" maxlength="50" aria-describedby="a1-cod-h"><p class="help" id="a1-cod-h">Se guarda en mayúsculas.</p></div>
+      <div><label class="label" for="a1-nom">Nombre</label><input class="field" id="a1-nom" autocomplete="off" maxlength="120"></div>
+      <div><label class="label" for="a1-st">Stock</label><input class="field num" id="a1-st" autocomplete="off" inputmode="numeric" aria-describedby="a1-st-h"><p class="help" id="a1-st-h">Entero de 0 a 10.000. Puede ser 0 si todavía no hay unidades.</p></div>
+      <div><label class="label" for="a1-cat">Categoría <span class="text-muted font-normal">(opcional)</span></label><select class="field" id="a1-cat" data-catsel data-first="Sin categoría" data-value=""></select></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear producto</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="A1b" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="a1b-t">
+    <div class="modal-head"><h2 id="a1b-t">Nuevo ingreso</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <p class="text-sm text-muted">Alta de un producto. Para cambiar el stock de uno existente usá <strong class="text-ink">Modificar stock</strong>.</p>
+      <div><label class="label" for="a1b-cod">Código</label><input class="field num" id="a1b-cod" autocomplete="off" maxlength="50" value="ACE-04" aria-describedby="a1b-cod-h"><p class="help" id="a1b-cod-h">Se guarda en mayúsculas.</p></div>
+      <div><label class="label" for="a1b-nom">Nombre</label><input class="field" id="a1b-nom" autocomplete="off" maxlength="120" value="Aceite 15W-40 20 L"></div>
+      <div><label class="label" for="a1b-st">Stock</label><input class="field num" id="a1b-st" autocomplete="off" inputmode="numeric" value="4" aria-describedby="a1b-st-h"><p class="help" id="a1b-st-h">Entero de 0 a 10.000. Puede ser 0 si todavía no hay unidades.</p></div>
+      <div><label class="label" for="a1b-cat">Categoría <span class="text-muted font-normal">(opcional)</span></label><select class="field" id="a1b-cat" data-catsel data-first="Sin categoría" data-value="aceite"></select></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear producto</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="A2" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="a2-t">
+    <div class="modal-head"><h2 id="a2-t">Nuevo ingreso</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-body space-y-4" novalidate onsubmit="return false">
+      <p class="text-sm text-muted">Alta de un producto. Para cambiar el stock de uno existente usá <strong class="text-ink">Modificar stock</strong>.</p>
+      <div><label class="label" for="a2-cod">Código</label><input class="field num" id="a2-cod" autocomplete="off" maxlength="50" value="C-99" aria-describedby="a2-aviso a2-cod-h"><p class="hint" id="a2-aviso" aria-live="polite">Este código está dado de baja: se va a reactivar con el nombre, el stock y la categoría que indiques.</p><p class="help" id="a2-cod-h">Se guarda en mayúsculas.</p></div>
+      <div><label class="label" for="a2-nom">Nombre</label><input class="field" id="a2-nom" autocomplete="off" maxlength="120" value="Junta tórica"></div>
+      <div><label class="label" for="a2-st">Stock</label><input class="field num" id="a2-st" autocomplete="off" inputmode="numeric" value="6" aria-describedby="a2-st-h"><p class="help" id="a2-st-h">Entero de 0 a 10.000. Puede ser 0 si todavía no hay unidades.</p></div>
+      <div><label class="label" for="a2-cat">Categoría <span class="text-muted font-normal">(opcional)</span></label><select class="field" id="a2-cat" data-catsel data-first="Sin categoría" data-value=""></select></div>
+      <div class="flex justify-end gap-2 pt-2"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear producto</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== Modificar stock ===================== -->
+<div class="overlay" data-show="M1" hidden>
+  <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="m1-t">
+    <div class="modal-head"><h2 id="m1-t">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-3">
+        <p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+        <fieldset>
+          <legend class="sr-only">Productos a modificar</legend>
+          <ol class="space-y-2">
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">1</span><select class="field" data-opts data-prodsel data-baja data-value="FIL-01" aria-label="Producto de la línea 1"></select><button class="btn btn-secondary" type="button">Quitar</button></div>
+              <div class="mline-body">
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="m1-l1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="m1-l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="9">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">9</strong> · sin cambios</span>
+                </div>
+                <div class="mline-two">
+                  <div><label class="mlabel" for="m1-l1-nom">Nuevo nombre (opcional)</label><input class="field" id="m1-l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Filtro de aceite Ford)"></div>
+                  <div><label class="mlabel" for="m1-l1-cat">Categoría</label><select class="field" id="m1-l1-cat" data-catsel data-first="Sin categoría" data-value="aceite"></select></div>
+                </div>
+              </div>
+            </li>
+            <li class="mline" data-row>
+              <div class="mline-head"><span class="line-n" aria-hidden="true">2</span><select class="field" data-opts data-prodsel data-baja data-value="C-99" aria-label="Producto de la línea 2"></select><button class="btn btn-secondary" type="button">Quitar</button></div>
+              <div class="mline-body">
+                <p class="hint">Dado de baja: sigue dado de baja (sin cambio de stock).</p>
+                <div class="mline-val">
+                  <fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="m1-l2-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="m1-l2-m" value="sumar"><span>Sumar</span></label></fieldset>
+                  <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 2" value="2">
+                  <span class="delta" aria-live="polite">Stock actual <strong class="num">2</strong> · sin cambios</span>
+                </div>
+                <div class="mline-two">
+                  <div><label class="mlabel" for="m1-l2-nom">Nuevo nombre (opcional)</label><input class="field" id="m1-l2-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Junta tórica)"></div>
+                  <div><label class="mlabel" for="m1-l2-cat">Categoría</label><select class="field" id="m1-l2-cat" data-catsel data-first="Sin categoría" data-value="motor"></select></div>
+                </div>
+              </div>
+            </li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar producto</button><span class="text-xs text-muted" aria-live="polite">2 de 100 líneas</span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit" data-goto="#M2">Guardar cambios</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== Nueva orden ===================== -->
+<div class="overlay" data-show="O1" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="o1-t">
+    <div class="modal-head"><h2 id="o1-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="o1-num">Número de orden</label><input class="field num" id="o1-num" maxlength="30" autocomplete="off" value="OT-0007"></div>
+          <div><label class="label" for="o1-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="o1-fec" type="date" value="2026-11-24" aria-describedby="o1-fec-h"><p class="help" id="o1-fec-h">Hoy; se puede cambiar.</p></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol class="space-y-2">
+            <li data-row><div class="line">
+              <span class="line-n" aria-hidden="true">1</span>
+              <select class="field" data-cat data-catsel data-first="Todas" data-sin data-value="" aria-label="Categoría de la línea 1"></select>
+              <select class="field" data-opts data-prodsel data-value="ACE-01" aria-label="Producto de la línea 1"></select>
+              <input class="field num" inputmode="numeric" autocomplete="off" value="2" aria-label="Cantidad de la línea 1">
+              <button class="btn btn-secondary" type="button">Quitar</button>
+            </div></li>
+            <li data-row><div class="line">
+              <span class="line-n" aria-hidden="true">2</span>
+              <select class="field" data-cat data-catsel data-first="Todas" data-sin data-value="filtro" aria-label="Categoría de la línea 2"></select>
+              <select class="field" data-opts data-prodsel data-cat-filter="filtro" data-value="FIL-01" aria-label="Producto de la línea 2"></select>
+              <input class="field num" inputmode="numeric" autocomplete="off" value="1" aria-label="Cantidad de la línea 2">
+              <button class="btn btn-secondary" type="button">Quitar</button>
+            </div>
+            <div class="mt-2" style="padding-left:1.375rem">
+              <p class="mk-cap-sm">Producto desplegado con la categoría «Filtro» (ilustración): solo los 3 filtros</p>
+              <select class="field mk-open mk-open-sm" size="4" data-prodsel data-cat-filter="filtro" data-value="" aria-label="Opciones de producto de la línea 2 (ilustración)" tabindex="-1"></select>
+            </div></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar componente</button><span class="text-xs text-muted" aria-live="polite">2 de 100 líneas</span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+<div class="overlay" data-show="O2" hidden>
+  <div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="o2-t">
+    <div class="modal-head"><h2 id="o2-t">Nueva orden</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+    <form class="modal-form" novalidate onsubmit="return false">
+      <div class="modal-body space-y-4">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div><label class="label" for="o2-num">Número de orden</label><input class="field num" id="o2-num" maxlength="30" autocomplete="off" value="OT-0007"></div>
+          <div><label class="label" for="o2-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="o2-fec" type="date" value="2026-11-24" aria-describedby="o2-fec-h"><p class="help" id="o2-fec-h">Hoy; se puede cambiar.</p></div>
+        </div>
+        <fieldset>
+          <legend class="label">Componentes</legend>
+          <ol class="space-y-2">
+            <li data-row><div class="line">
+              <span class="line-n" aria-hidden="true">1</span>
+              <select class="field" data-cat data-catsel data-first="Todas" data-sin data-value="motor" aria-label="Categoría de la línea 1"></select>
+              <select class="field" data-opts data-prodsel data-cat-filter="motor" data-value="" aria-label="Producto de la línea 1" aria-describedby="o2-vacio"></select>
+              <input class="field num" inputmode="numeric" autocomplete="off" aria-label="Cantidad de la línea 1">
+              <button class="btn btn-secondary" type="button">Quitar</button>
+            </div>
+            <p class="help line-help" id="o2-vacio" data-vacio role="status">No hay productos en esta categoría.</p></li>
+          </ol>
+          <div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar componente</button><span class="text-xs text-muted" aria-live="polite">1 de 100 líneas</span></div>
+        </fieldset>
+      </div>
+      <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+    </form>
+  </div>
+</div>
+
+<!-- Hoja de impresión: P1. En la app es la propia página con @media print; acá se dibuja aparte. -->
+<article class="sheet" data-show="P1" hidden aria-label="Hoja de impresión del inventario">
+  <header class="sheet-head">
+    <h1>Inventario</h1>
+    <p class="sheet-meta" id="sheet-meta"></p>
+  </header>
+  <table>
+    <thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="cat">Categoría</th><th scope="col" class="r">Stock</th></tr></thead>
+    <tbody data-sheet-body></tbody>
+  </table>
+</article>
+
+<script src="assets/mockup.js"></script>
+</body>
+</html>

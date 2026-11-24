@@ -51,7 +51,7 @@ class BajaExitoTest(BajaBase):
         r = self.client.delete(f"{URL}/a-01")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(
-            r.json(), {"codigo": "A-01", "nombre": "Tornillo", "stock": 7, "sin_stock": False}
+            r.json(), {"codigo": "A-01", "nombre": "Tornillo", "stock": 7, "sin_stock": False, "categoria": None}
         )
         self.assertNotIn("A-01", self.codigos_inventario())
         self.assertIn("B-02", self.codigos_inventario())
@@ -60,7 +60,7 @@ class BajaExitoTest(BajaBase):
         r = self.client.delete(f"{URL}/CAJA/10")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(
-            r.json(), {"codigo": "CAJA/10", "nombre": "Caja", "stock": 0, "sin_stock": True}
+            r.json(), {"codigo": "CAJA/10", "nombre": "Caja", "stock": 0, "sin_stock": True, "categoria": None}
         )
         self.assertNotIn("CAJA/10", self.codigos_inventario())
 

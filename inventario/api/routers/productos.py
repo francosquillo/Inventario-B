@@ -35,7 +35,8 @@ ServicioStock = Annotated[StockService, Depends(get_stock_service)]
     description=(
         "Alta explícita con código, nombre y stock inicial (0 a 10.000). Con stock mayor que 0 "
         "registra un ingreso. Si el código es de un producto dado de baja lo reactiva con el "
-        "nombre y stock nuevos (`reactivado: true`; registra un ajuste si el stock cambia)."
+        "nombre, stock y categoría nuevos (`reactivado: true`; registra un ajuste si el stock "
+        "cambia). `categoria` es la clave de una categoría existente (opcional)."
     ),
     responses={
         409: {"model": ErrorOut, "description": "Ya existe un producto activo con ese código"},
@@ -43,7 +44,9 @@ ServicioStock = Annotated[StockService, Depends(get_stock_service)]
     },
 )
 def dar_de_alta(datos: AltaProductoRequest, usuario: Usuario, stock: ServicioStock):
-    return ingreso_out(stock.dar_de_alta(datos.codigo, datos.nombre, datos.stock, usuario.id))
+    return ingreso_out(
+        stock.dar_de_alta(datos.codigo, datos.nombre, datos.stock, usuario.id, datos.categoria)
+    )
 
 
 @router.get(

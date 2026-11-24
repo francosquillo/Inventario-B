@@ -212,7 +212,7 @@ class InventarioPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):
         stock = re.search(r'<input[^>]*id="nu-stock"[^>]*>', self.html).group(0)
         self.assertIn('inputmode="numeric"', stock)
         self.assertRegex(self.html, r'id="nu-enviar"[^>]*>Crear producto<')
-        self.assertIn("Este código está dado de baja: se va a reactivar con el nombre y el stock que indiques.", self.html)
+        self.assertIn("Este código está dado de baja: se va a reactivar con el nombre, el stock y la categoría que indiques.", self.html)
 
     def test_modal_modificar_stock_y_plantilla_de_linea(self):
         self.assertRegex(self.html, r'id="mod-enviar"[^>]*>Guardar cambios<')
@@ -388,10 +388,10 @@ class BuscadorYExportacionInventarioTest(unittest.TestCase):
         cartel = re.search(r'<div[^>]*id="inv-sin-coincidencias"[^>]*>', self.html).group(0)
         self.assertIn("hidden", cartel)
         self.assertIn('role="status"', cartel)
-        self.assertIn("Limpiar búsqueda", self.html)
+        self.assertIn("Limpiar filtros", self.html)
 
     def test_js_usa_los_modulos_y_no_busca_en_el_servidor(self):
-        for fragmento in ("Ningún producto coincide con", "Busqueda.filtrar", "Busqueda.conteo",
+        for fragmento in ("Busqueda.mensajeSinCoincidencias", "Busqueda.filtrar", "Busqueda.conteo",
                           "Exportar.imprimir", "(sin stock)", "Escape"):
             with self.subTest(fragmento=fragmento):
                 self.assertIn(fragmento, self.js)
@@ -479,7 +479,7 @@ class ReportesPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):
 
     def test_tabla_con_columnas_en_orden(self):
         cab = re.search(r"<thead>.*?</thead>", self.html, re.S).group(0)
-        self.assertEqual(re.findall(r"<th[^>]*>([^<]*)</th>", cab), ["Código", "Nombre", "Cantidad", "Órdenes"])
+        self.assertEqual(re.findall(r"<th[^>]*>([^<]*)</th>", cab), ["Código", "Nombre", "Categoría", "Cantidad", "Órdenes"])
         self.assertIn("tbl-rep", self.html)
 
     def test_js_endpoints_y_validacion(self):

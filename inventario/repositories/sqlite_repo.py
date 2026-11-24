@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta
 from itertools import groupby
 
 from inventario.domain.entities import (
+    Categoria,
     Faltante,
     ItemOrden,
     Movimiento,
@@ -20,6 +21,8 @@ from inventario.domain.entities import (
     Usuario,
 )
 from inventario.domain.errors import (
+    CategoriaDuplicada,
+    CategoriaNoEncontrada,
     NombreRequerido,
     OrdenDuplicada,
     OrdenNoEncontrada,
@@ -32,6 +35,7 @@ from inventario.domain.errors import (
 )
 from inventario.domain.tiempo import ZONA_AR
 from inventario.repositories.base import (
+    CategoriaRepository,
     MovimientoRepository,
     OrdenRepository,
     ProductoRepository,
@@ -73,13 +77,24 @@ CREATE TABLE IF NOT EXISTS usuarios (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS categorias (
+    id INTEGER PRIMARY KEY,
+    clave TEXT NOT NULL UNIQUE CHECK (
+        length(clave) BETWEEN 1 AND 30
+        AND clave NOT GLOB '*[^a-z0-9-]*'
+        AND clave NOT GLOB '-*' AND clave NOT GLOB '*-' AND clave NOT GLOB '*--*'),
+    nombre TEXT NOT NULL UNIQUE COLLATE NOCASE
+        CHECK (length(trim(nombre)) BETWEEN 1 AND 40)
+);
+
 CREATE TABLE IF NOT EXISTS productos (
     id INTEGER PRIMARY KEY,
     codigo TEXT NOT NULL UNIQUE,
     nombre TEXT NOT NULL CHECK (length(trim(nombre)) > 0),
     stock INTEGER NOT NULL DEFAULT 0
         CHECK (typeof(stock) = 'integer' AND stock >= 0),
-    activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1))
+    activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0, 1)),
+    categoria_id INTEGER REFERENCES categorias(id)
 );
 
 CREATE TABLE IF NOT EXISTS ordenes (
@@ -175,9 +190,50 @@ def _migrar_movimientos(conn):
     log.info("Migrada la tabla movimientos (%d fila(s) conservadas).", antes)
 
 
+# Categorias iniciales (C-06e, D1/D2): solo se siembran con el catalogo vacio, para no
+# pisar categorias renombradas o creadas por el usuario.
+_CATEGORIAS_INICIALES = (("motor", "Motor"), ("aceite", "Aceite"), ("filtro", "Filtro"))
+
+
+def _sembrar_categorias(conn):
+    """Inserta las categorias iniciales si el catalogo esta vacio. Dentro de una transaccion."""
+    if conn.execute("SELECT COUNT(*) FROM categorias").fetchone()[0] == 0:
+        conn.executemany(
+            "INSERT INTO categorias (clave, nombre) VALUES (?, ?)", _CATEGORIAS_INICIALES
+        )
+
+
+def _migrar_productos_categoria(conn):
+    """Agrega `productos.categoria_id` (NULL = sin categoria) y siembra el catalogo.
+
+    Idempotente. Todo en una transaccion (el DDL de SQLite es transaccional): ante
+    cualquier error se revierte y la excepcion sube. Los productos existentes quedan
+    con NULL; no se reconstruye ninguna tabla.
+    """
+    columnas = {f["name"] for f in conn.execute("PRAGMA table_info(productos)")}
+    agregar = "categoria_id" not in columnas
+    with _transaccion(conn):
+        tablas = ("productos", "orden_items", "movimientos")
+        antes = [conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tablas]
+        if agregar:
+            conn.execute(
+                "ALTER TABLE productos ADD COLUMN categoria_id INTEGER REFERENCES categorias(id)"
+            )
+        _sembrar_categorias(conn)
+        if agregar:
+            if conn.execute("PRAGMA foreign_key_check(productos)").fetchall():
+                raise sqlite3.IntegrityError("La migracion de categorias viola claves foraneas.")
+            despues = [conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tablas]
+            if despues != antes:
+                raise sqlite3.IntegrityError("La migracion de categorias cambio la cantidad de filas.")
+    if agregar:
+        log.info("Agregada la categoria a productos (%d producto(s) conservados).", antes[0])
+
+
 def inicializar_esquema(conn):
     conn.executescript(ESQUEMA_SQL)
     _migrar_movimientos(conn)
+    _migrar_productos_categoria(conn)
     conn.execute(NORMALIZAR_FECHAS_SQL)
     sin_parsear = conn.execute(CONTAR_FECHAS_NO_PARSEABLES_SQL).fetchone()[0]
     if sin_parsear:
@@ -203,6 +259,7 @@ def _a_producto(fila):
         nombre=fila["nombre"],
         stock=fila["stock"],
         activo=bool(fila["activo"]),
+        categoria=fila["categoria"],
     )
 
 
@@ -233,20 +290,66 @@ class SqliteUsuarioRepository(UsuarioRepository):
         return Usuario(cur.lastrowid, username, password_hash, salt)
 
 
+# Una sola proyeccion de producto (con la clave de su categoria) para todas las lecturas.
+_COLUMNAS_PRODUCTO = "p.id, p.codigo, p.nombre, p.stock, p.activo, c.clave AS categoria"
+_DESDE_PRODUCTO = "FROM productos p LEFT JOIN categorias c ON c.id = p.categoria_id"
+
+
+class SqliteCategoriaRepository(CategoriaRepository):
+    def __init__(self, conn):
+        self._conn = conn
+
+    def listar(self):
+        filas = self._conn.execute(
+            "SELECT clave, nombre FROM categorias ORDER BY nombre, clave"
+        ).fetchall()
+        return [Categoria(f["clave"], f["nombre"]) for f in filas]
+
+    def obtener(self, clave):
+        fila = self._conn.execute(
+            "SELECT clave, nombre FROM categorias WHERE clave = ?", (clave,)
+        ).fetchone()
+        return Categoria(fila["clave"], fila["nombre"]) if fila else None
+
+    def crear(self, clave, nombre):
+        with _transaccion(self._conn):
+            try:
+                self._conn.execute(
+                    "INSERT INTO categorias (clave, nombre) VALUES (?, ?)", (clave, nombre)
+                )
+            except sqlite3.IntegrityError:
+                raise self._duplicada(clave, nombre) from None
+        return Categoria(clave, nombre)
+
+    def renombrar(self, clave, nombre):
+        with _transaccion(self._conn):
+            if self.obtener(clave) is None:
+                raise CategoriaNoEncontrada(clave)
+            try:
+                self._conn.execute("UPDATE categorias SET nombre = ? WHERE clave = ?", (nombre, clave))
+            except sqlite3.IntegrityError:
+                raise CategoriaDuplicada("nombre", nombre) from None
+        return Categoria(clave, nombre)
+
+    def _duplicada(self, clave, nombre):
+        """Distingue la clave repetida del nombre repetido tras un IntegrityError."""
+        existe = self._conn.execute("SELECT 1 FROM categorias WHERE clave = ?", (clave,)).fetchone()
+        return CategoriaDuplicada("clave", clave) if existe else CategoriaDuplicada("nombre", nombre)
+
+
 class SqliteProductoRepository(ProductoRepository):
     def __init__(self, conn):
         self._conn = conn
 
     def listar_activos(self):
         filas = self._conn.execute(
-            "SELECT id, codigo, nombre, stock, activo FROM productos WHERE activo = 1"
+            f"SELECT {_COLUMNAS_PRODUCTO} {_DESDE_PRODUCTO} WHERE p.activo = 1"
         ).fetchall()
         return [_a_producto(f) for f in filas]
 
     def listar_inactivos(self):
         filas = self._conn.execute(
-            "SELECT id, codigo, nombre, stock, activo FROM productos "
-            "WHERE activo = 0 ORDER BY codigo"
+            f"SELECT {_COLUMNAS_PRODUCTO} {_DESDE_PRODUCTO} WHERE p.activo = 0 ORDER BY p.codigo"
         ).fetchall()
         return [_a_producto(f) for f in filas]
 
@@ -260,17 +363,27 @@ class SqliteProductoRepository(ProductoRepository):
 
 
 # --- Stock atomico (D1/D2) ---
-_SQL_PRODUCTO_POR_CODIGO = "SELECT id, codigo, nombre, stock, activo FROM productos WHERE codigo = ?"
-_SQL_PRODUCTO_POR_ID = "SELECT id, codigo, nombre, stock, activo FROM productos WHERE id = ?"
+_SQL_PRODUCTO_POR_CODIGO = f"SELECT {_COLUMNAS_PRODUCTO} {_DESDE_PRODUCTO} WHERE p.codigo = ?"
+_SQL_PRODUCTO_POR_ID = f"SELECT {_COLUMNAS_PRODUCTO} {_DESDE_PRODUCTO} WHERE p.id = ?"
+_CATEGORIA_POR_CLAVE = "(SELECT id FROM categorias WHERE clave = ?)"
 _SQL_BAJA_PRODUCTO = "UPDATE productos SET activo = 0 WHERE codigo = ? AND activo = 1"
 _SQL_SUMAR_Y_ACTIVAR = "UPDATE productos SET stock = stock + ?, activo = 1 WHERE id = ?"
 _SQL_ALTA = "INSERT INTO productos (codigo, nombre, stock, activo) VALUES (?, ?, ?, 1)"
-_SQL_ALTA_ACTIVO = "INSERT INTO productos (codigo, nombre, stock, activo) VALUES (?, ?, ?, 1)"
-_SQL_REACTIVAR_ALTA = "UPDATE productos SET nombre = ?, stock = ?, activo = 1 WHERE id = ?"
-_SQL_PRODUCTOS_POR_CODIGOS_TODOS = (
-    "SELECT id, codigo, nombre, stock, activo FROM productos WHERE codigo IN ({})"
+_SQL_ALTA_ACTIVO = (
+    "INSERT INTO productos (codigo, nombre, stock, activo, categoria_id) "
+    f"VALUES (?, ?, ?, 1, {_CATEGORIA_POR_CLAVE})"
 )
-_SQL_ACTUALIZAR_LINEA = "UPDATE productos SET nombre = ?, stock = ?, activo = ? WHERE id = ?"
+_SQL_REACTIVAR_ALTA = (
+    f"UPDATE productos SET nombre = ?, stock = ?, activo = 1, categoria_id = {_CATEGORIA_POR_CLAVE} "
+    "WHERE id = ?"
+)
+_SQL_PRODUCTOS_POR_CODIGOS_TODOS = (
+    f"SELECT {_COLUMNAS_PRODUCTO} {_DESDE_PRODUCTO} WHERE p.codigo IN ({{}})"
+)
+_SQL_ACTUALIZAR_LINEA = (
+    f"UPDATE productos SET nombre = ?, stock = ?, activo = ?, categoria_id = {_CATEGORIA_POR_CLAVE} "
+    "WHERE id = ?"
+)
 _SQL_RESTAR = (
     "UPDATE productos SET stock = stock - ? WHERE id = ? AND activo = 1 AND stock >= ?"
 )
@@ -361,7 +474,7 @@ class SqliteStockRepository(StockRepository):
             producto = _a_producto(self._conn.execute(_SQL_PRODUCTO_POR_ID, (fila["id"],)).fetchone())
         return producto
 
-    def dar_de_alta(self, codigo, nombre, stock, usuario_id, fecha):
+    def dar_de_alta(self, codigo, nombre, stock, usuario_id, fecha, categoria=None):
         texto_fecha = _fecha_a_texto(fecha)
         with _transaccion(self._conn):
             fila = self._conn.execute(_SQL_PRODUCTO_POR_CODIGO, (codigo,)).fetchone()
@@ -369,7 +482,7 @@ class SqliteStockRepository(StockRepository):
             if creado:
                 try:
                     producto_id = self._conn.execute(
-                        _SQL_ALTA_ACTIVO, (codigo, nombre, stock)
+                        _SQL_ALTA_ACTIVO, (codigo, nombre, stock, categoria)
                     ).lastrowid
                 except sqlite3.IntegrityError:  # UNIQUE(codigo): respaldo ante una carrera
                     raise ProductoDuplicado(codigo) from None
@@ -381,7 +494,7 @@ class SqliteStockRepository(StockRepository):
                 raise ProductoDuplicado(codigo)
             else:
                 producto_id = fila["id"]
-                self._conn.execute(_SQL_REACTIVAR_ALTA, (nombre, stock, producto_id))
+                self._conn.execute(_SQL_REACTIVAR_ALTA, (nombre, stock, categoria, producto_id))
                 if stock != fila["stock"]:
                     _registrar_ajuste(
                         self._conn, texto_fecha, producto_id, fila["stock"], stock, usuario_id
@@ -414,11 +527,14 @@ class SqliteStockRepository(StockRepository):
         nuevo = linea.valor if linea.modo == "fijar" else anterior + linea.valor
         nombre = linea.nombre if linea.nombre and linea.nombre != fila["nombre"] else fila["nombre"]
         cambia_stock = nuevo != anterior
+        categoria_anterior = fila["categoria"]
+        categoria = linea.categoria if linea.cambia_categoria else categoria_anterior
         # Un dado de baja solo se reactiva si el stock cambia y queda > 0 (decision 9).
         reactivado = (not fila["activo"]) and cambia_stock and nuevo > 0
-        if cambia_stock or nombre != fila["nombre"] or reactivado:
+        if cambia_stock or nombre != fila["nombre"] or reactivado or categoria != categoria_anterior:
+            activo = 1 if (fila["activo"] or reactivado) else 0
             self._conn.execute(
-                _SQL_ACTUALIZAR_LINEA, (nombre, nuevo, 1 if (fila["activo"] or reactivado) else 0, fila["id"])
+                _SQL_ACTUALIZAR_LINEA, (nombre, nuevo, activo, categoria, fila["id"])
             )
         if cambia_stock:
             if linea.modo == "sumar":
@@ -435,6 +551,8 @@ class SqliteStockRepository(StockRepository):
             stock_anterior=anterior,
             nombre_anterior=fila["nombre"],
             reactivado=reactivado,
+            categoria=categoria,
+            categoria_anterior=categoria_anterior,
         )
 
 
@@ -546,13 +664,15 @@ def _a_ordenes(filas):
 
 # Reporte: COUNT(*) = ordenes por producto (la PK (orden_id, producto_id) garantiza una linea por orden).
 _SQL_REPORTE_EN_ORDENES = (
-    "SELECT p.codigo, p.nombre, p.activo, SUM(i.cantidad) AS cantidad, COUNT(*) AS ordenes "
+    "SELECT p.codigo, p.nombre, p.activo, c.clave AS categoria, "
+    "SUM(i.cantidad) AS cantidad, COUNT(*) AS ordenes "
     "FROM orden_items i JOIN ordenes o ON o.id = i.orden_id "
     "JOIN productos p ON p.id = i.producto_id "
+    "LEFT JOIN categorias c ON c.id = p.categoria_id "
     "WHERE o.fecha >= ? AND o.fecha <= ?"
 )
 _GRUPO_REPORTE_EN_ORDENES = (
-    " GROUP BY p.id, p.codigo, p.nombre, p.activo ORDER BY cantidad DESC, p.codigo"
+    " GROUP BY p.id, p.codigo, p.nombre, p.activo, c.clave ORDER BY cantidad DESC, p.codigo"
 )
 _SQL_PRODUCTOS_USADOS = (
     "SELECT DISTINCT p.codigo, p.nombre, p.activo "
@@ -634,7 +754,10 @@ class SqliteOrdenRepository(OrdenRepository):
             parametros.append(codigo)
         filas = self._conn.execute(sql + _GRUPO_REPORTE_EN_ORDENES, parametros).fetchall()
         return [
-            ProductoEnOrdenes(f["codigo"], f["nombre"], bool(f["activo"]), f["cantidad"], f["ordenes"])
+            ProductoEnOrdenes(
+                f["codigo"], f["nombre"], bool(f["activo"]), f["cantidad"], f["ordenes"],
+                f["categoria"],
+            )
             for f in filas
         ]
 

@@ -4,7 +4,10 @@ from datetime import datetime
 from inventario.domain.entities import LineaModificacion
 from inventario.domain.errors import DatosInvalidos, ProductosInexistentes
 from inventario.domain.tiempo import ZONA_AR
-from inventario.repositories.sqlite_repo import SqliteStockRepository
+from inventario.repositories.sqlite_repo import (
+    SqliteCategoriaRepository,
+    SqliteStockRepository,
+)
 from inventario.services.stock_service import StockService
 from tests.helpers import conexion_inicializada, insertar_producto, insertar_usuario, movimientos
 
@@ -28,7 +31,8 @@ class ModificacionServiceBase(unittest.TestCase):
         self.uid = insertar_usuario(self.conn)
         insertar_producto(self.conn, "A-01", "Tornillo M4", 5)
         insertar_producto(self.conn, "B-10", "Tuerca", 0)
-        self.service = StockService(SqliteStockRepository(self.conn), ahora=lambda: FECHA_FIJA)
+        self.service = StockService(
+            SqliteStockRepository(self.conn), SqliteCategoriaRepository(self.conn), ahora=lambda: FECHA_FIJA)
 
     def modificar(self, *lineas):
         return self.service.modificar(list(lineas), self.uid)

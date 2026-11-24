@@ -35,13 +35,23 @@ Control de stock de piezas y órdenes de trabajo para un taller o pyme chica. Ba
 
 5. **Base existente y actualización de esquema**: la primera vez que arrancás con el cambio `paso-5b-fixes-menores` sobre una base creada antes, la app reconstruye la tabla `movimientos` automáticamente (agrega el tipo `ajuste` y las columnas `stock_anterior` y `stock_nuevo`) en una sola transacción y conserva todas las filas. **Antes de ese primer arranque, copiá tu `dev-local.db`** (por ejemplo a `dev-local.db.bak`, fuera del repo o ignorada por git) por si necesitás volver atrás: el código viejo no entiende los movimientos de tipo `ajuste`. Los arranques siguientes no tocan nada.
 
+6. **Categorías de producto (`paso-5e-categorias-productos`)**: la primera vez que arrancás sobre una base anterior, la app agrega la columna de categoría a `productos` (todos los productos existentes quedan "Sin categoría"), crea la tabla `categorias` y la siembra con "Motor", "Aceite" y "Filtro" **solo si está vacía** (una categoría renombrada o creada por vos no se pisa al reiniciar). Es una sola transacción: si algo falla se revierte y la app no arranca. **Antes de ese primer arranque, copiá tu `dev-local.db`** (por ejemplo a `dev-local.bak.db`, que `.gitignore` ya cubre con `*.db`) por si necesitás volver atrás. Los arranques siguientes no tocan nada.
+
 La sesión dura 12 horas desde la última petición.
 
 ## Buscar y exportar a PDF
 
-- **Buscar**: en `/inventario`, el campo "Buscar por código o nombre" filtra la tabla mientras escribís (sin distinguir mayúsculas ni tildes). Escape o "Limpiar búsqueda" la vacían.
-- **Exportar el inventario**: "Exportar PDF" exporta las filas que se ven (todas si no hay búsqueda). En `/ordenes`, cada orden tiene su propio "Exportar PDF".
+- **Buscar**: en `/inventario`, el campo "Buscar por código o nombre" filtra la tabla mientras escribís (sin distinguir mayúsculas ni tildes). Escape vacía solo el texto.
+- **Filtrar por categoría**: el selector junto al buscador ("Todas las categorías", cada categoría y "Sin categoría") se combina con la búsqueda; el conteo dice "N de M productos" cuando filtra y "Limpiar filtros" restablece ambos. Los filtros se conservan al recargar la tabla tras una acción.
+- **Exportar el inventario**: "Exportar PDF" exporta las filas que se ven (todas si no hay filtros), con la columna Categoría; con una categoría elegida, el encabezado dice "Aceite · 3 productos · AAAA-MM-DD". En `/ordenes`, cada orden tiene su propio "Exportar PDF".
 - **Cómo se guarda**: el botón abre el diálogo de impresión del navegador; elegí el destino "Guardar como PDF". Si no querés la URL y la fecha del navegador en los bordes de la hoja, desactivá "Encabezados y pies de página" en las opciones del diálogo.
+
+## Categorías
+
+- **Qué son**: cada producto tiene a lo sumo una categoría (opcional; sin ella figura "Sin categoría"). El catálogo viene sembrado con Motor, Aceite y Filtro. En este paso **se administra solo por la API**, desde `/docs` con la sesión iniciada: no hay pantalla para crearlas.
+- **API** (requieren sesión): `GET /api/categorias` (lista ordenada por nombre), `POST /api/categorias` (`{"nombre": "Tren delantero"}`; la clave, p. ej. `tren-delantero`, se deriva del nombre o se puede indicar con `clave`) y `PATCH /api/categorias/{clave}` (`{"nombre": "..."}`: renombra; **la clave no se puede cambiar**). El nombre es único sin distinguir mayúsculas (409 si se repite); no hay borrado.
+- **En los productos**: "Nuevo ingreso" tiene "Categoría (opcional)"; "Modificar stock" permite asignar o quitar la categoría de cada línea (cambiar solo la categoría no registra movimiento ni reactiva un producto dado de baja); "Nueva orden" ofrece, en cada línea, un filtro de categoría para acotar la lista de productos (no se guarda en la orden). Las respuestas de producto de la API incluyen `categoria` (la clave o `null`).
+- **Reporte**: `/reportes` muestra la categoría actual de cada producto (columna "Categoría").
 
 ## Reporte de productos en órdenes
 

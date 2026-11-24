@@ -22,8 +22,8 @@ class InventarioConSesionTest(unittest.TestCase):
         self.assertEqual(
             r.json(),
             [
-                {"codigo": "A-01", "nombre": "Tornillo", "stock": 5, "sin_stock": False},
-                {"codigo": "B-10", "nombre": "Tuerca", "stock": 0, "sin_stock": True},
+                {"codigo": "A-01", "nombre": "Tornillo", "stock": 5, "sin_stock": False, "categoria": None},
+                {"codigo": "B-10", "nombre": "Tuerca", "stock": 0, "sin_stock": True, "categoria": None},
             ],
         )
 

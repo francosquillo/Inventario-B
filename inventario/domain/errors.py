@@ -88,3 +88,18 @@ class ProductosInexistentes(InventarioError):
             lista = ", ".join(f"'{c}'" for c in self.codigos)
             mensaje = f"No existen productos con código: {lista}."
         super().__init__(mensaje)
+
+
+class CategoriaDuplicada(InventarioError):
+    """Clave o nombre (sin distinguir mayusculas) ya usados por otra categoria (HTTP 409)."""
+
+    def __init__(self, campo, valor):
+        self.campo = campo
+        self.valor = valor
+        super().__init__(f"Ya existe una categoría con {campo} '{valor}'.")
+
+
+class CategoriaNoEncontrada(InventarioError):
+    def __init__(self, clave):
+        self.clave = clave
+        super().__init__(f"No existe una categoría con clave '{clave}'.")

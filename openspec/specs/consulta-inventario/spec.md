@@ -6,7 +6,7 @@ Permite a un usuario autenticado conocer el stock disponible: lista los producto
 ## Requirements
 
 ### Requirement: Listado de productos activos
-El inventario general SHALL listar únicamente los productos activos, mostrando para cada uno código, nombre y stock, ordenados por código de forma ascendente.
+El inventario general SHALL listar únicamente los productos activos, mostrando para cada uno código, nombre, stock y categoría (o ninguna), ordenados por código de forma ascendente. La categoría SHALL NOT alterar el orden ni el criterio de inclusión.
 
 #### Scenario: Solo activos
 - **GIVEN** los productos `P-001` (activo), `P-002` (inactivo) y `P-003` (activo)
@@ -17,6 +17,11 @@ El inventario general SHALL listar únicamente los productos activos, mostrando 
 - **GIVEN** los productos activos `B-10`, `A-01` y `C-05`
 - **WHEN** se consulta el inventario
 - **THEN** el listado aparece en el orden `A-01`, `B-10`, `C-05`
+
+#### Scenario: Categoría de cada producto
+- **GIVEN** los productos activos `A-01` (sin categoría) y `F-01` (categoría `filtro`)
+- **WHEN** se consulta el inventario
+- **THEN** `A-01` aparece sin categoría y `F-01` con categoría `filtro`, en ese orden
 
 ### Requirement: Productos con stock cero visibles
 Un producto activo con stock 0 SHALL aparecer en el inventario y SHALL distinguirse como sin stock.

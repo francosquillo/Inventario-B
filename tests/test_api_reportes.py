@@ -75,8 +75,8 @@ class ReporteTest(ReporteBase):
         self.assertEqual(
             r.json(),
             [
-                {"codigo": "A-01", "nombre": "Tornillo", "activo": True, "cantidad": 5, "ordenes": 2},
-                {"codigo": "B-02", "nombre": "Tuerca", "activo": True, "cantidad": 1, "ordenes": 1},
+                {"codigo": "A-01", "nombre": "Tornillo", "activo": True, "categoria": None, "cantidad": 5, "ordenes": 2},
+                {"codigo": "B-02", "nombre": "Tuerca", "activo": True, "categoria": None, "cantidad": 1, "ordenes": 1},
             ],
         )
 
@@ -92,7 +92,7 @@ class ReporteTest(ReporteBase):
         self.assertEqual(r.json()[0]["activo"], False)
         r = self.client.get(f"{URL}?{NOV}&codigo=c-99")
         self.assertEqual(r.json(), [
-            {"codigo": "C-99", "nombre": "Viejo", "activo": False, "cantidad": 4, "ordenes": 1}
+            {"codigo": "C-99", "nombre": "Viejo", "activo": False, "categoria": None, "cantidad": 4, "ordenes": 1}
         ])
 
     def test_vacio_y_codigo_desconocido(self):
