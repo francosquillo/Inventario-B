@@ -54,7 +54,8 @@ Todas las rutas (salvo login y la página de login) exigen sesión. El frontend 
 | Inventario | `GET /api/inventario` (solo activos), `DELETE /api/productos/{codigo}` (lógico, C-05) |
 | Movimientos | `POST /api/stock/ingreso`, `POST /api/stock/egreso` |
 | Órdenes | `POST /api/ordenes`, `GET /api/ordenes?numero=&desde=&hasta=` (C-04), `DELETE /api/ordenes/{numero}?reintegrar=true|false` (C-05; borrado por número, no por id) |
-| Categorías | `GET /api/categorias`, `POST /api/categorias`, `PATCH /api/categorias/{clave}` (C-06e; administración solo por API, sin borrado) |
+| Categorías | `GET /api/categorias`, `POST /api/categorias`, `PATCH /api/categorias/{clave}` (C-06e), `DELETE /api/categorias/{clave}` (C-06f; 409 si algún producto la usa); administración solo por API |
+| Procesos | `GET /api/procesos`, `POST /api/procesos`, `PATCH /api/procesos/{clave}`, `DELETE /api/procesos/{clave}` (C-06f; catálogo administrado solo por API); `POST /api/ordenes` acepta `procesos` y `procesos_personalizados` |
 | Reportes | `GET /api/reportes/productos-en-ordenes?desde=&hasta=&codigo=` (C-06d; `desde` obligatorio, `hasta` opcional = hoy), `GET /api/reportes/productos-usados` (C-06d; productos para el selector) |
 | Páginas | `GET /` (login), `GET /inventario`, `GET /ordenes` (Paso 5, C-06), `GET /reportes` (C-06d) |
 

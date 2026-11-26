@@ -10,7 +10,7 @@ from inventario.domain.errors import (
     StockInsuficienteOrden,
 )
 from inventario.domain.tiempo import ZONA_AR
-from inventario.repositories.sqlite_repo import SqliteOrdenRepository
+from inventario.repositories.sqlite_repo import SqliteOrdenRepository, SqliteProcesoRepository
 from inventario.services.orden_service import OrdenService
 from tests.helpers import conexion_inicializada, insertar_producto, insertar_usuario, movimientos
 
@@ -25,7 +25,10 @@ class ServiceBase(unittest.TestCase):
         self.uid = insertar_usuario(self.conn)
         insertar_producto(self.conn, "A-01", "Tornillo", 5)
         insertar_producto(self.conn, "B-02", "Tuerca", 10)
-        self.service = OrdenService(SqliteOrdenRepository(self.conn), ahora=lambda: FECHA_FIJA)
+        self.service = OrdenService(
+            SqliteOrdenRepository(self.conn), SqliteProcesoRepository(self.conn),
+            ahora=lambda: FECHA_FIJA,
+        )
 
     def crear(self, numero="OT-0001", fecha="2026-11-20", componentes=(("A-01", 1),)):
         return self.service.crear(numero, fecha, componentes, self.uid)
@@ -249,7 +252,9 @@ class ListarServiceTest(ServiceBase):
                 llamadas.append(numero)
                 return super().existe_numero(numero)
 
-        self.service = OrdenService(RepoEspia(self.conn), ahora=lambda: FECHA_FIJA)
+        self.service = OrdenService(
+            RepoEspia(self.conn), SqliteProcesoRepository(self.conn), ahora=lambda: FECHA_FIJA
+        )
         return llamadas
 
     def test_existe_numero_no_se_consulta_sin_numero(self):

@@ -65,7 +65,7 @@ def normalizar_categoria(valor):
     return valor.strip().lower() or None
 
 
-def clave_desde_texto(texto):
+def clave_desde_texto(texto, mensaje=MENSAJE_CLAVE_CATEGORIA):
     """Deriva una clave: sin tildes, minusculas, tramos no alfanumericos -> '-', hasta 30."""
     sin_tildes = "".join(
         c for c in unicodedata.normalize("NFKD", texto) if not unicodedata.combining(c)
@@ -73,22 +73,51 @@ def clave_desde_texto(texto):
     clave = re.sub(r"[^a-z0-9]+", "-", sin_tildes.lower()).strip("-")
     clave = clave[:CATEGORIA_CLAVE_MAX].rstrip("-")
     if not clave:
-        raise DatosInvalidos(MENSAJE_CLAVE_CATEGORIA)
+        raise DatosInvalidos(mensaje)
+    return clave
+
+
+def validar_clave(clave, mensaje):
+    """Clave ya normalizada (recorte + minusculas): formato y largo."""
+    if len(clave) > CATEGORIA_CLAVE_MAX or not _CLAVE_CATEGORIA.fullmatch(clave):
+        raise DatosInvalidos(mensaje)
     return clave
 
 
 def validar_clave_categoria(clave):
-    """Clave ya normalizada (recorte + minusculas): formato y largo."""
-    if len(clave) > CATEGORIA_CLAVE_MAX or not _CLAVE_CATEGORIA.fullmatch(clave):
-        raise DatosInvalidos(MENSAJE_CLAVE_CATEGORIA)
-    return clave
+    return validar_clave(clave, MENSAJE_CLAVE_CATEGORIA)
 
 
-def normalizar_nombre_categoria(nombre):
-    """Nombre para mostrar: recortado, 1 a 40 caracteres."""
+def normalizar_nombre(nombre, tope, mensaje_largo):
+    """Nombre para mostrar de un catalogo: recortado, de 1 al tope de caracteres."""
     if not isinstance(nombre, str) or not nombre.strip():
         raise DatosInvalidos(MENSAJE_NOMBRE_CATEGORIA_OBLIGATORIO)
     nombre = nombre.strip()
-    if len(nombre) > CATEGORIA_NOMBRE_MAX:
-        raise DatosInvalidos(MENSAJE_NOMBRE_CATEGORIA_LARGO)
+    if len(nombre) > tope:
+        raise DatosInvalidos(mensaje_largo)
     return nombre
+
+
+def normalizar_nombre_categoria(nombre):
+    """Nombre de categoria: recortado, 1 a 40 caracteres."""
+    return normalizar_nombre(nombre, CATEGORIA_NOMBRE_MAX, MENSAJE_NOMBRE_CATEGORIA_LARGO)
+
+
+# --- Procesos de ordenes (C-06f) ---
+PROCESO_NOMBRE_MAX = 60
+MENSAJE_NOMBRE_PROCESO_LARGO = (
+    f"El nombre del proceso admite hasta {PROCESO_NOMBRE_MAX} caracteres."
+)
+MENSAJE_CLAVE_PROCESO = (
+    "La clave del proceso admite solo minúsculas sin tilde, números y guiones "
+    "(hasta 30 caracteres)."
+)
+
+
+def normalizar_nombre_proceso(nombre):
+    """Nombre de proceso del catalogo: recortado, 1 a 60 caracteres."""
+    return normalizar_nombre(nombre, PROCESO_NOMBRE_MAX, MENSAJE_NOMBRE_PROCESO_LARGO)
+
+
+def validar_clave_proceso(clave):
+    return validar_clave(clave, MENSAJE_CLAVE_PROCESO)

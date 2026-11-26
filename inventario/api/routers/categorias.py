@@ -63,3 +63,21 @@ def renombrar(clave: str, datos: CategoriaRenombreRequest, categorias: Servicio)
     if "clave" in datos.model_fields_set:
         raise DatosInvalidos("La clave de una categoría no se puede cambiar.")
     return _salida(categorias.renombrar(clave, datos.nombre))
+
+
+@router.delete(
+    "/{clave}",
+    response_model=CategoriaOut,
+    summary="Borrar una categoría",
+    description=(
+        "Borra la categoría y devuelve lo borrado. Si algún producto (activo o dado de baja) "
+        "la usa, responde 409 y no cambia nada: reasigná esos productos y volvé a intentar."
+    ),
+    responses={
+        404: {"model": ErrorOut, "description": "No existe una categoría con esa clave"},
+        409: {"model": ErrorOut, "description": "La categoría está asignada a productos"},
+        422: _422,
+    },
+)
+def borrar(clave: str, categorias: Servicio):
+    return _salida(categorias.borrar(clave))

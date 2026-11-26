@@ -1,8 +1,14 @@
 """Alta de ordenes de trabajo: validacion, normalizacion y consolidacion de componentes."""
+from inventario.domain.entities import ProcesoOrden
 from inventario.domain.errors import DatosInvalidos, OrdenNoEncontrada
 from inventario.domain.tiempo import ahora_argentina
 from inventario.services.fechas import parsear_fecha, parsear_filtro_fecha, validar_rango
-from inventario.services.normalizacion import normalizar_codigo, validar_cantidad
+from inventario.services.normalizacion import (
+    MENSAJE_NOMBRE_PROCESO_LARGO,
+    PROCESO_NOMBRE_MAX,
+    normalizar_codigo,
+    validar_cantidad,
+)
 
 NUMERO_MAX = 30
 COMPONENTES_MAX = 100
@@ -19,6 +25,13 @@ MENSAJE_DEMASIADOS = f"La orden admite hasta {COMPONENTES_MAX} componentes."
 MENSAJE_REINTEGRAR_OBLIGATORIO = "El campo reintegrar es obligatorio."
 MENSAJE_REINTEGRAR_VALOR = "El campo reintegrar debe ser true o false."
 MENSAJE_LINEA_TIPO = "debe ser un objeto con codigo y cantidad."
+PERSONALIZADOS_MAX = 10
+CLAVE_ERROR_MAX = 30
+MENSAJE_PROCESOS_TIPO = "El campo procesos debe ser una lista de textos."
+MENSAJE_PERSONALIZADOS_TIPO = "El campo procesos_personalizados debe ser una lista de textos."
+MENSAJE_PERSONALIZADOS_DEMASIADOS = (
+    f"La orden admite hasta {PERSONALIZADOS_MAX} procesos personalizados."
+)
 
 
 def _normalizar_numero(numero):
@@ -89,16 +102,77 @@ def _consolidar(componentes):
     return list(totales.items())
 
 
+def _lista_de_textos(valor, mensaje):
+    """None -> []; si no es lista (o tupla) de str, DatosInvalidos con `mensaje`."""
+    if valor is None:
+        return []
+    if not isinstance(valor, (list, tuple)) or not all(isinstance(v, str) for v in valor):
+        raise DatosInvalidos(mensaje)
+    return list(valor)
+
+
+def _recortar(clave):
+    return clave if len(clave) <= CLAVE_ERROR_MAX else clave[:CLAVE_ERROR_MAX] + "…"
+
+
+def _resolver_procesos(procesos, catalogo):
+    """Claves del catalogo -> ProcesoOrden (sin repetir, primera aparicion), en el orden recibido."""
+    claves = [c.strip().lower() for c in _lista_de_textos(procesos, MENSAJE_PROCESOS_TIPO)]
+    por_clave = {p.clave: p.nombre for p in catalogo}
+    resueltos = []
+    for clave in dict.fromkeys(claves):
+        if clave not in por_clave:
+            raise DatosInvalidos(f"El proceso '{_recortar(clave)}' no existe.")
+        resueltos.append(ProcesoOrden(por_clave[clave], False))
+    return resueltos
+
+
+def _validar_personalizados(personalizados, catalogo):
+    """Textos libres: recortados, 1-60 caracteres, sin repetir ni coincidir con el catalogo."""
+    textos = _lista_de_textos(personalizados, MENSAJE_PERSONALIZADOS_TIPO)
+    if len(textos) > PERSONALIZADOS_MAX:
+        raise DatosInvalidos(MENSAJE_PERSONALIZADOS_DEMASIADOS)
+    del_catalogo = {p.nombre.casefold() for p in catalogo}
+    vistos = set()
+    validos = []
+    for posicion, texto in enumerate(textos, start=1):
+        nombre = texto.strip()
+        if not nombre:
+            raise DatosInvalidos(f"Proceso personalizado {posicion}: El nombre es obligatorio.")
+        if len(nombre) > PROCESO_NOMBRE_MAX:
+            raise DatosInvalidos(f"Proceso personalizado {posicion}: {MENSAJE_NOMBRE_PROCESO_LARGO}")
+        clave = nombre.casefold()
+        if clave in del_catalogo:
+            raise DatosInvalidos(
+                f"Proceso personalizado {posicion}: '{nombre}' ya está en la lista de procesos; "
+                "marcalo ahí."
+            )
+        if clave in vistos:
+            raise DatosInvalidos(f"Proceso personalizado {posicion}: '{nombre}' está repetido.")
+        vistos.add(clave)
+        validos.append(ProcesoOrden(nombre, True))
+    return validos
+
+
 class OrdenService:
-    def __init__(self, orden_repo, ahora=ahora_argentina):
+    def __init__(self, orden_repo, proceso_repo, ahora=ahora_argentina):
         self._repo = orden_repo
+        self._procesos = proceso_repo
         self._ahora = ahora
 
-    def crear(self, numero, fecha, componentes, usuario_id):
+    def crear(
+        self, numero, fecha, componentes, usuario_id, procesos=None, procesos_personalizados=None
+    ):
         numero = _normalizar_numero(numero)
         f_orden = _parsear_fecha(fecha)
         items = _consolidar(componentes)
-        return self._repo.crear(numero, f_orden, items, usuario_id, self._ahora())
+        catalogo = self._procesos.listar()
+        todos = _resolver_procesos(procesos, catalogo) + _validar_personalizados(
+            procesos_personalizados, catalogo
+        )
+        return self._repo.crear(
+            numero, f_orden, items, usuario_id, self._ahora(), procesos=tuple(todos)
+        )
 
     def listar(self, numero=None, desde=None, hasta=None):
         numero = _normalizar_numero_filtro(numero)

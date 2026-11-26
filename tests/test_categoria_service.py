@@ -3,7 +3,12 @@ import unittest
 from datetime import datetime
 
 from inventario.domain.entities import LineaModificacion
-from inventario.domain.errors import CategoriaDuplicada, CategoriaNoEncontrada, DatosInvalidos
+from inventario.domain.errors import (
+    CategoriaDuplicada,
+    CategoriaEnUso,
+    CategoriaNoEncontrada,
+    DatosInvalidos,
+)
 from inventario.domain.tiempo import ZONA_AR
 from inventario.repositories.sqlite_repo import SqliteCategoriaRepository, SqliteStockRepository
 from inventario.services.categoria_service import CategoriaService
@@ -164,6 +169,28 @@ class RenombrarTest(Base):
     def test_nombre_invalido(self):
         with self.assertRaises(DatosInvalidos):
             self.servicio.renombrar("motor", "  ")
+
+
+class BorrarTest(Base):
+    def test_normaliza_y_delega(self):
+        self.assertEqual(self.servicio.borrar(" MOTOR ").clave, "motor")
+        self.assertEqual([c.clave for c in self.servicio.listar()], ["aceite", "filtro"])
+
+    def test_en_uso_lanza_con_el_mensaje_exacto(self):
+        insertar_producto(self.conn, "F-1", "Filtro", 1, categoria="filtro")
+        insertar_producto(self.conn, "F-2", "Filtro 2", 1, activo=0, categoria="filtro")
+        with self.assertRaises(CategoriaEnUso) as cm:
+            self.servicio.borrar("filtro")
+        self.assertEqual(str(cm.exception), "La categoría 'filtro' está asignada a 2 producto(s).")
+
+    def test_inexistente_y_clave_vacia(self):
+        with self.assertRaises(CategoriaNoEncontrada):
+            self.servicio.borrar("nada")
+        for valor in ("", "  ", None, 3):
+            with self.subTest(valor=valor):
+                with self.assertRaises(DatosInvalidos) as cm:
+                    self.servicio.borrar(valor)
+                self.assertEqual(str(cm.exception), MSG_FORMATO)
 
 
 class StockBase(unittest.TestCase):

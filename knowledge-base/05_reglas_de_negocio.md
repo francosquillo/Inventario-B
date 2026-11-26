@@ -26,7 +26,8 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 - **RN-PR-11** (C-06e): La categoría de un producto es opcional (`null`/ausente = "Sin categoría"). Se envía como clave (se normaliza con recorte + minúsculas); una clave desconocida se rechaza con 422 "La categoría 'x' no existe." (en lotes, con prefijo "Línea N: ").
 - **RN-PR-12** (C-06e): Dar de alta (Nuevo ingreso) el código de un producto dado de baja reemplaza también su categoría por la indicada (o la quita); la categoría no influye en el 409 por código activo ni en la decisión de reactivar.
 - **RN-PR-13** (C-06e): En "Modificar stock", una línea puede traer `categoria` (clave, o `null` para quitarla; ausente = no cambia). Cambiar solo la categoría no registra movimiento y no reactiva un producto dado de baja.
-- **RN-PR-14** (C-06e): Las categorías se administran solo por la API (sin pantalla web): `POST /api/categorias` (clave opcional, derivada del nombre si falta) y `PATCH /api/categorias/{clave}` (solo renombra; la clave es inmutable, enviarla da 422). No existe borrado. Clave repetida → 409 "Ya existe una categoría con clave 'x'."; nombre repetido (sin distinguir mayúsculas) → 409 "…con nombre 'X'."; clave inexistente → 404.
+- **RN-PR-14** (C-06e): Las categorías se administran solo por la API (sin pantalla web): `POST /api/categorias` (clave opcional, derivada del nombre si falta) `PATCH /api/categorias/{clave}` (solo renombra; la clave es inmutable, enviarla da 422) y `DELETE /api/categorias/{clave}` (C-06f). Clave repetida → 409 "Ya existe una categoría con clave 'x'."; nombre repetido (sin distinguir mayúsculas) → 409 "…con nombre 'X'."; clave inexistente → 404.
+- **RN-PR-15** (C-06f): Borrar una categoría con `DELETE /api/categorias/{clave}` solo se permite si ningún producto, activo o dado de baja, la tiene asignada; si alguno la usa → 409 "La categoría 'x' está asignada a N producto(s)." sin cambios. Una categoría borrada no se vuelve a sembrar al reiniciar.
 
 ## Dominio: Stock y movimientos (RN-ST)
 
@@ -55,6 +56,12 @@ Cada regla tiene un código único `RN-{DOMINIO}-{NN}` para trazabilidad.
 - **RN-OR-10**: Las órdenes no se editan en v1.
 - **RN-OR-11**: Si al crear una orden se carga varias veces el mismo producto, las cantidades se consolidan sumándose en una sola línea (la validación de stock se hace sobre el total).
 - **RN-OR-12**: Al reintegrar stock por borrado de orden, si un producto estaba dado de baja (`activo = 0`) se reactiva (`activo = 1`) y recibe las unidades devueltas, conservando su stock previo.
+
+- **RN-OR-13** (C-06f): Una orden puede registrar cero o más procesos (opcionales). Los del catálogo se indican por clave (recorte + minúsculas); el mismo proceso del catálogo repetido cuenta una sola vez; una clave inexistente rechaza la orden completa ("El proceso 'x' no existe.").
+- **RN-OR-14** (C-06f): Una orden admite hasta 10 procesos personalizados de texto libre (recortado, 1 a 60 caracteres). Un personalizado no puede llamarse como un proceso del catálogo (se pide marcarlo de la lista) ni repetirse entre los personalizados (sin distinguir mayúsculas). Los errores se informan con la posición ("Proceso personalizado N: ..."). Un personalizado queda solo en su orden: no se agrega al catálogo.
+- **RN-OR-15** (C-06f): Cada proceso registrado guarda su nombre al crear la orden (snapshot) y si fue personalizado; renombrar o borrar el proceso del catálogo no altera órdenes ya creadas. Se devuelven en orden de carga (catálogo primero, luego personalizados).
+- **RN-OR-16** (C-06f): Crear la orden con sus procesos es atómico (todo o nada, junto con el descuento de stock); registrar procesos no toca stock, movimientos ni productos, y la orden sigue exigiendo al menos un componente. Borrar una orden borra sus procesos.
+- **RN-OR-17** (C-06f): El catálogo de procesos se administra solo por la API: `POST /api/procesos` (clave opcional derivada del nombre), `PATCH /api/procesos/{clave}` (solo renombra; clave inmutable), `DELETE /api/procesos/{clave}` (permitido aunque haya órdenes que lo usaron). Clave o nombre repetido (sin distinguir mayúsculas) → 409; clave inexistente → 404; nombre vacío o de más de 60 → 422.
 
 ## Dominio: Validaciones globales (RN-VA)
 

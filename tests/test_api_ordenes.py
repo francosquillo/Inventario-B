@@ -92,7 +92,8 @@ class AltaTest(OrdenesBase):
                 {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 5},
             ],
         )
-        self.assertEqual(set(c), {"id", "numero", "fecha", "usuario", "componentes"})
+        self.assertEqual(set(c), {"id", "numero", "fecha", "usuario", "componentes", "procesos"})
+        self.assertEqual(c["procesos"], [])
 
     def test_inventario_descontado_y_sin_movimientos(self):
         self.crear(componentes=self.COMPONENTES_SPEC)
@@ -259,6 +260,7 @@ class ListadoTest(OrdenesBase):
                         {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2},
                         {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 5},
                     ],
+                    "procesos": [],
                 }
             ],
         )
@@ -359,7 +361,7 @@ class OpenApiOrdenesTest(unittest.TestCase):
         return resp["content"]["application/json"]["schema"]["$ref"]
 
     def test_lista_las_trece_rutas(self):
-        self.assertEqual(len(self.spec["paths"]), 17)
+        self.assertEqual(len(self.spec["paths"]), 19)
         for ruta in ("/api/ordenes", "/api/ordenes/{numero}", "/api/productos/{codigo}"):
             with self.subTest(ruta=ruta):
                 self.assertIn(ruta, self.spec["paths"])
@@ -490,6 +492,7 @@ class BorrarExitoTest(BorrarBase):
                         {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2},
                         {"codigo": "C-99", "nombre": "Arandela", "cantidad": 4},
                     ],
+                    "procesos": [],
                 },
                 "reintegrado": True,
                 "reintegros": [

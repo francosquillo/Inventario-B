@@ -5,6 +5,7 @@ from datetime import date, datetime
 from inventario.domain.entities import Categoria, LineaModificacion, Producto
 from inventario.domain.errors import (
     CategoriaDuplicada,
+    CategoriaEnUso,
     CategoriaNoEncontrada,
     ProductoDuplicado,
 )
@@ -234,6 +235,39 @@ class ReporteConCategoriaTest(Base):
         ordenes.crear("OT-1", date(2026, 11, 5), [("A-01", 1)], self.uid, FECHA)
         self.assertEqual([(p.codigo, p.nombre, p.activo) for p in ordenes.productos_usados()],
                          [("A-01", "Aceite", True)])
+
+
+class BorrarCategoriaTest(Base):
+    def test_sin_productos_la_borra_y_devuelve_la_categoria(self):
+        self.assertEqual(self.categorias.borrar("motor"), Categoria("motor", "Motor"))
+        self.assertIsNone(self.categorias.obtener("motor"))
+        self.assertEqual(len(self.categorias.listar()), 2)
+
+    def test_usada_por_activo_y_dado_de_baja_lanza_en_uso_con_la_cantidad_sin_cambios(self):
+        insertar_producto(self.conn, "F-01", "Filtro aire", 3, categoria="filtro")
+        insertar_producto(self.conn, "F-02", "Filtro viejo", 0, activo=0, categoria="filtro")
+        antes = self.filas_categorias()
+        with self.assertRaises(CategoriaEnUso) as cm:
+            self.categorias.borrar("filtro")
+        self.assertEqual((cm.exception.clave, cm.exception.cantidad), ("filtro", 2))
+        self.assertEqual(self.filas_categorias(), antes)
+        self.assertEqual(self.categoria_de("F-01"), "filtro")
+        self.assertFalse(self.conn.in_transaction)
+
+    def test_cuenta_solo_los_productos_de_esa_categoria(self):
+        insertar_producto(self.conn, "F-01", "Filtro aire", 3, categoria="filtro")
+        self.assertEqual(self.categorias.borrar("motor").clave, "motor")
+
+    def test_inexistente(self):
+        with self.assertRaises(CategoriaNoEncontrada):
+            self.categorias.borrar("nada")
+        self.assertFalse(self.conn.in_transaction)
+
+    def test_tras_reasignar_el_producto_se_puede_borrar(self):
+        insertar_producto(self.conn, "F-01", "Filtro aire", 3, categoria="filtro")
+        self.conn.execute("UPDATE productos SET categoria_id = NULL")
+        self.conn.commit()
+        self.assertEqual(self.categorias.borrar("filtro").clave, "filtro")
 
 
 if __name__ == "__main__":

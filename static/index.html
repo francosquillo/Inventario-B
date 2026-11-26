@@ -16,6 +16,7 @@
   <script src="/static/js/sesion.js" defer></script>
   <script src="/static/js/busqueda.js" defer></script>
   <script src="/static/js/exportar.js" defer></script>
+  <script src="/static/js/procesos.js" defer></script>
   <script src="/static/js/inventario.js" defer></script>
 </head>
 <body>
@@ -212,6 +213,16 @@
               <span id="ord-contador" class="text-xs text-muted" aria-live="polite"></span>
             </div>
             <p class="help" id="ord-max" hidden>Una orden admite hasta 100 componentes.</p>
+          </fieldset>
+          <fieldset>
+            <legend class="label">Procesos</legend>
+            <p id="ord-proc-aviso" class="err" role="alert" hidden></p>
+            <ul id="ord-procesos" class="plist"></ul>
+            <div class="flex flex-wrap items-center justify-between gap-2 mt-3">
+              <button id="ord-proc-agregar" class="btn btn-secondary" type="button" aria-describedby="ord-proc-max">Agregar proceso</button>
+              <span id="ord-proc-contador" class="text-xs text-muted" aria-live="polite"></span>
+            </div>
+            <p class="help" id="ord-proc-max" hidden>Una orden admite hasta 10 procesos personalizados.</p>
           </fieldset>
         </div>
         <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="ord-enviar" class="btn btn-primary" type="submit">Crear orden</button></div>

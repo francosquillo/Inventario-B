@@ -4,6 +4,8 @@ from datetime import date, datetime
 
 from inventario.domain.entities import (
     Categoria,
+    Proceso,
+    ProcesoOrden,
     LineaModificacion,
     Movimiento,
     Orden,
@@ -59,6 +61,31 @@ class CategoriaRepository(ABC):
     @abstractmethod
     def renombrar(self, clave: str, nombre: str) -> Categoria:
         """Cambia solo el nombre. Lanza CategoriaNoEncontrada o CategoriaDuplicada."""
+
+    @abstractmethod
+    def borrar(self, clave: str) -> Categoria:
+        """Borra y devuelve la categoria. Lanza CategoriaNoEncontrada o CategoriaEnUso."""
+
+
+class ProcesoRepository(ABC):
+    @abstractmethod
+    def listar(self) -> "list[Proceso]":
+        """Catalogo ordenado por nombre (y clave)."""
+
+    @abstractmethod
+    def obtener(self, clave: str) -> "Proceso | None": ...
+
+    @abstractmethod
+    def crear(self, clave: str, nombre: str) -> Proceso:
+        """Datos ya validados. Lanza ProcesoDuplicado si la clave o el nombre ya existen."""
+
+    @abstractmethod
+    def renombrar(self, clave: str, nombre: str) -> Proceso:
+        """Cambia solo el nombre. Lanza ProcesoNoEncontrado o ProcesoDuplicado."""
+
+    @abstractmethod
+    def borrar(self, clave: str) -> Proceso:
+        """Borra y devuelve el proceso (las ordenes conservan su snapshot). Lanza ProcesoNoEncontrado."""
 
 
 class StockRepository(ABC):
@@ -121,8 +148,9 @@ class OrdenRepository(ABC):
         items: "list[tuple[str, int]]",
         usuario_id: int,
         creada_en: datetime,
+        procesos: "tuple[ProcesoOrden, ...]" = (),
     ) -> Orden:
-        """Crea la orden y descuenta el stock; todo o nada.
+        """Crea la orden, sus procesos y descuenta el stock; todo o nada.
 
         `items` llega validado y consolidado: (codigo, cantidad_total) en orden de
         primera aparicion, codigos unicos. No escribe en `movimientos` (RN-ST-06).

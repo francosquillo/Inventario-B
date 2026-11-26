@@ -103,3 +103,27 @@ class CategoriaNoEncontrada(InventarioError):
     def __init__(self, clave):
         self.clave = clave
         super().__init__(f"No existe una categoría con clave '{clave}'.")
+
+
+class CategoriaEnUso(InventarioError):
+    """La categoria tiene productos (activos o dados de baja) y no se puede borrar (HTTP 409)."""
+
+    def __init__(self, clave, cantidad):
+        self.clave = clave
+        self.cantidad = cantidad
+        super().__init__(f"La categoría '{clave}' está asignada a {cantidad} producto(s).")
+
+
+class ProcesoDuplicado(InventarioError):
+    """Clave o nombre (sin distinguir mayusculas) ya usados por otro proceso (HTTP 409)."""
+
+    def __init__(self, campo, valor):
+        self.campo = campo
+        self.valor = valor
+        super().__init__(f"Ya existe un proceso con {campo} '{valor}'.")
+
+
+class ProcesoNoEncontrado(InventarioError):
+    def __init__(self, clave):
+        self.clave = clave
+        super().__init__(f"No existe un proceso con clave '{clave}'.")

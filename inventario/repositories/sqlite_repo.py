@@ -12,6 +12,8 @@ from inventario.domain.entities import (
     Movimiento,
     Orden,
     Producto,
+    Proceso,
+    ProcesoOrden,
     ProductoEnOrdenes,
     ProductoUsado,
     Reintegro,
@@ -22,6 +24,7 @@ from inventario.domain.entities import (
 )
 from inventario.domain.errors import (
     CategoriaDuplicada,
+    CategoriaEnUso,
     CategoriaNoEncontrada,
     NombreRequerido,
     OrdenDuplicada,
@@ -29,6 +32,8 @@ from inventario.domain.errors import (
     ProductoDuplicado,
     ProductoNoEncontrado,
     ProductosInexistentes,
+    ProcesoDuplicado,
+    ProcesoNoEncontrado,
     ProductosNoEncontrados,
     StockInsuficiente,
     StockInsuficienteOrden,
@@ -38,6 +43,7 @@ from inventario.repositories.base import (
     CategoriaRepository,
     MovimientoRepository,
     OrdenRepository,
+    ProcesoRepository,
     ProductoRepository,
     StockRepository,
     UsuarioRepository,
@@ -190,50 +196,109 @@ def _migrar_movimientos(conn):
     log.info("Migrada la tabla movimientos (%d fila(s) conservadas).", antes)
 
 
-# Categorias iniciales (C-06e, D1/D2): solo se siembran con el catalogo vacio, para no
-# pisar categorias renombradas o creadas por el usuario.
+# Catalogos iniciales (C-06e, C-06f D2): se siembran solo cuando la tabla se CREA, para no
+# resucitar lo que el usuario borro a proposito.
 _CATEGORIAS_INICIALES = (("motor", "Motor"), ("aceite", "Aceite"), ("filtro", "Filtro"))
+_PROCESOS_INICIALES = (
+    ("cambio-motor", "Cambio motor"),
+    ("cambio-filtro", "Cambio filtro"),
+    ("limpieza", "Limpieza"),
+)
+
+# Procesos de ordenes (C-06f, D1). No van en ESQUEMA_SQL: los crea `_crear_procesos`
+# junto con la siembra, en una sola transaccion, solo si `procesos` no existe.
+_CLAVE_CHECK = """CHECK (
+        length(clave) BETWEEN 1 AND 30
+        AND clave NOT GLOB '*[^a-z0-9-]*'
+        AND clave NOT GLOB '-*' AND clave NOT GLOB '*-' AND clave NOT GLOB '*--*')"""
+_CREAR_PROCESOS_SQL = (
+    f"""CREATE TABLE procesos (
+    id INTEGER PRIMARY KEY,
+    clave TEXT NOT NULL UNIQUE {_CLAVE_CHECK},
+    nombre TEXT NOT NULL UNIQUE COLLATE NOCASE
+        CHECK (length(trim(nombre)) BETWEEN 1 AND 60)
+)""",
+    """CREATE TABLE orden_procesos (
+    orden_id INTEGER NOT NULL REFERENCES ordenes(id) ON DELETE CASCADE,
+    posicion INTEGER NOT NULL CHECK (typeof(posicion) = 'integer' AND posicion >= 1),
+    nombre TEXT NOT NULL CHECK (length(trim(nombre)) BETWEEN 1 AND 60),
+    personalizado INTEGER NOT NULL CHECK (personalizado IN (0, 1)),
+    PRIMARY KEY (orden_id, posicion),
+    UNIQUE (orden_id, nombre COLLATE NOCASE)
+)""",
+)
+_TABLAS_CONTADAS = ("ordenes", "orden_items", "productos", "categorias", "movimientos")
 
 
-def _sembrar_categorias(conn):
-    """Inserta las categorias iniciales si el catalogo esta vacio. Dentro de una transaccion."""
-    if conn.execute("SELECT COUNT(*) FROM categorias").fetchone()[0] == 0:
-        conn.executemany(
-            "INSERT INTO categorias (clave, nombre) VALUES (?, ?)", _CATEGORIAS_INICIALES
-        )
+def _existe_tabla(conn, nombre):
+    return conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (nombre,)
+    ).fetchone() is not None
 
 
-def _migrar_productos_categoria(conn):
+def _contar(conn, tablas):
+    return [conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tablas]
+
+
+def _migrar_productos_categoria(conn, sembrar):
     """Agrega `productos.categoria_id` (NULL = sin categoria) y siembra el catalogo.
 
-    Idempotente. Todo en una transaccion (el DDL de SQLite es transaccional): ante
-    cualquier error se revierte y la excepcion sube. Los productos existentes quedan
-    con NULL; no se reconstruye ninguna tabla.
+    `sembrar` es True solo si `categorias` se creo en este arranque. Tambien se siembra
+    mientras se agrega la columna (migracion aun no completada). Idempotente. Todo en una
+    transaccion (el DDL de SQLite es transaccional): ante cualquier error se revierte y la
+    excepcion sube. Los productos existentes quedan con NULL; no se reconstruye ninguna tabla.
     """
     columnas = {f["name"] for f in conn.execute("PRAGMA table_info(productos)")}
     agregar = "categoria_id" not in columnas
+    if not (agregar or sembrar):
+        return
     with _transaccion(conn):
         tablas = ("productos", "orden_items", "movimientos")
-        antes = [conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tablas]
+        antes = _contar(conn, tablas)
         if agregar:
             conn.execute(
                 "ALTER TABLE productos ADD COLUMN categoria_id INTEGER REFERENCES categorias(id)"
             )
-        _sembrar_categorias(conn)
+        conn.executemany(
+            "INSERT OR IGNORE INTO categorias (clave, nombre) VALUES (?, ?)", _CATEGORIAS_INICIALES
+        )
         if agregar:
             if conn.execute("PRAGMA foreign_key_check(productos)").fetchall():
                 raise sqlite3.IntegrityError("La migracion de categorias viola claves foraneas.")
-            despues = [conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in tablas]
-            if despues != antes:
+            if _contar(conn, tablas) != antes:
                 raise sqlite3.IntegrityError("La migracion de categorias cambio la cantidad de filas.")
     if agregar:
         log.info("Agregada la categoria a productos (%d producto(s) conservados).", antes[0])
 
 
+def _crear_procesos(conn, loguear=True):
+    """Crea `procesos` y `orden_procesos` y siembra el catalogo (C-06f, D4). Aditiva.
+
+    Idempotente: no hace nada si `procesos` ya existe. Una sola transaccion: ante error se
+    revierte (no quedan tablas) y la excepcion sube. Ninguna tabla existente cambia.
+    """
+    if _existe_tabla(conn, "procesos"):
+        return
+    with _transaccion(conn):
+        antes = _contar(conn, _TABLAS_CONTADAS)
+        for sql in _CREAR_PROCESOS_SQL:
+            conn.execute(sql)
+        conn.executemany("INSERT INTO procesos (clave, nombre) VALUES (?, ?)", _PROCESOS_INICIALES)
+        if _contar(conn, _TABLAS_CONTADAS) != antes:
+            raise sqlite3.IntegrityError("La migracion de procesos cambio la cantidad de filas.")
+    if loguear:  # una base nueva no es una migracion
+        log.info(
+            "Agregados los procesos de ordenes (%d orden(es) conservadas, sin procesos).", antes[0]
+        )
+
+
 def inicializar_esquema(conn):
+    categorias_existia = _existe_tabla(conn, "categorias")
+    base_existia = _existe_tabla(conn, "ordenes")
     conn.executescript(ESQUEMA_SQL)
     _migrar_movimientos(conn)
-    _migrar_productos_categoria(conn)
+    _migrar_productos_categoria(conn, sembrar=not categorias_existia)
+    _crear_procesos(conn, loguear=base_existia)
     conn.execute(NORMALIZAR_FECHAS_SQL)
     sin_parsear = conn.execute(CONTAR_FECHAS_NO_PARSEABLES_SQL).fetchone()[0]
     if sin_parsear:
@@ -331,10 +396,72 @@ class SqliteCategoriaRepository(CategoriaRepository):
                 raise CategoriaDuplicada("nombre", nombre) from None
         return Categoria(clave, nombre)
 
+    def borrar(self, clave):
+        with _transaccion(self._conn):
+            categoria = self.obtener(clave)
+            if categoria is None:
+                raise CategoriaNoEncontrada(clave)
+            usados = self._conn.execute(
+                "SELECT COUNT(*) FROM productos WHERE categoria_id = "
+                "(SELECT id FROM categorias WHERE clave = ?)",
+                (clave,),
+            ).fetchone()[0]
+            if usados:
+                raise CategoriaEnUso(clave, usados)
+            self._conn.execute("DELETE FROM categorias WHERE clave = ?", (clave,))
+        return categoria
+
     def _duplicada(self, clave, nombre):
         """Distingue la clave repetida del nombre repetido tras un IntegrityError."""
         existe = self._conn.execute("SELECT 1 FROM categorias WHERE clave = ?", (clave,)).fetchone()
         return CategoriaDuplicada("clave", clave) if existe else CategoriaDuplicada("nombre", nombre)
+
+
+class SqliteProcesoRepository(ProcesoRepository):
+    def __init__(self, conn):
+        self._conn = conn
+
+    def listar(self):
+        filas = self._conn.execute(
+            "SELECT clave, nombre FROM procesos ORDER BY nombre, clave"
+        ).fetchall()
+        return [Proceso(f["clave"], f["nombre"]) for f in filas]
+
+    def obtener(self, clave):
+        fila = self._conn.execute(
+            "SELECT clave, nombre FROM procesos WHERE clave = ?", (clave,)
+        ).fetchone()
+        return Proceso(fila["clave"], fila["nombre"]) if fila else None
+
+    def crear(self, clave, nombre):
+        with _transaccion(self._conn):
+            try:
+                self._conn.execute("INSERT INTO procesos (clave, nombre) VALUES (?, ?)", (clave, nombre))
+            except sqlite3.IntegrityError:
+                existe = self._conn.execute(
+                    "SELECT 1 FROM procesos WHERE clave = ?", (clave,)
+                ).fetchone()
+                campo, valor = ("clave", clave) if existe else ("nombre", nombre)
+                raise ProcesoDuplicado(campo, valor) from None
+        return Proceso(clave, nombre)
+
+    def renombrar(self, clave, nombre):
+        with _transaccion(self._conn):
+            if self.obtener(clave) is None:
+                raise ProcesoNoEncontrado(clave)
+            try:
+                self._conn.execute("UPDATE procesos SET nombre = ? WHERE clave = ?", (nombre, clave))
+            except sqlite3.IntegrityError:
+                raise ProcesoDuplicado("nombre", nombre) from None
+        return Proceso(clave, nombre)
+
+    def borrar(self, clave):
+        with _transaccion(self._conn):
+            proceso = self.obtener(clave)
+            if proceso is None:
+                raise ProcesoNoEncontrado(clave)
+            self._conn.execute("DELETE FROM procesos WHERE clave = ?", (clave,))
+        return proceso
 
 
 class SqliteProductoRepository(ProductoRepository):
@@ -637,11 +764,36 @@ _SQL_LINEAS_ORDEN = (
     "WHERE i.orden_id = ? ORDER BY p.codigo"
 )
 _SQL_BORRAR_ITEMS = "DELETE FROM orden_items WHERE orden_id = ?"
+_SQL_BORRAR_PROCESOS = "DELETE FROM orden_procesos WHERE orden_id = ?"
+_SQL_ALTA_PROCESO = (
+    "INSERT INTO orden_procesos (orden_id, posicion, nombre, personalizado) VALUES (?, ?, ?, ?)"
+)
+_SQL_PROCESOS_DE_ORDENES = (
+    "SELECT orden_id, nombre, personalizado FROM orden_procesos "
+    "WHERE orden_id IN ({}) ORDER BY orden_id, posicion"
+)
 _SQL_BORRAR_ORDEN = "DELETE FROM ordenes WHERE id = ?"
 
 
-def _a_ordenes(filas):
+def _leer_procesos(conn, orden_ids):
+    """Procesos de varias ordenes en una consulta por lote: {orden_id: (ProcesoOrden, ...)}.
+
+    Aparte del JOIN de componentes: sumarlo ahi multiplicaria las filas (items x procesos).
+    """
+    if not orden_ids:
+        return {}
+    sql = _SQL_PROCESOS_DE_ORDENES.format(", ".join("?" * len(orden_ids)))
+    por_orden = {}
+    for f in conn.execute(sql, list(orden_ids)).fetchall():
+        por_orden.setdefault(f["orden_id"], []).append(
+            ProcesoOrden(f["nombre"], bool(f["personalizado"]))
+        )
+    return {orden_id: tuple(lista) for orden_id, lista in por_orden.items()}
+
+
+def _a_ordenes(filas, procesos=None):
     """Agrupa las filas del JOIN (contiguas por orden) en entidades `Orden`."""
+    procesos = procesos or {}
     ordenes = []
     for _, grupo in groupby(filas, key=lambda f: f["id"]):
         lineas = list(grupo)
@@ -657,6 +809,7 @@ def _a_ordenes(filas):
                     for f in lineas
                     if f["codigo"] is not None
                 ),
+                procesos=procesos.get(cabecera["id"], ()),
             )
         )
     return ordenes
@@ -684,13 +837,18 @@ class SqliteOrdenRepository(OrdenRepository):
     def __init__(self, conn):
         self._conn = conn
 
-    def crear(self, numero, fecha, items, usuario_id, creada_en):
+    def crear(self, numero, fecha, items, usuario_id, creada_en, procesos=()):
         texto_creada = _fecha_a_texto(creada_en)
         try:
             with _transaccion(self._conn):
                 orden_id = self._crear_en_transaccion(
                     numero, fecha, items, usuario_id, texto_creada
                 )
+                for posicion, proceso in enumerate(procesos, start=1):
+                    self._conn.execute(
+                        _SQL_ALTA_PROCESO,
+                        (orden_id, posicion, proceso.nombre, int(proceso.personalizado)),
+                    )
                 return self._leer_orden(orden_id)
         except sqlite3.IntegrityError as exc:
             # Respaldo del paso 1: el UNIQUE de ordenes.numero ante una carrera.
@@ -744,7 +902,11 @@ class SqliteOrdenRepository(OrdenRepository):
         if condiciones:
             sql += " WHERE " + " AND ".join(condiciones)
         filas = self._conn.execute(sql + _ORDEN_LISTAR_ORDENES, parametros).fetchall()
-        return _a_ordenes(filas)
+        return self._armar(filas)
+
+    def _armar(self, filas):
+        ids = list(dict.fromkeys(f["id"] for f in filas))
+        return _a_ordenes(filas, _leer_procesos(self._conn, ids))
 
     def productos_en_ordenes(self, desde, hasta, codigo):
         sql = _SQL_REPORTE_EN_ORDENES
@@ -774,6 +936,7 @@ class SqliteOrdenRepository(OrdenRepository):
             if orden is None:
                 raise OrdenNoEncontrada(numero)
             reintegros = self._reintegrar(orden.id) if reintegrar else ()
+            self._conn.execute(_SQL_BORRAR_PROCESOS, (orden.id,))
             self._conn.execute(_SQL_BORRAR_ITEMS, (orden.id,))
             cur = self._conn.execute(_SQL_BORRAR_ORDEN, (orden.id,))
             if cur.rowcount != 1:  # defensa en profundidad; BEGIN IMMEDIATE lo evita
@@ -804,10 +967,10 @@ class SqliteOrdenRepository(OrdenRepository):
         filas = self._conn.execute(
             _SQL_LISTAR_ORDENES + " WHERE o.numero = ?" + _ORDEN_LISTAR_ORDENES, (numero,)
         ).fetchall()
-        return _a_ordenes(filas)[0] if filas else None
+        return self._armar(filas)[0] if filas else None
 
     def _leer_orden(self, orden_id):
         filas = self._conn.execute(
             _SQL_LISTAR_ORDENES + " WHERE o.id = ?" + _ORDEN_LISTAR_ORDENES, (orden_id,)
         ).fetchall()
-        return _a_ordenes(filas)[0]
+        return self._armar(filas)[0]

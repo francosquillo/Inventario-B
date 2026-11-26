@@ -40,6 +40,19 @@
     }, "Eliminar"));
     art.appendChild(cab);
 
+    // Procesos (C-06f): solo si la orden tiene; en pantalla "Procesos:" + chips, en papel "Procesos realizados".
+    if (o.procesos && o.procesos.length > 0) {
+      const bloque = UI.el("div", { "class": "chips" });
+      const etiqueta = UI.el("span", { "class": "lbl" });
+      etiqueta.appendChild(UI.el("span", { "class": "lbl-screen" }, "Procesos:"));
+      etiqueta.appendChild(UI.el("span", { "class": "lbl-print" }, "Procesos realizados"));
+      bloque.appendChild(etiqueta);
+      const lista = UI.el("ul", { "aria-label": "Procesos de " + o.numero });
+      o.procesos.forEach((p) => lista.appendChild(UI.el("li", { "class": "chip" }, p.nombre)));
+      bloque.appendChild(lista);
+      art.appendChild(bloque);
+    }
+
     const region = UI.el("div", {
       "class": "overflow-x-auto", tabindex: "0", role: "region", "aria-label": "Componentes de " + o.numero
     });

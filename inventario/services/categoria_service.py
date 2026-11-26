@@ -38,6 +38,11 @@ class CategoriaService:
         self._validar_nombre_libre(nombre, excepto=clave)
         return self._repo.renombrar(clave, nombre)
 
+    def borrar(self, clave):
+        if not isinstance(clave, str) or not clave.strip():
+            raise DatosInvalidos(MENSAJE_CLAVE_CATEGORIA)
+        return self._repo.borrar(clave.strip().lower())
+
     def _validar_nombre_libre(self, nombre, excepto):
         """Unicidad sin distinguir mayusculas (casefold); la BD es la red ante carreras."""
         buscado = nombre.casefold()

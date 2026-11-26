@@ -46,6 +46,25 @@ class CategoriaRenombreRequest(BaseModel):
     clave: Optional[Any] = None  # solo para rechazarla: la clave es inmutable
 
 
+class ProcesoOut(BaseModel):
+    clave: str
+    nombre: str
+
+
+class ProcesoAltaRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    nombre: Optional[Any] = None
+    clave: Optional[Any] = None
+
+
+class ProcesoRenombreRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    nombre: Optional[Any] = None
+    clave: Optional[Any] = None  # solo para rechazarla: la clave es inmutable
+
+
 class ErrorOut(BaseModel):
     detail: str
 
@@ -241,6 +260,9 @@ class OrdenRequest(BaseModel):
     numero: TextoRecortado = Field(min_length=1, max_length=30)
     fecha: str = Field(min_length=1)
     componentes: List[ComponenteRequest] = Field(min_length=1, max_length=100)
+    # Tipos laxos: los valida el service con mensajes de dominio en espanol.
+    procesos: Optional[Any] = None
+    procesos_personalizados: Optional[Any] = None
 
 
 class ComponenteOut(BaseModel):
@@ -249,12 +271,18 @@ class ComponenteOut(BaseModel):
     cantidad: int
 
 
+class ProcesoOrdenOut(BaseModel):
+    nombre: str
+    personalizado: bool
+
+
 class OrdenOut(BaseModel):
     id: int
     numero: str
     fecha: date
     usuario: str
     componentes: List[ComponenteOut]
+    procesos: List[ProcesoOrdenOut] = []
 
 
 class FaltanteOut(BaseModel):
@@ -277,6 +305,9 @@ def orden_out(orden):
         componentes=[
             ComponenteOut(codigo=i.codigo, nombre=i.nombre, cantidad=i.cantidad)
             for i in orden.items
+        ],
+        procesos=[
+            ProcesoOrdenOut(nombre=p.nombre, personalizado=p.personalizado) for p in orden.procesos
         ],
     )
 

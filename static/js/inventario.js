@@ -16,6 +16,8 @@
   let secuenciaLinea = 0;
   let categorias = [];      // catalogo [{clave, nombre}] ordenado por nombre (vacio si fallo la carga)
   let mapaCategorias = {};  // clave -> nombre
+  let catalogoProcesos = []; // [{clave, nombre}] ordenado por nombre (vacio si fallo la carga)
+  let procesosFallo = false;
 
   const $ = (id) => document.getElementById(id);
 
@@ -607,6 +609,14 @@
     return primero === null && !r.general;
   }
 
+  function procesoDeError(detail) {
+    const m = /^Proceso personalizado (\d+):\s*(.*)$/.exec(detail);
+    if (!m) return null;
+    const lineasPers = lineasProc().filter((li) => selectProceso(li).value === PERSONALIZADO);
+    const li = lineasPers[Number(m[1]) - 1];
+    return li ? { li: li, mensaje: m[2] } : null;
+  }
+
   function mapearErrorModificar(err, alerta) {
     UI.alerta(alerta, err.detail, "error");
     const filas = lineasMod();
@@ -709,6 +719,128 @@
 
   // ---------------------------------------------------------------- nueva orden
 
+  // Procesos de la orden (C-06f): lineas con un select (catalogo + "Personalizado") y, en
+  // "Personalizado", una caja de texto. Cero lineas es valido.
+  const PERSONALIZADO = Procesos.PERSONALIZADO;
+
+  function lineasProc() {
+    return Array.from(document.querySelectorAll("#ord-procesos > li"));
+  }
+
+  function selectProceso(li) { return li.querySelector("select[data-proc]"); }
+  function textoProceso(li) { return li.querySelector("input[data-proc-texto]"); }
+
+  function mostrarAvisoProcesos(mensaje) {
+    const p = $("ord-proc-aviso");
+    p.textContent = mensaje || "";
+    p.hidden = !mensaje;
+  }
+
+  function cargarProcesos() {
+    return Api.get("/api/procesos").then(
+      (lista) => { catalogoProcesos = lista; procesosFallo = false; },
+      () => { catalogoProcesos = []; procesosFallo = true; }
+    );
+  }
+
+  function llenarSelectProceso(select, conservar) {
+    const previo = conservar ? select.value : null;
+    UI.vaciar(select);
+    catalogoProcesos.forEach((p) => select.appendChild(UI.el("option", { value: p.clave }, p.nombre)));
+    select.appendChild(UI.el("option", { value: PERSONALIZADO }, "Personalizado"));
+    if (previo === null) {
+      select.value = catalogoProcesos.length ? catalogoProcesos[0].clave : PERSONALIZADO;
+    } else if (previo === PERSONALIZADO || catalogoProcesos.some((p) => p.clave === previo)) {
+      select.value = previo;
+    } else {
+      // El proceso elegido ya no existe: la linea queda sin seleccion hasta que se elija otro.
+      select.insertBefore(UI.el("option", { value: "", disabled: true }, "Elegí un proceso"), select.firstChild);
+      select.value = "";
+    }
+  }
+
+  function personalizadosActuales() {
+    return lineasProc().filter((li) => selectProceso(li).value === PERSONALIZADO).length;
+  }
+
+  function renumerarProcesos() {
+    const filas = lineasProc();
+    const usados = personalizadosActuales();
+    const lleno = usados >= Procesos.PERSONALIZADOS_MAX;
+    filas.forEach((li, i) => {
+      const select = selectProceso(li);
+      select.setAttribute("aria-label", "Proceso de la línea " + (i + 1));
+      li.querySelector("[data-quitar-proc]").setAttribute("aria-label", "Quitar proceso " + (i + 1));
+      const opcion = Array.from(select.options).find((o) => o.value === PERSONALIZADO);
+      if (opcion) opcion.disabled = lleno && select.value !== PERSONALIZADO;
+      const caja = li.querySelector(".pline-txt");
+      caja.hidden = select.value !== PERSONALIZADO;
+      textoProceso(li).setAttribute("aria-label", "Proceso personalizado de la línea " + (i + 1));
+    });
+    $("ord-proc-max").hidden = !lleno;
+    $("ord-proc-contador").textContent =
+      usados + (usados === 1 ? " personalizado" : " personalizados") + " de " + Procesos.PERSONALIZADOS_MAX;
+  }
+
+  function nuevaLineaProceso() {
+    secuenciaLinea += 1;
+    const k = String(secuenciaLinea);
+    const li = UI.el("li", { "data-k": k });
+    const fila = UI.el("div", { "class": "pline" });
+    const select = UI.el("select", { "class": "field", "data-proc": true });
+    fila.appendChild(select);
+    fila.appendChild(UI.el("button", { "class": "btn btn-secondary", type: "button", "data-quitar-proc": true }, "Quitar"));
+    const caja = UI.el("div", { "class": "pline-txt" });
+    caja.appendChild(UI.el("label", { "class": "label", "for": "ord-pt-" + k }, "Proceso personalizado"));
+    caja.appendChild(UI.el("input", {
+      "class": "field", id: "ord-pt-" + k, "data-proc-texto": true, maxlength: String(Procesos.NOMBRE_MAX), autocomplete: "off"
+    }));
+    fila.appendChild(caja);
+    li.appendChild(fila);
+    llenarSelectProceso(select, false);
+    return li;
+  }
+
+  function agregarProceso() {
+    const li = nuevaLineaProceso();
+    $("ord-procesos").appendChild(li);
+    renumerarProcesos();
+    selectProceso(li).focus();
+  }
+
+  function quitarProceso(li) {
+    const filas = lineasProc();
+    const i = filas.indexOf(li);
+    li.remove();
+    renumerarProcesos();
+    const resto = lineasProc();
+    (resto.length ? selectProceso(resto[Math.min(i, resto.length - 1)]) : $("ord-proc-agregar")).focus();
+  }
+
+  function marcarProceso(li, mensaje) {
+    const campo = selectProceso(li).value === PERSONALIZADO ? textoProceso(li) : selectProceso(li);
+    const id = "ord-pe-" + li.getAttribute("data-k");
+    const previo = document.getElementById(id);
+    if (previo) previo.remove();
+    campo.insertAdjacentElement("afterend", UI.el("p", { "class": "err", id: id, role: "alert", "data-error": true }, mensaje));
+    UI.invalido(campo, id);
+    return campo;
+  }
+
+  function leerProcesos() {
+    return Procesos.armar(
+      lineasProc().map((li) => ({ valor: selectProceso(li).value, texto: textoProceso(li).value })),
+      catalogoProcesos
+    );
+  }
+
+  function recargarProcesos() {
+    return cargarProcesos().then(() => {
+      lineasProc().forEach((li) => llenarSelectProceso(selectProceso(li), true));
+      renumerarProcesos();
+    });
+  }
+
   function lineas() {
     return Array.from(document.querySelectorAll("#ord-lineas > li"));
   }
@@ -794,6 +926,9 @@
     $("ord-fecha").value = Validacion.hoy();
     UI.vaciar($("ord-lineas")).appendChild(nuevaLinea());
     renumerar();
+    UI.vaciar($("ord-procesos"));
+    mostrarAvisoProcesos(procesosFallo ? "No se pudo cargar la lista de procesos." : "");
+    renumerarProcesos();
     UI.abrir($("modal-orden"));
   }
 
@@ -821,6 +956,13 @@
     const eFecha = Validacion.fecha(fecha.value);
     if (eFecha) { UI.errorBajoCampo(fecha, eFecha, fecha); primero = primero || fecha; }
     const r = Validacion.componentes(leerLineas());
+    const rp = leerProcesos();
+    lineasProc().forEach((li, i) => {
+      const e = selectProceso(li).value === "" ? "Elegí un proceso o quitá la línea." : rp.errores[i];
+      if (!e) return;
+      const campo = marcarProceso(li, e);
+      primero = primero || campo;
+    });
     if (r.general) {
       const p = $("ord-general-e");
       p.textContent = r.general;
@@ -872,6 +1014,14 @@
         if (foco) foco.focus();
       });
       return;
+    } else if (err.status === 422 && /^El proceso '.*' no existe\.$/.test(err.detail)) {
+      // Un proceso borrado desde otra parte: se recarga el catalogo y el modal sigue abierto con los datos.
+      mostrarAvisoProcesos(err.detail);
+      recargarProcesos().then(() => $("ord-proc-aviso").scrollIntoView && $("ord-proc-aviso").scrollIntoView({ block: "nearest" }));
+      return;
+    } else if (err.status === 422 && procesoDeError(err.detail)) {
+      const p = procesoDeError(err.detail);
+      foco = marcarProceso(p.li, p.mensaje);
     } else if (err.status === 422) {
       const m = /^Componente (\d+):\s*(.*)$/.exec(err.detail);
       if (m && filas[Number(m[1]) - 1]) {
@@ -898,6 +1048,9 @@
       fecha: $("ord-fecha").value.trim(),
       componentes: leerLineas().map((l) => ({ codigo: l.codigo, cantidad: Number(l.cantidad.trim()) }))
     };
+    const rp = leerProcesos();
+    cuerpo.procesos = rp.procesos;
+    cuerpo.procesos_personalizados = rp.procesos_personalizados;
     const restaurar = UI.ocupado(boton, "Creando orden…");
     Api.post("/api/ordenes", cuerpo).then(
       (orden) => {
@@ -1004,12 +1157,23 @@
       const li = e.target.closest("li");
       refrescarLinea(li, false);
     });
+    $("ord-proc-agregar").addEventListener("click", agregarProceso);
+    $("ord-procesos").addEventListener("click", (e) => {
+      const q = e.target.closest("[data-quitar-proc]");
+      if (q) quitarProceso(q.closest("li"));
+    });
+    $("ord-procesos").addEventListener("change", (e) => {
+      if (!e.target.matches("select[data-proc]")) return;
+      renumerarProcesos();
+      if (e.target.value === PERSONALIZADO) textoProceso(e.target.closest("li")).focus();
+    });
     $("form-orden").addEventListener("submit", enviarOrden);
 
     $("baja-confirmar").addEventListener("click", confirmarBaja);
 
     llenarSelectoresCategoria();
     cargarCategorias();
+    cargarProcesos();
     cargar(true);
   });
 })();

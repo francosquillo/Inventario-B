@@ -186,12 +186,13 @@ class MigracionCategoriaTest(unittest.TestCase):
         inicializar_esquema(self.conn)
         self.assertEqual(categorias(self.conn), antes)
 
-    def test_columna_ya_migrada_con_catalogo_vacio_se_siembra(self):
+    def test_columna_ya_migrada_con_catalogo_vaciado_no_se_resiembra(self):
+        # C-06f D2: se siembra solo al crear la tabla; lo borrado a proposito no resucita.
         inicializar_esquema(self.conn)
         self.conn.execute("DELETE FROM categorias")
         self.conn.commit()
         inicializar_esquema(self.conn)
-        self.assertEqual(len(categorias(self.conn)), 3)
+        self.assertEqual(categorias(self.conn), [])
 
     def test_base_con_movimientos_legados_migra_ambas_cosas(self):
         conn = conectar(":memory:")

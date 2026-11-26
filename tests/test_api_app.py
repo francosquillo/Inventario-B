@@ -172,7 +172,10 @@ class DocsTest(unittest.TestCase):
         ):
             with self.subTest(ruta=ruta):
                 self.assertIn(ruta, paths)
-        self.assertEqual(len(paths), 17)
+        self.assertEqual(len(paths), 19)
+        self.assertEqual(set(paths["/api/procesos"]), {"get", "post"})
+        self.assertEqual(set(paths["/api/procesos/{clave}"]), {"patch", "delete"})
+        self.assertEqual(set(paths["/api/categorias/{clave}"]), {"patch", "delete"})
         self.assertEqual(set(paths["/api/reportes/productos-en-ordenes"]), {"get"})
         self.assertEqual(set(paths["/api/reportes/productos-usados"]), {"get"})
         params = {p["name"] for p in paths["/api/reportes/productos-en-ordenes"]["get"]["parameters"]}

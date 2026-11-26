@@ -34,8 +34,12 @@ C-01 paso-1-base-cli
                                     └── C-06d paso-5d-reporte-ordenes-fechas
                                          └── C-06e paso-5e-categorias-productos
                                               └── C-06f paso-5f-procesos-ordenes
-                                                   └── C-07 paso-6-migracion-supabase
-                                                        └── C-08 paso-7-despliegue-vercel
+                                                   └── C-06g paso-5g-servicios-generales
+                                                        └── C-06h paso-5h-precios-datos-orden
+                                                             └── C-06i paso-5i-modificar-ordenes-checkeo
+                                                                  └── C-06j paso-5j-impresion-ordenes
+                                                                       └── C-07 paso-6-migracion-supabase
+                                                                            └── C-08 paso-7-despliegue-vercel
 ```
 
 ### Paralelismo por fase
@@ -48,12 +52,13 @@ GATE 0: (inicio)
 GATE 1..7: cada change archivado desbloquea únicamente el siguiente (sin fork).
 ```
 
-### Camino crítico (13 changes — mínimo irreducible)
+### Camino crítico (17 changes — mínimo irreducible)
 
-C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d → C-06e → C-06f → C-07 → C-08
+C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d → C-06e → C-06f → C-06g → C-06h → C-06i → C-06j → C-07 → C-08
 
 > C-06b (`paso-5b-fixes-menores`) es un change intermedio agregado el 2026-11-20 a pedido del usuario, entre C-06 y C-07.
 > C-06c..C-06f son changes intermedios agregados el 2026-11-24 a pedido del usuario, antes de C-07, ordenados de más simple a más complejo: los dos primeros no tocan el esquema; los dos últimos agregan tablas/columnas con migración.
+> C-06g..C-06j son changes intermedios agregados el 2026-11-26 a pedido del usuario, antes de C-07, ordenados de más simple a más complejo **respetando dependencias**: C-06j (impresión) es el más chico en código pero va último porque el formato impreso necesita los campos que agregan C-06h (precios, cliente, embarcación, fechas) y C-06i (checkeo final); hacerlo antes obligaría a rehacerlo.
 
 ### Plan óptimo con 3 agentes
 
@@ -70,6 +75,10 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 | 6d | C-06d (mockups + apply) | — | — |
 | 6e | C-06e (mockups + apply) | — | — |
 | 6f | C-06f (mockups + apply) | — | — |
+| 6g | C-06g (mockups + apply) | — | — |
+| 6h | C-06h (mockups + apply) | — | — |
+| 6i | C-06i (mockups + apply) | — | — |
+| 6j | C-06j (mockups + apply) | — | — |
 | 7 | C-07 | — | — |
 | 8 | C-08 | — | — |
 
@@ -271,7 +280,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 
 ### [C-06f] `paso-5f-procesos-ordenes`
 > Change intermedio agregado el 2026-11-24 (pedido del usuario). El más complejo: tabla nueva ligada a órdenes.
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-26)
 - **Scope**:
   - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
   - Sección en las órdenes para registrar los **procesos hechos a la lancha**, con 3 de ejemplo: **cambio motor, cambio filtro, limpieza**. Decidir en propose: catálogo en tabla vs. valores fijos, uno o varios procesos por orden, texto libre opcional
@@ -286,6 +295,78 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
   - `knowledge-base/05_reglas_de_negocio.md` §RN-OR
   - `knowledge-base/06_funcionalidades.md`
   - `knowledge-base/07_flujos_principales.md`
+
+### [C-06g] `paso-5g-servicios-generales`
+> Change intermedio agregado el 2026-11-26 (pedido del usuario). Catálogo nuevo ligado a órdenes, sin precios todavía.
+- **Estado**: `[ ]` pendiente
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
+  - Catálogo de **servicios generales** de las órdenes; cada uno agrupa una lista de chequeos incluidos. Ejemplo: **servicio de 20 hs** = chequeo de motor, chequeo de combustible, chequeo eléctrico, etc.
+  - Alta/edición/borrado de servicios generales y de sus chequeos incluidos (patrón del catálogo de procesos de C-06f)
+  - Asignar un servicio general al crear la orden (decidir en propose: uno solo u opcional; snapshot del nombre y de los chequeos en la orden, como `orden_procesos`), dentro de la misma transacción que descuenta stock (regla dura 3)
+  - Listado/detalle de órdenes y PDF (C-06c) muestran el servicio general y sus chequeos; borrar la orden borra su servicio asignado
+  - Tablas nuevas con migración idempotente; las órdenes existentes quedan sin servicio general
+  - Al archivar: actualizar KB 04, 05, 06 y 07
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
+- **Dependencias**: `C-06f`
+- **Governance**: MEDIO/ALTO (toca la creación atómica de órdenes + migración de esquema) con componente visual
+- **Leer antes**:
+  - `knowledge-base/04_modelo_de_datos.md` §ordenes, §procesos
+  - `knowledge-base/05_reglas_de_negocio.md` §RN-OR
+  - `openspec/changes/archive/2026-11-26-paso-5f-procesos-ordenes/` (patrón catálogo + snapshot en la orden)
+
+### [C-06h] `paso-5h-precios-datos-orden`
+> Change intermedio agregado el 2026-11-26 (pedido del usuario). Agrega columnas a órdenes y precios en varias tablas.
+- **Estado**: `[ ]` pendiente
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
+  - **Precios tipeados por el usuario** en la orden (no hay lista de precios automática): uno para el **servicio general** (C-06g), uno **por cada ítem** de la orden y uno **por cada servicio adicional** (los que hoy se ven como "procesos" en las órdenes, C-06f). Decidir en propose: moneda, decimales (centavos enteros vs. decimal), si el precio es obligatorio u opcional, total calculado, y si "procesos" se renombra a "servicios adicionales" en la UI
+  - **Datos nuevos de la orden**: cliente, celular, casco, motor, trailer, fecha de ingreso y fecha de egreso. Decidir en propose cuáles son obligatorios, validación del celular y que egreso ≥ ingreso (fechas `YYYY-MM-DD`, validadas en frontend Y backend)
+  - Relación con la `fecha` actual de la orden (¿pasa a ser la fecha de ingreso?): a definir en propose
+  - Migración idempotente: las órdenes existentes quedan sin precios ni datos nuevos (NULL)
+  - Listado/detalle de órdenes y PDF (C-06c) muestran precios, total y datos nuevos
+  - Al archivar: actualizar KB 04, 05, 06 y 07
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
+- **Dependencias**: `C-06g`
+- **Governance**: ALTO (migración de esquema sobre órdenes existentes + validaciones de montos y fechas) con componente visual
+- **Leer antes**:
+  - `knowledge-base/04_modelo_de_datos.md` §ordenes, §orden_items, §orden_procesos
+  - `knowledge-base/05_reglas_de_negocio.md` §RN-OR, §RN-VA
+  - `knowledge-base/06_funcionalidades.md`
+
+### [C-06i] `paso-5i-modificar-ordenes-checkeo`
+> Change intermedio agregado el 2026-11-26 (pedido del usuario). El más complejo: edición de órdenes con ajuste atómico de stock.
+- **Estado**: `[ ]` pendiente
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
+  - **Modificar órdenes existentes**: servicio general asignado, ítems que la componen (con sus precios), servicios adicionales (con sus precios) y los datos de C-06h
+  - Cambiar ítems ajusta el stock por diferencia (reintegra lo quitado, descuenta lo agregado) en una sola transacción, todo o nada (regla dura 3); stock insuficiente → error sin cambios. Decidir en propose si deja movimientos de stock y cómo se registran
+  - **Checkeo final** de la orden: checkboxes fijos **Combustible, Puesta en marcha, Prueba en el lago, Limpieza de cortesía y Entrega**, cada uno con un **precio opcional** tipeado por el usuario. Decidir en propose si es lista fija (CHECK) o catálogo, y si entra al total de la orden
+  - Detalle de la orden y PDF (C-06c) muestran el checkeo final
+  - Al archivar: actualizar KB 04, 05, 06 y 07
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
+- **Dependencias**: `C-06h`
+- **Governance**: ALTO (edición atómica de órdenes con stock + migración de esquema) con componente visual
+- **Leer antes**:
+  - `knowledge-base/05_reglas_de_negocio.md` §RN-OR, §RN-ST
+  - `knowledge-base/07_flujos_principales.md` (crear y borrar orden con reintegro)
+  - `openspec/changes/archive/` de C-05 (borrado con reintegro atómico)
+
+### [C-06j] `paso-5j-impresion-ordenes`
+> Change intermedio agregado el 2026-11-26 (pedido del usuario). Chico en código, va último porque imprime todos los campos de C-06g..C-06i.
+- **Estado**: `[ ]` pendiente
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`. **Insumo obligatorio**: foto de referencia de cómo debe verse la orden impresa, que pasa el usuario antes del propose. Mockup aprobado ANTES de `apply`
+  - Formato de impresión de **una orden** (vista imprimible / `@media print`, o PDF por orden: decidir en propose) con servicio general, ítems, servicios adicionales, precios, total, datos del cliente y la embarcación, fechas y checkeo final
+  - Botón "Imprimir" desde el detalle de la orden
+  - Al archivar: actualizar KB 06 y 07
+- **Test runner**: `unittest` + `TestClient` (Strict TDD)
+- **Dependencias**: `C-06i`
+- **Governance**: BAJO/MEDIO (solo lectura y presentación)
+- **Leer antes**:
+  - `knowledge-base/06_funcionalidades.md`
+  - `openspec/changes/archive/` de C-06c (PDF de órdenes)
+  - `design-system/README.md`
 
 ---
 
@@ -303,9 +384,11 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
   - `.env.example` solo con nombres de variables; el usuario crea su `.env`
   - Paridad con C-06b: `movimientos.tipo` admite `ajuste` con `stock_anterior`/`stock_nuevo`; funciones RPC para el alta de producto (`POST /api/productos`) y la modificación de stock en lote (`POST /api/stock/modificaciones`)
   - Paridad con C-06c..C-06f: búsqueda de productos, reporte de productos en órdenes por fechas (RPC `productos_en_ordenes` y `productos_usados`), categorías de productos y procesos de órdenes (tablas, migraciones y RPC equivalentes en Postgres)
+  - Paridad con C-06f (procesos): tablas `procesos` (`clave` con CHECK, índice único sobre `lower(nombre)`) y `orden_procesos` (`orden_id` on delete cascade, `nombre` snapshot, `personalizado`, `position`, sin FK al catálogo); RPC `crear_orden` con `p_procesos` y `p_procesos_personalizados` (misma transacción que el descuento de stock); alta/renombrar/borrar de procesos y `DELETE` de categorías como operaciones directas sin RPC (`23505` → 409; `23503` por categoría en uso → 409); seed de `procesos` y `categorias` solo al crear cada tabla (no al estar vacía)
   - Paridad con C-06e (categorías): tabla `categorias` (`clave` única con CHECK, índice único sobre `lower(nombre)`) + `productos.categoria_id` nullable FK; seed `motor`/`aceite`/`filtro` solo con catálogo vacío; RPC de alta y modificación de productos con `p_categoria` (clave); RPC `productos_en_ordenes` devuelve `categoria`; crear (`POST`) y renombrar (`PATCH`) categorías como operaciones directas de una fila (23505 → 409), sin RPC
+  - Paridad con C-06g..C-06j: servicios generales y sus chequeos, precios y datos nuevos de la orden, modificación atómica de órdenes con ajuste de stock (RPC) y checkeo final
 - **Test runner**: `unittest` + `TestClient` (Strict TDD)
-- **Dependencias**: `C-06f`
+- **Dependencias**: `C-06j`
 - **Governance**: CRITICO (`service_role` key, migración de datos)
 - **Leer antes**:
   - `knowledge-base/08_arquitectura_propuesta.md`
@@ -351,7 +434,11 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 | C-06d | paso-5d-reporte-ordenes-fechas | 2 | C-06c | MEDIO |
 | C-06e | paso-5e-categorias-productos | 2 | C-06d | MEDIO/ALTO |
 | C-06f | paso-5f-procesos-ordenes | 2 | C-06e | ALTO |
-| C-07 | paso-6-migracion-supabase | 3 | C-06f | CRITICO |
+| C-06g | paso-5g-servicios-generales | 2 | C-06f | MEDIO/ALTO |
+| C-06h | paso-5h-precios-datos-orden | 2 | C-06g | ALTO |
+| C-06i | paso-5i-modificar-ordenes-checkeo | 2 | C-06h | ALTO |
+| C-06j | paso-5j-impresion-ordenes | 2 | C-06i | BAJO/MEDIO |
+| C-07 | paso-6-migracion-supabase | 3 | C-06j | CRITICO |
 | C-08 | paso-7-despliegue-vercel (antes paso-6-despliegue-vercel) | 4 | C-07 | ALTO |
 
 Primer change recomendado: `C-01` (`paso-1-base-cli`).

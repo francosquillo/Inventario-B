@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nueva orden — maqueta C-06f</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<link rel="stylesheet" href="assets/mockup-5c.css">
+<link rel="stylesheet" href="assets/mockup-5f.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Nueva orden — paso-5f-procesos-ordenes">
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta"><div class="mk-bar-in">
+<span class="mk-tag">Maqueta</span><label class="sr-only" for="mk-state">Estado</label>
+<select id="mk-state">
+<option value="N1" data-desc="Bloque Procesos bajo Componentes: línea 1 con Cambio motor (catálogo), línea 2 Personalizado con su caja de texto; Agregar proceso.">N1 · líneas de procesos</option>
+<option value="N2" data-desc="Errores del navegador: caja personalizada vacía y otra igual a un proceso del catálogo; no se envía.">N2 · errores</option>
+</select>
+<a href="ordenes.html#L1">Órdenes →</a><span>C-06f · LITE</span><p class="mk-desc" id="mk-desc"></p>
+</div></div>
+<main class="mx-auto max-w-5xl px-4 py-6"><p class="text-muted text-sm">Inventario (fondo del modal)</p></main>
+<div class="overlay" data-show="N1" hidden>
+<div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="n1-t">
+<div class="modal-head"><h2 id="n1-t">Nueva orden</h2><button class="icon-btn" type="button" aria-label="Cerrar">&times;</button></div>
+<form class="modal-form" novalidate onsubmit="return false"><div class="modal-body space-y-4">
+<div class="grid gap-4 sm:grid-cols-2">
+<div><label class="label" for="n1-num">Número de orden</label><input class="field num" id="n1-num" value="OT-0007"></div>
+<div><label class="label" for="n1-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="n1-fec" type="date" value="2026-11-24"></div></div>
+<fieldset><legend class="label">Componentes</legend>
+<ol class="space-y-2"><li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" aria-label="Producto de la línea 1"><option>ACE-01 · Aceite 10W40</option></select><input class="field num" inputmode="numeric" value="2" aria-label="Cantidad de la línea 1"><button class="btn btn-secondary" type="button">Quitar</button></div></li><li data-row><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" aria-label="Producto de la línea 2"><option>FIL-01 · Filtro de aceite</option></select><input class="field num" inputmode="numeric" value="1" aria-label="Cantidad de la línea 2"><button class="btn btn-secondary" type="button">Quitar</button></div></li></ol>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar componente</button><span class="text-xs text-muted">2 de 100 líneas</span></div></fieldset>
+<fieldset><legend class="label">Procesos</legend>
+<ul class="plist"><li><div class="pline"><select class="field" aria-label="Proceso de la línea 1"><option>Cambio filtro</option><option selected>Cambio motor</option><option>Limpieza</option><option>Personalizado</option></select><button class="btn btn-secondary" type="button">Quitar</button></div></li><li><div class="pline"><select class="field" aria-label="Proceso de la línea 2"><option>Cambio filtro</option><option>Cambio motor</option><option>Limpieza</option><option selected>Personalizado</option></select><button class="btn btn-secondary" type="button">Quitar</button><div class="pline-txt"><label class="label" for="t2">Proceso personalizado</label><input class="field" id="t2" maxlength="60" autocomplete="off" value="Pulido"></div></div></li></ul>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar proceso</button><span class="text-xs text-muted">1 personalizado de 10</span></div></fieldset>
+</div>
+<div class="modal-foot"><button class="btn btn-secondary" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+</form></div></div>
+<div class="overlay" data-show="N2" hidden>
+<div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="n2-t">
+<div class="modal-head"><h2 id="n2-t">Nueva orden</h2><button class="icon-btn" type="button" aria-label="Cerrar">&times;</button></div>
+<form class="modal-form" novalidate onsubmit="return false"><div class="modal-body space-y-4">
+<div class="grid gap-4 sm:grid-cols-2">
+<div><label class="label" for="n2-num">Número de orden</label><input class="field num" id="n2-num" value="OT-0007"></div>
+<div><label class="label" for="n2-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="n2-fec" type="date" value="2026-11-24"></div></div>
+<fieldset><legend class="label">Componentes</legend>
+<ol class="space-y-2"><li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" aria-label="Producto de la línea 1"><option>ACE-01 · Aceite 10W40</option></select><input class="field num" inputmode="numeric" value="2" aria-label="Cantidad de la línea 1"><button class="btn btn-secondary" type="button">Quitar</button></div></li><li data-row><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" aria-label="Producto de la línea 2"><option>FIL-01 · Filtro de aceite</option></select><input class="field num" inputmode="numeric" value="1" aria-label="Cantidad de la línea 2"><button class="btn btn-secondary" type="button">Quitar</button></div></li></ol>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar componente</button><span class="text-xs text-muted">2 de 100 líneas</span></div></fieldset>
+<fieldset><legend class="label">Procesos</legend>
+<ul class="plist"><li><div class="pline"><select class="field" aria-label="Proceso de la línea 1"><option>Cambio filtro</option><option>Cambio motor</option><option>Limpieza</option><option selected>Personalizado</option></select><button class="btn btn-secondary" type="button">Quitar</button><div class="pline-txt"><label class="label" for="t1">Proceso personalizado</label><input class="field" id="t1" maxlength="60" autocomplete="off" value="" aria-invalid="true" aria-describedby="e1"><p class="help" id="e1" style="color:var(--color-danger-fg)" role="alert">El nombre es obligatorio.</p></div></div></li><li><div class="pline"><select class="field" aria-label="Proceso de la línea 2"><option>Cambio filtro</option><option>Cambio motor</option><option>Limpieza</option><option selected>Personalizado</option></select><button class="btn btn-secondary" type="button">Quitar</button><div class="pline-txt"><label class="label" for="t2">Proceso personalizado</label><input class="field" id="t2" maxlength="60" autocomplete="off" value="limpieza" aria-invalid="true" aria-describedby="e2"><p class="help" id="e2" style="color:var(--color-danger-fg)" role="alert">'limpieza' ya está en la lista de procesos; marcalo ahí.</p></div></div></li></ul>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar proceso</button><span class="text-xs text-muted">2 personalizados de 10</span></div></fieldset>
+</div>
+<div class="modal-foot"><button class="btn btn-secondary" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+</form></div></div>
+<script src="assets/mockup-5f.js"></script>
+</body>
+</html>

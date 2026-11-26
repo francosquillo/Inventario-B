@@ -4,19 +4,21 @@
 
 - **Acceso**: `usuarios`.
 - **Catálogo/Stock**: `categorias` (catálogo de categorías, C-06e), `productos` (stock actual por producto) y `movimientos` (bitácora de ingresos/egresos manuales).
-- **Órdenes de trabajo**: `ordenes` y `orden_items` (detalle de componentes).
+- **Órdenes de trabajo**: `ordenes`, `orden_items` (detalle de componentes), `procesos` (catálogo de procesos, C-06f) y `orden_procesos` (procesos registrados en cada orden).
 
 ## ERD
 
 ```
 usuarios 1 ────< ordenes 1 ────< orden_items >──── 1 productos >──── 0..1 categorias
     │                                                    │
+    │                 └────< orden_procesos   (sin FK al catálogo `procesos`)
     └────────────────< movimientos >─────────────────────┘
 ```
 
 - Un usuario crea muchas órdenes y muchos movimientos.
 - Una orden tiene 1..N ítems; cada ítem referencia un producto.
 - Un producto aparece en muchos ítems y muchos movimientos.
+- Una orden tiene 0..N procesos registrados (`orden_procesos`); cada uno guarda su nombre como snapshot y no referencia al catálogo `procesos`.
 - Un producto tiene 0 o 1 categoría (`categoria_id` nulo = "Sin categoría"); una categoría agrupa muchos productos.
 
 ## Entidades
@@ -37,7 +39,7 @@ usuarios 1 ────< ordenes 1 ────< orden_items >──── 1 pro
 | clave | TEXT, UNIQUE, NOT NULL | identificador estable que viaja por la API: minúsculas, `a-z`, `0-9` y guiones (sin guion al inicio/fin), 1 a 30; inmutable |
 | nombre | TEXT, NOT NULL, UNIQUE (NOCASE) | nombre para mostrar, 1 a 40; único sin distinguir mayúsculas (el service compara con `casefold()` para cubrir tildes/Ñ) |
 
-Sin borrado de categorías. Seed: `motor` ("Motor"), `aceite` ("Aceite"), `filtro` ("Filtro") solo cuando el catálogo está vacío (no pisa renombres).
+Borrado desde C-06f (solo API): se rechaza con 409 si algún producto, activo o dado de baja, la usa. Seed: `motor` ("Motor"), `aceite` ("Aceite"), `filtro` ("Filtro") solo en el momento en que la tabla `categorias` se crea (C-06f reemplaza el "sembrar si está vacío" de C-06e): no pisa renombres ni vuelve a sembrar un catálogo vaciado a propósito.
 
 ### productos
 | Campo | Tipo | Notas |
@@ -73,6 +75,25 @@ Sin borrado de categorías. Seed: `motor` ("Motor"), `aceite` ("Aceite"), `filtr
 
 PK compuesta (orden_id, producto_id): un producto aparece una sola vez por orden (SU-05).
 
+### procesos (C-06f)
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| id | PK | |
+| clave | TEXT, UNIQUE, NOT NULL | mismo formato que `categorias.clave` (hasta 30); inmutable |
+| nombre | TEXT, NOT NULL, UNIQUE (NOCASE) | 1 a 60; único sin distinguir mayúsculas (el service compara con `casefold()`) |
+
+Catálogo administrado solo por la API (alta, renombrar, borrar). Seed: `cambio-motor` ("Cambio motor"), `cambio-filtro` ("Cambio filtro"), `limpieza` ("Limpieza"), solo en el momento en que la tabla se crea.
+
+### orden_procesos (C-06f)
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| orden_id | FK → ordenes.id, NOT NULL, ON DELETE CASCADE | borrar la orden borra sus procesos |
+| nombre | TEXT, NOT NULL | snapshot del nombre al crear la orden (renombrar o borrar el proceso del catálogo no lo altera) |
+| personalizado | BOOLEAN, NOT NULL | true = texto libre de esa orden; false = del catálogo (SQLite: INTEGER 0/1) |
+| position | INTEGER, NOT NULL | orden de carga: primero los del catálogo, luego los personalizados |
+
+Sin FK a `procesos`: por eso se puede borrar un proceso usado. La unicidad de nombre por orden, sin distinguir mayúsculas, la valida el service.
+
 ### movimientos
 | Campo | Tipo | Notas |
 |-------|------|-------|
@@ -96,11 +117,12 @@ CHECK de coherencia: `((tipo = 'ajuste') = (stock_anterior IS NOT NULL)) AND ((t
 - Booleano: SQLite usa 0/1; PostgreSQL `boolean`. Los repositorios normalizan a `bool` de Python.
 - Fechas: se manejan como strings `YYYY-MM-DD` en la capa de servicios; cada repositorio convierte.
 - Categorías (C-06e): en Postgres `categorias.id` identity, `clave` con CHECK `^[a-z0-9]+(-[a-z0-9]+)*$` y largo <= 30, índice único sobre `lower(nombre)` (equivale al NOCASE) y `productos.categoria_id bigint null references categorias(id)`; RLS como `productos`. Crear y renombrar categorías son operaciones de una sola fila (sin RPC; violación `23505` → 409). Las RPC de alta y modificación de productos reciben `p_categoria` (clave) y la de reporte devuelve `categoria`.
+- Procesos (C-06f): en Postgres `procesos` (identity, `clave` con el mismo CHECK que `categorias`, índice único sobre `lower(nombre)`) y `orden_procesos (orden_id bigint references ordenes(id) on delete cascade, nombre text, personalizado boolean, position int)`; RLS como las demás. La RPC `crear_orden` recibe `p_procesos` (claves) y `p_procesos_personalizados` y registra los procesos en la misma transacción. Alta, renombrar y borrar de procesos y el borrado de categorías son operaciones directas (sin RPC; `23505` → 409; `23503` en categorías en uso → 409). El seed de `procesos` y `categorias` ocurre solo al crear cada tabla en `schema.sql`.
 - Operaciones multi-tabla atómicas: SQLite con transacción; Supabase con funciones PL/pgSQL vía RPC definidas en `schema.sql` (ver 08 y R-01).
 
 ## Seed data inicial
 
 - Un usuario `admin` con contraseña hasheada (PBKDF2 + salt). La contraseña inicial NO se hardcodea: proviene de `ADMIN_DEFAULT_PASSWORD` (ver DD-07).
 - En Supabase, PostgreSQL no calcula PBKDF2-SHA256 de forma nativa, por lo que el hash del admin se genera con un script Python de inicialización (misma función de hashing que usa la app) y no con SQL puro en `schema.sql`.
-- Categorías de ejemplo `motor`, `aceite`, `filtro` (solo con catálogo vacío).
+- Categorías de ejemplo `motor`, `aceite`, `filtro` y procesos de ejemplo `cambio-motor`, `cambio-filtro`, `limpieza` (cada catálogo se siembra solo al crear su tabla).
 - Sin productos ni órdenes de ejemplo.

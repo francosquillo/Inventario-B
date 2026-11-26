@@ -96,15 +96,15 @@ Usuario → Adaptador → StockService → ProductoRepo / MovimientoRepo
 **Actor**: Usuario autenticado.
 
 **Pasos**:
-1. Adaptador recoge número, fecha `YYYY-MM-DD` y lista de (producto, cantidad); valida formatos.
+1. Adaptador recoge número, fecha `YYYY-MM-DD`, lista de (producto, cantidad) y, opcionales, `procesos` (claves del catálogo) y `procesos_personalizados` (textos); valida formatos.
 2. OrdenService verifica unicidad del número, que haya ≥ 1 componente y que todos sean productos activos.
 3. Valida stock de TODOS los componentes; si alguno falla, devuelve la lista de faltantes y no modifica nada.
-4. Atómico: inserta la orden, inserta `orden_items`, descuenta stock de cada producto.
+4. Atómico: inserta la orden, inserta `orden_items`, descuenta stock de cada producto e inserta `orden_procesos` (catálogo primero, luego personalizados; nombre como snapshot).
 
 ```
 Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
                                        SQLite: transacción
-                                       Supabase: RPC crear_orden(...)
+                                       Supabase: RPC crear_orden(..., p_procesos, p_procesos_personalizados)
         ← orden creada | error con faltantes
 ```
 
@@ -113,6 +113,11 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 - Fecha inválida → rechazo (RN-VA-03).
 - Stock insuficiente en algún componente → rechazo total (RN-OR-04).
 - Producto repetido en la misma orden → se consolidan las cantidades sumándolas (RN-OR-11).
+- Proceso del catálogo inexistente → 422 "El proceso 'x' no existe." sin tocar stock (RN-OR-13).
+- Personalizado vacío o de más de 60 → 422 "Proceso personalizado N: ..."; más de 10 → 422 "La orden admite hasta 10 procesos personalizados."; igual a uno del catálogo o repetido → 422 con su posición (RN-OR-14).
+- Orden solo con procesos y sin componentes → 422 "La orden requiere al menos un componente."
+
+**En la web (modal "Nueva orden", C-06f)**: debajo de "Componentes", el bloque "Procesos" con líneas (Agregar proceso / Quitar; cero permitido). Cada línea tiene un selector con los procesos de `GET /api/procesos` y "Personalizado", que muestra un cuadro de texto (hasta 10 líneas personalizadas). Si el catálogo no carga se avisa "No se pudo cargar la lista de procesos." y solo queda "Personalizado". El mismo proceso en dos líneas se envía una vez. Si un proceso fue borrado con el modal abierto, el backend responde 422 y se muestra el mensaje.
 
 ## Flujo 5: Listar órdenes
 **Disparador**: `GET /api/ordenes?numero&desde&hasta` (Fase 1, `/docs`) / pantalla de órdenes (Fase 2).
@@ -191,6 +196,18 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 **Casos de error**:
 - Sin sesión → 401. Categoría desconocida en alta o modificación → 422 "La categoría 'x' no existe." (en lotes con "Línea N: "); `categoria` no textual → 422 "El campo categoria debe ser texto.".
 - Alta con clave o nombre repetido → 409; nombre vacío o de más de 40, o clave que queda vacía → 422; renombrar con `clave` en el cuerpo → 422; renombrar clave inexistente → 404.
+
+## Flujo 5f: Procesos de órdenes (C-06f)
+**Actor**: Usuario autenticado.
+
+**Ver los procesos**: `/ordenes` muestra bajo la cabecera de cada orden una fila "Procesos:" con los nombres registrados (como texto); si la orden no tiene, no hay fila. "Exportar PDF" de una orden agrega, debajo de la tabla de componentes, "Procesos realizados" con un proceso por línea (omitido si no tiene).
+
+**Administrar el catálogo (solo API, desde `/docs`)**: `GET /api/procesos` lista; `POST /api/procesos {nombre, clave?}` → 201; `PATCH /api/procesos/{clave} {nombre}` → 200; `DELETE /api/procesos/{clave}` → 200 (aunque haya órdenes que lo usaron: conservan su nombre). `DELETE /api/categorias/{clave}` → 200 si ningún producto la usa. La web ve los cambios al recargar.
+
+**Casos de error**:
+- Sin sesión → 401.
+- Proceso: clave o nombre repetido → 409; nombre vacío o de más de 60, o clave inválida → 422; renombrar con `clave` en el cuerpo → 422; clave inexistente (renombrar o borrar) → 404.
+- Categoría: clave inexistente → 404; con algún producto asignado (activo o dado de baja) → 409 "La categoría 'x' está asignada a N producto(s)." sin cambios.
 
 ## Flujo 6: Borrar orden
 **Disparador**: `DELETE /api/ordenes/{numero}?reintegrar=true|false` (Fase 1, `/docs`) / modal de borrado (Fase 2). La orden se identifica por su número normalizado, nunca por id (C-05).

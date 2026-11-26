@@ -239,7 +239,7 @@ class ProductosConCategoriaTest(Base):
         params = {p["name"] for p in paths["/api/reportes/productos-en-ordenes"]["get"]["parameters"]}
         self.assertNotIn("categoria", params)
         self.assertEqual(set(paths[URL]), {"get", "post"})
-        self.assertEqual(set(paths[f"{URL}/{{clave}}"]), {"patch"})
+        self.assertEqual(set(paths[f"{URL}/{{clave}}"]), {"patch", "delete"})
 
 
 if __name__ == "__main__":

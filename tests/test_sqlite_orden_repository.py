@@ -448,7 +448,7 @@ class ListarTest(RepoBase):
         self.assertFalse(self.repo.existe_numero("OT-9999"))
         self.assertFalse(self.repo.existe_numero("OT-1"))
 
-    def test_listar_ejecuta_un_solo_select(self):
+    def test_listar_ejecuta_dos_selects_sin_importar_cuantas_ordenes_hay(self):
         self.sembrar_basico()
         for n in ("OT-1", "OT-2", "OT-3"):
             self.sembrar_orden(n, FECHA_ORDEN, items=(("A-01", 1), ("B-02", 1)))
@@ -457,8 +457,9 @@ class ListarTest(RepoBase):
         ordenes = self.repo.listar(None, None, None)
         self.conn.set_trace_callback(None)
         self.assertEqual(len(ordenes), 3)
-        self.assertEqual(sum(1 for s in sentencias if s.lstrip().upper().startswith("SELECT")), 1)
-        self.assertEqual(len(sentencias), 1)
+        # Ordenes+componentes y, por lote, los procesos (C-06f D5): no crece con las ordenes.
+        self.assertEqual(sum(1 for s in sentencias if s.lstrip().upper().startswith("SELECT")), 2)
+        self.assertEqual(len(sentencias), 2)
 
 
 class BorrarBase(RepoBase):

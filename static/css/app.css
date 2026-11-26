@@ -199,3 +199,31 @@
   .tbl .cat-inline { display:none !important; }
   .tbl .cat-col { display:table-cell !important; color:#111 !important; }
 }
+
+
+/* ---------- E. Procesos de órdenes (paso-5f-procesos-ordenes; aprobado en los mockups N1, N2, L1, P1) ---------- */
+
+/* "Nueva orden": líneas de procesos (select + Quitar; la caja de "Personalizado" ocupa la fila de abajo) */
+.plist { list-style:none; margin:0; padding:0; }
+.pline { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.5rem; align-items:center; }
+.pline-txt { grid-column:1 / -1; }
+.pline-txt[hidden] { display:none; }
+.plist > li + li { border-top:1px solid var(--color-border); padding-top:.5rem; margin-top:.5rem; }
+
+/* /ordenes: fila "Procesos:" con chips bajo la cabecera de cada orden (en pantalla) */
+.chips { display:flex; flex-wrap:wrap; align-items:center; gap:.375rem; padding:0 .75rem .625rem; }
+.chips ul { display:flex; flex-wrap:wrap; gap:.375rem; list-style:none; margin:0; padding:0; }
+.chip { display:inline-block; padding:.125rem .5rem; border-radius:var(--radius-md); background:var(--color-surface-2); border:1px solid var(--color-border); font-size:var(--text-sm); }
+.chips .lbl { font-size:var(--text-sm); color:var(--color-text-muted); font-weight:var(--weight-medium); }
+.chips .lbl-print { display:none; }
+
+/* Impresión de una orden: el bloque pasa debajo de la tabla como "Procesos realizados" (uno por línea) */
+@media print {
+  .ord { display:flex; flex-direction:column; }
+  .chips { order:2; display:block; padding:0; margin-top:1rem; break-inside:avoid; }
+  .chips .lbl { display:block; font-size:9pt; text-transform:uppercase; letter-spacing:.04em; color:#444; border-bottom:1.5px solid #111; padding-bottom:.25rem; margin-bottom:.25rem; }
+  .chips .lbl-screen { display:none; }
+  .chips .lbl-print { display:inline; }
+  .chips ul { display:block; }
+  .chip { display:block; background:transparent; border:0; border-bottom:1px solid #ccc; border-radius:0; padding:.2rem .5rem; font-size:10.5pt; color:#111; }
+}

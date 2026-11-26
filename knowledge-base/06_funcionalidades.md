@@ -219,6 +219,26 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 
 **Reglas relacionadas**: RN-PR-11, RN-PR-12, RN-PR-13, RN-PR-14
 
+## Épica 3d: Procesos de órdenes y borrado de categorías (C-06f)
+
+### US-016 — Registrar los procesos hechos en una orden
+**Como** usuario
+**Quiero** marcar en cada orden los procesos hechos a la lancha (cambio de motor, cambio de filtro, limpieza u otros)
+**Para** dejar constancia de qué se hizo, además de qué piezas se usaron
+
+**Paso**: 5f (cambia el esquema: tablas `procesos` y `orden_procesos`; migración idempotente)
+
+**Criterios de aceptación**:
+- [ ] Los procesos son opcionales y pueden ser varios; las órdenes existentes quedan sin procesos tras la migración, sin perder datos.
+- [ ] "Nueva orden" tiene un bloque "Procesos" con líneas (Agregar proceso / Quitar): cada una elige un proceso del catálogo o "Personalizado" (cuadro de texto, hasta 10, 1 a 60 caracteres); el mismo proceso del catálogo en dos líneas cuenta una vez.
+- [ ] Un personalizado no puede igualar un proceso del catálogo ni repetirse; no se agrega al catálogo.
+- [ ] La orden y sus procesos se crean en una sola transacción; borrar la orden borra sus procesos.
+- [ ] `/ordenes` muestra una fila "Procesos:" por orden (omitida si no tiene) y el PDF de una orden suma el bloque "Procesos realizados" debajo de los componentes.
+- [ ] Renombrar o borrar un proceso del catálogo no cambia las órdenes pasadas.
+- [ ] Catálogo de procesos por API (sin pantalla): `GET`/`POST /api/procesos`, `PATCH`/`DELETE /api/procesos/{clave}`; `DELETE /api/categorias/{clave}` borra una categoría sin productos (409 si alguno, activo o dado de baja, la usa).
+
+**Reglas relacionadas**: RN-OR-13..RN-OR-17, RN-PR-15
+
 ## Épica 4: Web y despliegue
 
 ### US-010 — Migración a Supabase y frontend web

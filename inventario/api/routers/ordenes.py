@@ -39,7 +39,16 @@ MENSAJE_REINTEGRAR_REPETIDO = "El campo reintegrar debe enviarse una sola vez."
 )
 def crear_orden(datos: OrdenRequest, usuario: Usuario, ordenes: Servicio):
     componentes = [(c.codigo, c.cantidad) for c in datos.componentes]
-    return orden_out(ordenes.crear(datos.numero, datos.fecha, componentes, usuario.id))
+    return orden_out(
+        ordenes.crear(
+            datos.numero,
+            datos.fecha,
+            componentes,
+            usuario.id,
+            procesos=datos.procesos,
+            procesos_personalizados=datos.procesos_personalizados,
+        )
+    )
 
 
 @router.get(

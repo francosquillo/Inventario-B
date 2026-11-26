@@ -19,12 +19,14 @@ from inventario.api.routers import (
     movimientos,
     ordenes,
     paginas,
+    procesos,
     productos,
     reportes,
     stock,
 )
 from inventario.domain.errors import (
     CategoriaDuplicada,
+    CategoriaEnUso,
     CategoriaNoEncontrada,
     CredencialesInvalidas,
     DatosInvalidos,
@@ -32,6 +34,8 @@ from inventario.domain.errors import (
     NombreRequerido,
     OrdenDuplicada,
     OrdenNoEncontrada,
+    ProcesoDuplicado,
+    ProcesoNoEncontrado,
     ProductoDuplicado,
     ProductoNoEncontrado,
     ProductosInexistentes,
@@ -106,6 +110,7 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
     app.include_router(auth.router)
     app.include_router(inventario.router)
     app.include_router(categorias.router)
+    app.include_router(procesos.router)
     app.include_router(stock.router)
     app.include_router(movimientos.router)
     app.include_router(ordenes.router)
@@ -135,6 +140,9 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
         (ProductoDuplicado, 409),
         (CategoriaDuplicada, 409),
         (CategoriaNoEncontrada, 404),
+        (CategoriaEnUso, 409),
+        (ProcesoDuplicado, 409),
+        (ProcesoNoEncontrado, 404),
     ):
         app.add_exception_handler(tipo, _responder(status))
 

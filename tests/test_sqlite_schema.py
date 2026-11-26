@@ -334,3 +334,106 @@ class CategoriasConstraintsTest(unittest.TestCase):
             "INSERT INTO productos (codigo, nombre, stock, categoria_id) VALUES ('Z','Z',1,?)",
             (cid,),
         )
+
+
+class EsquemaProcesosTest(unittest.TestCase):
+    def setUp(self):
+        self.conn = conexion_inicializada()
+        self.addCleanup(self.conn.close)
+        self.uid = insertar_usuario(self.conn)
+        self.oid = self.conn.execute(
+            "INSERT INTO ordenes (numero, fecha, usuario_id) VALUES ('OT-1', '2026-11-20', ?)",
+            (self.uid,),
+        ).lastrowid
+
+    def assertRechaza(self, sql, params=()):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute(sql, params)
+
+    def proceso(self, clave, nombre):
+        return self.conn.execute(
+            "INSERT INTO procesos (clave, nombre) VALUES (?, ?)", (clave, nombre)
+        )
+
+    def paso(self, posicion=1, nombre="Pulido", personalizado=0, orden_id=None):
+        return self.conn.execute(
+            "INSERT INTO orden_procesos (orden_id, posicion, nombre, personalizado) "
+            "VALUES (?, ?, ?, ?)",
+            (self.oid if orden_id is None else orden_id, posicion, nombre, personalizado),
+        )
+
+    def test_base_nueva_tiene_las_ocho_tablas(self):
+        tablas = {
+            f["name"]
+            for f in self.conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        self.assertTrue(
+            {"usuarios", "categorias", "productos", "ordenes", "orden_items", "movimientos",
+             "procesos", "orden_procesos"} <= tablas
+        )
+
+    def test_proceso_clave_unica_y_nombre_unico_sin_distinguir_mayusculas(self):
+        self.assertRechaza("INSERT INTO procesos (clave, nombre) VALUES ('limpieza', 'Otro')")
+        self.assertRechaza("INSERT INTO procesos (clave, nombre) VALUES ('otra', 'LIMPIEZA')")
+
+    def test_proceso_clave_con_formato_invalido(self):
+        for clave in ("Limpieza", "li mpieza", "li_mpieza", "-a", "a-", "a--b", "", "x" * 31):
+            with self.subTest(clave=clave):
+                self.assertRechaza("INSERT INTO procesos (clave, nombre) VALUES (?, 'N')", (clave,))
+
+    def test_proceso_nombre_de_1_a_60(self):
+        for nombre in ("", "   ", "x" * 61):
+            with self.subTest(largo=len(nombre)):
+                self.assertRechaza("INSERT INTO procesos (clave, nombre) VALUES ('ok', ?)", (nombre,))
+        self.proceso("ok", "x" * 60)
+
+    def test_orden_proceso_valido_se_guarda(self):
+        self.paso(1, "Pulido", 1)
+        self.paso(2, "Limpieza", 0)
+
+    def test_orden_proceso_nombre_vacio_o_de_61(self):
+        for nombre in ("", "   ", "x" * 61):
+            with self.subTest(largo=len(nombre)):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.paso(1, nombre)
+
+    def test_orden_proceso_personalizado_solo_0_o_1(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.paso(1, "A", 2)
+
+    def test_orden_proceso_posicion_minima_1_y_entera(self):
+        for posicion in (0, -1, "uno"):
+            with self.subTest(posicion=posicion):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.paso(posicion, "A")
+
+    def test_orden_proceso_de_orden_inexistente(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.paso(1, "A", 0, orden_id=999)
+
+    def test_orden_proceso_nombre_repetido_sin_distinguir_mayusculas_en_la_misma_orden(self):
+        self.paso(1, "Pulido")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.paso(2, "PULIDO")
+
+    def test_orden_proceso_mismo_nombre_en_otra_orden_se_permite(self):
+        otra = self.conn.execute(
+            "INSERT INTO ordenes (numero, fecha, usuario_id) VALUES ('OT-2', '2026-11-20', ?)",
+            (self.uid,),
+        ).lastrowid
+        self.paso(1, "Pulido")
+        self.paso(1, "Pulido", orden_id=otra)
+
+    def test_orden_proceso_posicion_repetida_en_la_misma_orden(self):
+        self.paso(1, "A")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.paso(1, "B")
+
+    def test_borrar_la_orden_en_cascada_borra_sus_procesos(self):
+        self.paso(1, "A")
+        self.conn.execute("DELETE FROM ordenes WHERE id = ?", (self.oid,))
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM orden_procesos").fetchone()[0], 0)
+
+    def test_categoria_usada_por_un_producto_no_se_borra(self):
+        insertar_producto(self.conn, "P-9", "Filtro aire", 1, categoria="filtro")
+        self.assertRechaza("DELETE FROM categorias WHERE clave = 'filtro'")

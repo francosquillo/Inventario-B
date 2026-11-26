@@ -24,6 +24,22 @@ class Categoria:
 
 
 @dataclass(frozen=True)
+class Proceso:
+    """Proceso del catalogo (clave estable + nombre para mostrar)."""
+
+    clave: str
+    nombre: str
+
+
+@dataclass(frozen=True)
+class ProcesoOrden:
+    """Proceso de una orden: snapshot del nombre y marca de personalizado (sin FK al catalogo)."""
+
+    nombre: str
+    personalizado: bool
+
+
+@dataclass(frozen=True)
 class Producto:
     id: int
     codigo: str
@@ -99,6 +115,7 @@ class Orden:
     fecha: date
     usuario: str
     items: "tuple[ItemOrden, ...]"
+    procesos: "tuple[ProcesoOrden, ...]" = ()
 
 
 @dataclass(frozen=True)
