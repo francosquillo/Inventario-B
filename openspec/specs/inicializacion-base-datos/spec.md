@@ -6,13 +6,14 @@ Garantiza que el sistema arranque sin pasos manuales: crea el esquema completo d
 ## Requirements
 
 ### Requirement: Creación del esquema al primer arranque
-Al iniciar sobre una base vacía, el sistema SHALL crear las tablas `usuarios`, `categorias`, `productos`, `ordenes`, `orden_items`, `movimientos`, `procesos` y `orden_procesos`, con sus claves primarias, claves foráneas, restricciones de unicidad y restricciones CHECK definidas en el modelo de datos, y SHALL sembrar las categorías `motor`, `aceite` y `filtro` y los procesos `cambio-motor`, `cambio-filtro` y `limpieza` solo al crear cada catálogo.
+Al iniciar sobre una base vacía, el sistema SHALL crear las tablas `usuarios`, `categorias`, `productos`, `ordenes`, `orden_items`, `movimientos`, `procesos`, `orden_procesos`, `servicios_generales`, `servicio_chequeos`, `orden_servicio` y `orden_servicio_chequeos`, con sus claves primarias, claves foráneas, restricciones de unicidad y restricciones CHECK definidas en el modelo de datos, y SHALL sembrar las categorías `motor`, `aceite` y `filtro`, los procesos `cambio-motor`, `cambio-filtro` y `limpieza` y el servicio general `servicio-20-hs` con sus tres chequeos solo al crear cada catálogo.
 
 #### Scenario: Base nueva
 - **WHEN** el sistema se inicializa sobre una base sin tablas
-- **THEN** existen las ocho tablas `usuarios`, `categorias`, `productos`, `ordenes`, `orden_items`, `movimientos`, `procesos` y `orden_procesos`
+- **THEN** existen las doce tablas `usuarios`, `categorias`, `productos`, `ordenes`, `orden_items`, `movimientos`, `procesos`, `orden_procesos`, `servicios_generales`, `servicio_chequeos`, `orden_servicio` y `orden_servicio_chequeos`
 - **AND** `categorias` contiene `motor`, `aceite` y `filtro`
 - **AND** `procesos` contiene `cambio-motor`, `cambio-filtro` y `limpieza`
+- **AND** `servicios_generales` contiene `servicio-20-hs` "Servicio 20 hs" con los chequeos "Chequeo de motor", "Chequeo de combustible" y "Chequeo eléctrico"
 
 #### Scenario: Unicidad de código de producto
 - **GIVEN** una base inicializada con un producto de código `P-001`
@@ -44,6 +45,26 @@ Al iniciar sobre una base vacía, el sistema SHALL crear las tablas `usuarios`, 
 - **WHEN** se intenta guardar un proceso de esa orden con nombre vacío o de 61 caracteres, o un proceso de una orden inexistente
 - **THEN** la base rechaza la escritura
 
+#### Scenario: Unicidad del catálogo de servicios generales
+- **GIVEN** una base inicializada
+- **WHEN** se intenta guardar otro servicio general con clave `servicio-20-hs` o con nombre "SERVICIO 20 HS"
+- **THEN** la base rechaza la escritura
+
+#### Scenario: Chequeo de catálogo inválido
+- **GIVEN** una base inicializada
+- **WHEN** se intenta guardar un chequeo de `servicio-20-hs` con nombre vacío, de 61 caracteres o igual (sin distinguir mayúsculas) a otro chequeo del mismo servicio, o un chequeo de un servicio inexistente
+- **THEN** la base rechaza la escritura
+
+#### Scenario: Un solo servicio por orden
+- **GIVEN** una base inicializada con una orden que ya tiene servicio general
+- **WHEN** se intenta guardar un segundo servicio general para esa orden, o un servicio de una orden inexistente
+- **THEN** la base rechaza la escritura
+
+#### Scenario: Chequeo de orden inválido
+- **GIVEN** una base inicializada con una orden con servicio general
+- **WHEN** se intenta guardar un chequeo de esa orden con nombre vacío o de 61 caracteres, repetido sin distinguir mayúsculas, o un chequeo de una orden sin servicio
+- **THEN** la base rechaza la escritura
+
 #### Scenario: Stock negativo rechazado
 - **GIVEN** una base inicializada
 - **WHEN** se intenta guardar un producto con stock `-1`
@@ -70,7 +91,7 @@ Al iniciar sobre una base vacía, el sistema SHALL crear las tablas `usuarios`, 
 - **THEN** la base rechaza la escritura
 
 ### Requirement: Inicialización idempotente
-Inicializar el sistema sobre una base ya inicializada SHALL dejar el esquema y los datos existentes intactos, sin errores y sin duplicar registros, incluidas las categorías y procesos del catálogo (aunque se hayan renombrado, borrado o vaciado), la categoría asignada a cada producto y los procesos de cada orden.
+Inicializar el sistema sobre una base ya inicializada SHALL dejar el esquema y los datos existentes intactos, sin errores y sin duplicar registros, incluidas las categorías, procesos y servicios generales del catálogo (aunque se hayan renombrado, modificado, borrado o vaciado), la categoría asignada a cada producto y los procesos y el servicio general de cada orden.
 
 #### Scenario: Segundo arranque
 - **GIVEN** una base ya inicializada que contiene el usuario `admin` y productos cargados
@@ -90,14 +111,24 @@ Inicializar el sistema sobre una base ya inicializada SHALL dejar el esquema y l
 - **THEN** `motor` sigue llamándose "Motor y transmisión", `frenos` sigue existiendo y no se agrega ni cambia ninguna categoría
 
 #### Scenario: Catálogos vaciados no se resiembran
-- **GIVEN** una base inicializada donde se borraron todas las categorías y todos los procesos
+- **GIVEN** una base inicializada donde se borraron todas las categorías, todos los procesos y todos los servicios generales
 - **WHEN** el sistema se inicializa dos veces más
-- **THEN** `categorias` y `procesos` siguen vacías
+- **THEN** `categorias`, `procesos` y `servicios_generales` siguen vacías
+
+#### Scenario: Servicio general modificado no se resiembra
+- **GIVEN** una base inicializada donde `servicio-20-hs` quedó con los chequeos "Chequeo de motor" y "Chequeo de batería"
+- **WHEN** el sistema se inicializa de nuevo
+- **THEN** `servicio-20-hs` conserva exactamente esos dos chequeos
 
 #### Scenario: Procesos de órdenes intactos
 - **GIVEN** una base inicializada con la orden `OT-0001` con los procesos "Limpieza" y "Pulido"
 - **WHEN** el sistema se inicializa de nuevo
 - **THEN** `OT-0001` conserva exactamente esos dos procesos
+
+#### Scenario: Servicio de órdenes intacto
+- **GIVEN** una base inicializada con la orden `OT-0001` con el servicio "Servicio 20 hs" y sus tres chequeos
+- **WHEN** el sistema se inicializa de nuevo
+- **THEN** `OT-0001` conserva exactamente ese servicio y esos tres chequeos
 
 ### Requirement: Seed del usuario admin con contraseña desde entorno
 Si no existe el usuario `admin`, la inicialización SHALL crearlo con la contraseña tomada de la variable de entorno `ADMIN_DEFAULT_PASSWORD`, guardada únicamente como hash con salt. La contraseña nunca SHALL estar escrita en el código ni guardarse en texto plano.
@@ -193,3 +224,17 @@ Al inicializar una base sin las tablas de procesos, el sistema SHALL crearlas y 
 - **GIVEN** una base con el esquema anterior a los procesos
 - **WHEN** la siembra de procesos falla
 - **THEN** no existen `procesos` ni `orden_procesos`, los datos existentes no cambian y el arranque informa el error
+
+### Requirement: Incorporación de servicios generales a una base existente
+Al inicializar una base sin las tablas de servicios generales, el sistema SHALL crearlas y sembrar el catálogo en una sola transacción, sin modificar ninguna fila existente; las órdenes existentes SHALL quedar sin servicio general. Si falla, la base SHALL quedar sin las tablas nuevas y el arranque SHALL informar el error.
+
+#### Scenario: Base de C-06f
+- **GIVEN** una base con el esquema anterior a los servicios generales, dos órdenes con componentes y procesos, productos con categoría y movimientos
+- **WHEN** se inicializa la base
+- **THEN** existen `servicios_generales` (con `servicio-20-hs` y sus tres chequeos en `servicio_chequeos`), `orden_servicio` vacía y `orden_servicio_chequeos` vacía
+- **AND** las órdenes, componentes, procesos, productos, categorías y movimientos no cambian y ninguna orden tiene servicio general
+
+#### Scenario: Falla al sembrar
+- **GIVEN** una base con el esquema anterior a los servicios generales
+- **WHEN** la siembra de servicios generales falla
+- **THEN** no existe ninguna de las cuatro tablas nuevas, los datos existentes no cambian y el arranque informa el error

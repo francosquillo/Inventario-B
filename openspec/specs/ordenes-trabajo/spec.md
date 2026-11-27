@@ -148,7 +148,7 @@ Si una orden tiene varios problemas, SHALL informarse uno solo, con esta priorid
 - **THEN** se rechaza por producto inexistente (`X-00`)
 
 ### Requirement: Orden, líneas y stock atómicos
-La creación de la orden, de sus líneas, de sus procesos y los descuentos de stock SHALL ser una única operación todo o nada: ante cualquier falla SHALL no quedar la orden, ninguna línea, ningún proceso ni ningún descuento. Dos altas simultáneas SHALL comportarse como si se ejecutaran una después de la otra.
+La creación de la orden, de sus líneas, de sus procesos, de su servicio general con sus chequeos y los descuentos de stock SHALL ser una única operación todo o nada: ante cualquier falla SHALL no quedar la orden, ninguna línea, ningún proceso, ningún servicio ni chequeo ni ningún descuento. Dos altas simultáneas SHALL comportarse como si se ejecutaran una después de la otra.
 
 #### Scenario: Falla durante la escritura
 - **GIVEN** los productos activos `A-01` con stock 5 y `B-02` con stock 10
@@ -159,6 +159,11 @@ La creación de la orden, de sus líneas, de sus procesos y los descuentos de st
 - **GIVEN** el producto activo `A-01` con stock 5
 - **WHEN** la creación de una orden con `A-01` x 2 y el proceso "Limpieza" falla al guardar el proceso, después de descontar el stock
 - **THEN** no existe la orden, ni sus líneas, ni ningún proceso, y el stock de `A-01` sigue en 5
+
+#### Scenario: Falla al guardar el servicio general
+- **GIVEN** el producto activo `A-01` con stock 5
+- **WHEN** la creación de una orden con `A-01` x 2 y el servicio "Servicio 20 hs" falla al guardar uno de sus chequeos, después de descontar el stock
+- **THEN** no existe la orden, ni sus líneas, ni su servicio, ni ningún chequeo, y el stock de `A-01` sigue en 5
 
 #### Scenario: Órdenes simultáneas sobre el mismo stock
 - **GIVEN** el producto activo `A-01` con stock 5
@@ -279,7 +284,7 @@ Un borrado de una orden cuyo número no existe SHALL rechazarse con "No existe u
 - **THEN** el borrado se rechaza con "No existe una orden con número 'OT-0001'." y no se reintegra stock otra vez
 
 ### Requirement: Borrado de orden atómico
-El reintegro de stock, la reactivación de productos y la eliminación de la orden, sus líneas y sus procesos SHALL ser una única operación todo o nada: ante cualquier falla no SHALL quedar ningún reintegro, reactivación ni eliminación parcial.
+El reintegro de stock, la reactivación de productos y la eliminación de la orden, sus líneas, sus procesos y su servicio general con sus chequeos SHALL ser una única operación todo o nada: ante cualquier falla no SHALL quedar ningún reintegro, reactivación ni eliminación parcial.
 
 #### Scenario: Falla a mitad del reintegro
 - **GIVEN** los productos `A-01` con stock 3 y `B-02` con stock 0, y la orden `OT-0001` con `A-01` x 2 y `B-02` x 5
@@ -296,6 +301,11 @@ El reintegro de stock, la reactivación de productos y la eliminación de la ord
 - **GIVEN** la orden `OT-0001` con `A-01` x 2 y los procesos "Limpieza" y "Pulido"
 - **WHEN** el borrado falla después de eliminar los procesos y antes de eliminar la orden
 - **THEN** `OT-0001` sigue existiendo con su línea y sus dos procesos, y el stock no cambia
+
+#### Scenario: Falla con servicio general
+- **GIVEN** la orden `OT-0001` con `A-01` x 2 y el servicio "Servicio 20 hs" con sus tres chequeos
+- **WHEN** el borrado falla después de eliminar el servicio y antes de eliminar la orden
+- **THEN** `OT-0001` sigue existiendo con su línea y su servicio con los tres chequeos, y el stock no cambia
 
 ### Requirement: Borrados simultáneos de una orden
 Dos borrados simultáneos de la misma orden SHALL comportarse como si se ejecutaran uno después del otro: exactamente uno la borra y el otro se rechaza por orden inexistente, y el stock se reintegra a lo sumo una vez.
@@ -315,7 +325,7 @@ El borrado de una orden, con o sin reintegro, SHALL no agregar filas a la bitác
 - **THEN** la bitácora de movimientos sigue con ese único movimiento, sin cambios
 
 ### Requirement: Resultado del borrado de orden
-Un borrado exitoso SHALL informar la orden eliminada tal como estaba (id, número, fecha, usuario, componentes y procesos) y si se reintegró. Con reintegro SHALL informar, por cada componente, la cantidad devuelta, el stock resultante y si el producto se reactivó; sin reintegro, ningún reintegro.
+Un borrado exitoso SHALL informar la orden eliminada tal como estaba (id, número, fecha, usuario, componentes, procesos y servicio general) y si se reintegró. Con reintegro SHALL informar, por cada componente, la cantidad devuelta, el stock resultante y si el producto se reactivó; sin reintegro, ningún reintegro.
 
 #### Scenario: Resultado con reintegro
 - **GIVEN** `A-01` activo con stock 3, `C-99` dado de baja con stock 1 y la orden `OT-0001` con `A-01` x 2 y `C-99` x 4
@@ -333,6 +343,11 @@ Un borrado exitoso SHALL informar la orden eliminada tal como estaba (id, númer
 - **WHEN** se borra `OT-0001` con `reintegrar=false`
 - **THEN** la orden informada incluye los procesos "Cambio motor" (no personalizado) y "Pulido" (personalizado)
 
+#### Scenario: Resultado con servicio general
+- **GIVEN** la orden `OT-0001` con el servicio "Servicio 20 hs" y sus tres chequeos
+- **WHEN** se borra `OT-0001` con `reintegrar=false`
+- **THEN** la orden informada incluye el servicio "Servicio 20 hs" con "Chequeo de motor", "Chequeo de combustible" y "Chequeo eléctrico"
+
 ### Requirement: Borrado de orden con sus procesos
 Borrar una orden, con o sin reintegro, SHALL eliminar también todos sus procesos registrados, sin modificar el catálogo de procesos ni los procesos de otras órdenes.
 
@@ -340,3 +355,11 @@ Borrar una orden, con o sin reintegro, SHALL eliminar también todos sus proceso
 - **GIVEN** las órdenes `OT-0001` y `OT-0002`, ambas con el proceso "Limpieza", y `OT-0001` con el personalizado "Pulido"
 - **WHEN** se borra `OT-0001` con `reintegrar=true`
 - **THEN** no queda ningún proceso de `OT-0001`, `OT-0002` conserva "Limpieza" y el catálogo sigue incluyendo `limpieza`
+
+### Requirement: Borrado de orden con su servicio general
+Borrar una orden, con o sin reintegro, SHALL eliminar también su servicio general registrado y sus chequeos, sin modificar el catálogo de servicios generales ni el servicio de otras órdenes.
+
+#### Scenario: Servicio eliminado con la orden
+- **GIVEN** las órdenes `OT-0001` y `OT-0002`, ambas con el servicio "Servicio 20 hs"
+- **WHEN** se borra `OT-0001` con `reintegrar=true`
+- **THEN** no queda servicio ni chequeos de `OT-0001`, `OT-0002` conserva "Servicio 20 hs" con sus chequeos y el catálogo sigue incluyendo `servicio-20-hs`

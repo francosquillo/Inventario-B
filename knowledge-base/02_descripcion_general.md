@@ -56,7 +56,8 @@ Todas las rutas (salvo login y la página de login) exigen sesión. El frontend 
 | Órdenes | `POST /api/ordenes`, `GET /api/ordenes?numero=&desde=&hasta=` (C-04), `DELETE /api/ordenes/{numero}?reintegrar=true|false` (C-05; borrado por número, no por id) |
 | Categorías | `GET /api/categorias`, `POST /api/categorias`, `PATCH /api/categorias/{clave}` (C-06e), `DELETE /api/categorias/{clave}` (C-06f; 409 si algún producto la usa); administración solo por API |
 | Procesos | `GET /api/procesos`, `POST /api/procesos`, `PATCH /api/procesos/{clave}`, `DELETE /api/procesos/{clave}` (C-06f; catálogo administrado solo por API); `POST /api/ordenes` acepta `procesos` y `procesos_personalizados` |
+| Servicios generales | `GET /api/servicios-generales`, `POST /api/servicios-generales`, `PATCH /api/servicios-generales/{clave}`, `DELETE /api/servicios-generales/{clave}` (C-06g; catálogo administrado desde `/ordenes` y por API); `POST /api/ordenes` acepta `servicio` (clave o `null`) y la orden devuelve `servicio` con sus chequeos |
 | Reportes | `GET /api/reportes/productos-en-ordenes?desde=&hasta=&codigo=` (C-06d; `desde` obligatorio, `hasta` opcional = hoy), `GET /api/reportes/productos-usados` (C-06d; productos para el selector) |
 | Páginas | `GET /` (login), `GET /inventario`, `GET /ordenes` (Paso 5, C-06), `GET /reportes` (C-06d) |
 
-Los paths exactos se cierran en el change del Paso 5.
+Los paths exactos se cierran en el change del Paso 5. Desde C-06g la OpenAPI tiene 21 rutas.

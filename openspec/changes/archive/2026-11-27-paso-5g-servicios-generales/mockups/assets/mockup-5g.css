@@ -1,0 +1,26 @@
+/* Piezas nuevas de paso-5g-servicios-generales (candidatas a static/css/app.css en el apply). Solo tokens de design-system/tokens.css. */
+
+/* "Nueva orden": chequeos incluidos del servicio elegido (solo lectura) */
+.srv-incluye { margin-top:.5rem; padding:.5rem .75rem; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface-2); }
+.srv-incluye .lbl { display:block; font-size:var(--text-sm); color:var(--color-text-muted); font-weight:var(--weight-medium); margin-bottom:.25rem; }
+.srv-incluye ul { display:flex; flex-wrap:wrap; gap:.375rem; list-style:none; margin:0; padding:0; }
+
+/* /ordenes: fila "Servicio general:" (nombre + chips de chequeos), antes de "Procesos:" */
+.chips .srv-nombre { font-weight:var(--weight-semibold); font-size:var(--text-sm); }
+
+/* Título de /ordenes con el botón "Servicios generales" */
+.page-head { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:.5rem 1rem; }
+
+/* Modal "Servicios generales": lista de tarjetas */
+.srv-list { list-style:none; margin:0; padding:0; }
+.srv-card { padding:.75rem 0; }
+.srv-card + .srv-card { border-top:1px solid var(--color-border); }
+.srv-card-head { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; }
+.srv-card-head h3 { font-weight:var(--weight-semibold); margin-right:auto; }
+.srv-card .chips { padding:.5rem 0 0; }
+
+/* Formulario: líneas de chequeo (n.º, caja de texto, Quitar) */
+.cline { display:grid; grid-template-columns:1.5rem minmax(0,1fr) auto; gap:.5rem; align-items:center; }
+.cline .line-n { text-align:right; }
+.clist { list-style:none; margin:0; padding:0; }
+.clist > li + li { margin-top:.5rem; }

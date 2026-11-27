@@ -184,7 +184,7 @@ class MigracionProcesosTest(unittest.TestCase):
     def test_loguea_las_ordenes_conservadas_una_sola_vez(self):
         with self.assertLogs("inventario", level="INFO") as cm:
             inicializar_esquema(self.conn)
-        self.assertEqual(sum("2 orden(es) conservadas" in m for m in cm.output), 1)
+        self.assertEqual(sum("procesos de ordenes (2 orden(es) conservadas" in m for m in cm.output), 1)
         with self.assertNoLogs("inventario", level="INFO"):
             inicializar_esquema(self.conn)
 

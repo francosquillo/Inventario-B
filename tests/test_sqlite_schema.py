@@ -437,3 +437,153 @@ class EsquemaProcesosTest(unittest.TestCase):
     def test_categoria_usada_por_un_producto_no_se_borra(self):
         insertar_producto(self.conn, "P-9", "Filtro aire", 1, categoria="filtro")
         self.assertRechaza("DELETE FROM categorias WHERE clave = 'filtro'")
+
+
+class EsquemaServiciosGeneralesTest(unittest.TestCase):
+    def setUp(self):
+        self.conn = conexion_inicializada()
+        self.addCleanup(self.conn.close)
+        self.uid = insertar_usuario(self.conn)
+        self.oid = self.conn.execute(
+            "INSERT INTO ordenes (numero, fecha, usuario_id) VALUES ('OT-1', '2026-11-20', ?)",
+            (self.uid,),
+        ).lastrowid
+        self.sid = self.conn.execute(
+            "SELECT id FROM servicios_generales WHERE clave = 'servicio-20-hs'"
+        ).fetchone()[0]
+
+    def assertRechaza(self, sql, params=()):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.conn.execute(sql, params)
+
+    def servicio(self, clave, nombre):
+        return self.conn.execute(
+            "INSERT INTO servicios_generales (clave, nombre) VALUES (?, ?)", (clave, nombre)
+        ).lastrowid
+
+    def chequeo(self, posicion=9, nombre="Nuevo", servicio_id=None):
+        return self.conn.execute(
+            "INSERT INTO servicio_chequeos (servicio_id, posicion, nombre) VALUES (?, ?, ?)",
+            (self.sid if servicio_id is None else servicio_id, posicion, nombre),
+        )
+
+    def orden_servicio(self, orden_id=None, nombre="Servicio 20 hs"):
+        return self.conn.execute(
+            "INSERT INTO orden_servicio (orden_id, nombre) VALUES (?, ?)",
+            (self.oid if orden_id is None else orden_id, nombre),
+        )
+
+    def chequeo_orden(self, posicion=1, nombre="A", orden_id=None):
+        return self.conn.execute(
+            "INSERT INTO orden_servicio_chequeos (orden_id, posicion, nombre) VALUES (?, ?, ?)",
+            (self.oid if orden_id is None else orden_id, posicion, nombre),
+        )
+
+    def contar(self, tabla):
+        return self.conn.execute(f"SELECT COUNT(*) FROM {tabla}").fetchone()[0]
+
+    def test_base_nueva_tiene_las_doce_tablas_y_la_siembra(self):
+        tablas = {
+            f["name"]
+            for f in self.conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+        }
+        self.assertTrue(
+            {"usuarios", "categorias", "productos", "ordenes", "orden_items", "movimientos",
+             "procesos", "orden_procesos", "servicios_generales", "servicio_chequeos",
+             "orden_servicio", "orden_servicio_chequeos"} <= tablas
+        )
+        self.assertEqual(self.contar("servicios_generales"), 1)
+        self.assertEqual(self.contar("servicio_chequeos"), 3)
+
+    def test_servicio_clave_unica_y_nombre_unico_sin_distinguir_mayusculas(self):
+        self.assertRechaza("INSERT INTO servicios_generales (clave, nombre) VALUES ('servicio-20-hs', 'Otro')")
+        self.assertRechaza("INSERT INTO servicios_generales (clave, nombre) VALUES ('otra', 'SERVICIO 20 HS')")
+
+    def test_servicio_clave_con_formato_invalido(self):
+        for clave in ("Servicio", "ser vicio", "ser_vicio", "-a", "a-", "a--b", "", "x" * 31):
+            with self.subTest(clave=clave):
+                self.assertRechaza("INSERT INTO servicios_generales (clave, nombre) VALUES (?, 'N')", (clave,))
+
+    def test_servicio_nombre_de_1_a_60(self):
+        for nombre in ("", "   ", "x" * 61):
+            with self.subTest(largo=len(nombre)):
+                self.assertRechaza("INSERT INTO servicios_generales (clave, nombre) VALUES ('ok', ?)", (nombre,))
+        self.servicio("ok", "x" * 60)
+
+    def test_chequeo_de_servicio_nombre_de_1_a_60(self):
+        for nombre in ("", "   ", "x" * 61):
+            with self.subTest(largo=len(nombre)):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.chequeo(9, nombre)
+        self.chequeo(9, "x" * 60)
+
+    def test_chequeo_repetido_sin_distinguir_mayusculas_en_el_mismo_servicio(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.chequeo(9, "CHEQUEO DE MOTOR")
+
+    def test_chequeo_igual_en_otro_servicio_se_permite(self):
+        otro = self.servicio("otro", "Otro")
+        self.chequeo(1, "Chequeo de motor", servicio_id=otro)
+
+    def test_chequeo_posicion_minima_1_y_entera(self):
+        for posicion in (0, -1, "uno"):
+            with self.subTest(posicion=posicion):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.chequeo(posicion, "Z")
+
+    def test_chequeo_de_servicio_inexistente(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.chequeo(1, "Z", servicio_id=999)
+
+    def test_borrar_el_servicio_en_cascada_borra_sus_chequeos(self):
+        self.conn.execute("DELETE FROM servicios_generales WHERE id = ?", (self.sid,))
+        self.assertEqual(self.contar("servicio_chequeos"), 0)
+
+    def test_orden_con_un_solo_servicio(self):
+        self.orden_servicio()
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.orden_servicio(nombre="Otro")
+
+    def test_orden_servicio_de_orden_inexistente(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.orden_servicio(orden_id=999)
+
+    def test_orden_servicio_nombre_de_1_a_60(self):
+        for nombre in ("", "   ", "x" * 61):
+            with self.subTest(largo=len(nombre)):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.orden_servicio(nombre=nombre)
+
+    def test_chequeos_de_orden_exigen_servicio_en_la_orden(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.chequeo_orden()
+
+    def test_chequeo_de_orden_vacio_largo_repetido_o_posicion_invalida(self):
+        self.orden_servicio()
+        for nombre in ("", "   ", "x" * 61):
+            with self.subTest(largo=len(nombre)):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.chequeo_orden(1, nombre)
+        for posicion in (0, -1):
+            with self.subTest(posicion=posicion):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.chequeo_orden(posicion, "Z")
+        self.chequeo_orden(1, "Pulido")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.chequeo_orden(2, "PULIDO")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.chequeo_orden(1, "Otro")
+
+    def test_borrar_la_orden_en_cascada_borra_servicio_y_chequeos(self):
+        self.orden_servicio()
+        self.chequeo_orden(1, "A")
+        self.conn.execute("DELETE FROM ordenes WHERE id = ?", (self.oid,))
+        self.assertEqual(self.contar("orden_servicio"), 0)
+        self.assertEqual(self.contar("orden_servicio_chequeos"), 0)
+
+    def test_borrar_el_catalogo_no_toca_los_servicios_de_ordenes(self):
+        self.orden_servicio()
+        self.chequeo_orden(1, "A")
+        self.conn.execute("DELETE FROM servicios_generales")
+        self.assertEqual(self.contar("orden_servicio"), 1)
+        self.assertEqual(self.contar("orden_servicio_chequeos"), 1)

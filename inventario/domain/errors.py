@@ -127,3 +127,18 @@ class ProcesoNoEncontrado(InventarioError):
     def __init__(self, clave):
         self.clave = clave
         super().__init__(f"No existe un proceso con clave '{clave}'.")
+
+
+class ServicioGeneralDuplicado(InventarioError):
+    """Clave o nombre (sin distinguir mayusculas) ya usados por otro servicio general (HTTP 409)."""
+
+    def __init__(self, campo, valor):
+        self.campo = campo
+        self.valor = valor
+        super().__init__(f"Ya existe un servicio general con {campo} '{valor}'.")
+
+
+class ServicioGeneralNoEncontrado(InventarioError):
+    def __init__(self, clave):
+        self.clave = clave
+        super().__init__(f"No existe un servicio general con clave '{clave}'.")

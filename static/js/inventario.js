@@ -18,6 +18,8 @@
   let mapaCategorias = {};  // clave -> nombre
   let catalogoProcesos = []; // [{clave, nombre}] ordenado por nombre (vacio si fallo la carga)
   let procesosFallo = false;
+  let catalogoServicios = []; // [{clave, nombre, chequeos}] ordenado por nombre (vacio si fallo la carga)
+  let serviciosFallo = false;
 
   const $ = (id) => document.getElementById(id);
 
@@ -841,6 +843,53 @@
     });
   }
 
+  // Servicio general de la orden (C-06g): un select (catalogo + "Sin servicio general") y, debajo, la
+  // lista de solo lectura "Incluye:" con los chequeos del servicio elegido. Cero o un servicio.
+  const MSG_SERVICIOS_CAIDOS = "No se pudo cargar la lista de servicios generales.";
+
+  function mostrarAvisoServicio(mensaje) {
+    const p = $("ord-servicio-aviso");
+    p.textContent = mensaje || "";
+    p.hidden = !mensaje;
+  }
+
+  function marcarServicio(mensaje) {
+    mostrarAvisoServicio(mensaje);
+    const select = $("ord-servicio");
+    select.setAttribute("aria-invalid", "true");
+    select.setAttribute("aria-describedby", "ord-servicio-aviso ord-servicio-inc");
+    return select;
+  }
+
+  function cargarServicios() {
+    return Api.get("/api/servicios-generales").then(
+      (lista) => { catalogoServicios = lista; serviciosFallo = false; },
+      () => { catalogoServicios = []; serviciosFallo = true; }
+    );
+  }
+
+  function mostrarChequeos() {
+    const clave = $("ord-servicio").value;
+    const lista = UI.vaciar($("ord-servicio-chequeos"));
+    const chequeos = Servicios.chequeosDe(clave, catalogoServicios);
+    chequeos.forEach((c) => lista.appendChild(UI.el("li", { "class": "chip" }, c)));
+    const servicio = catalogoServicios.find((s) => s.clave === clave);
+    lista.setAttribute("aria-label", servicio ? "Chequeos de " + servicio.nombre : "Chequeos");
+    $("ord-servicio-inc").hidden = chequeos.length === 0;
+  }
+
+  function llenarSelectServicio() {
+    const select = UI.vaciar($("ord-servicio"));
+    select.appendChild(UI.el("option", { value: "" }, "Sin servicio general"));
+    catalogoServicios.forEach((s) => select.appendChild(UI.el("option", { value: s.clave }, s.nombre)));
+    select.value = "";
+    mostrarChequeos();
+  }
+
+  function recargarServicios() {
+    return cargarServicios().then(llenarSelectServicio);
+  }
+
   function lineas() {
     return Array.from(document.querySelectorAll("#ord-lineas > li"));
   }
@@ -929,6 +978,8 @@
     UI.vaciar($("ord-procesos"));
     mostrarAvisoProcesos(procesosFallo ? "No se pudo cargar la lista de procesos." : "");
     renumerarProcesos();
+    llenarSelectServicio();
+    mostrarAvisoServicio(serviciosFallo ? MSG_SERVICIOS_CAIDOS : "");
     UI.abrir($("modal-orden"));
   }
 
@@ -955,6 +1006,12 @@
     if (eNumero) { UI.errorBajoCampo(numero, eNumero); primero = numero; }
     const eFecha = Validacion.fecha(fecha.value);
     if (eFecha) { UI.errorBajoCampo(fecha, eFecha, fecha); primero = primero || fecha; }
+    const rs = Servicios.armar($("ord-servicio").value, catalogoServicios);
+    mostrarAvisoServicio(serviciosFallo ? MSG_SERVICIOS_CAIDOS : "");
+    if (rs.error) {
+      const select = marcarServicio(rs.error);
+      primero = primero || select;
+    }
     const r = Validacion.componentes(leerLineas());
     const rp = leerProcesos();
     lineasProc().forEach((li, i) => {
@@ -1014,6 +1071,14 @@
         if (foco) foco.focus();
       });
       return;
+    } else if (err.status === 422 && (/^El servicio general '.*' no existe\.$/.test(err.detail) ||
+        err.detail === "El campo servicio debe ser texto.")) {
+      // Un servicio borrado desde otra parte: se recarga el catalogo (el selector vuelve a "Sin servicio
+      // general") y el modal sigue abierto con el resto de los datos.
+      const select = marcarServicio(err.detail);
+      recargarServicios().then(() => select.scrollIntoView && select.scrollIntoView({ block: "nearest" }));
+      select.focus();
+      return;
     } else if (err.status === 422 && /^El proceso '.*' no existe\.$/.test(err.detail)) {
       // Un proceso borrado desde otra parte: se recarga el catalogo y el modal sigue abierto con los datos.
       mostrarAvisoProcesos(err.detail);
@@ -1051,6 +1116,8 @@
     const rp = leerProcesos();
     cuerpo.procesos = rp.procesos;
     cuerpo.procesos_personalizados = rp.procesos_personalizados;
+    const rsv = Servicios.armar($("ord-servicio").value, catalogoServicios);
+    cuerpo.servicio = rsv.servicio;
     const restaurar = UI.ocupado(boton, "Creando orden…");
     Api.post("/api/ordenes", cuerpo).then(
       (orden) => {
@@ -1167,6 +1234,7 @@
       renumerarProcesos();
       if (e.target.value === PERSONALIZADO) textoProceso(e.target.closest("li")).focus();
     });
+    $("ord-servicio").addEventListener("change", mostrarChequeos);
     $("form-orden").addEventListener("submit", enviarOrden);
 
     $("baja-confirmar").addEventListener("click", confirmarBaja);
@@ -1174,6 +1242,7 @@
     llenarSelectoresCategoria();
     cargarCategorias();
     cargarProcesos();
+    cargarServicios();
     cargar(true);
   });
 })();

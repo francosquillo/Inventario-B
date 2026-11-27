@@ -121,3 +121,59 @@ def normalizar_nombre_proceso(nombre):
 
 def validar_clave_proceso(clave):
     return validar_clave(clave, MENSAJE_CLAVE_PROCESO)
+
+
+# --- Servicios generales (C-06g) ---
+SERVICIO_NOMBRE_MAX = 60
+CHEQUEO_NOMBRE_MAX = 60
+CHEQUEOS_MAX = 30
+MENSAJE_NOMBRE_SERVICIO_LARGO = (
+    f"El nombre del servicio general admite hasta {SERVICIO_NOMBRE_MAX} caracteres."
+)
+MENSAJE_CLAVE_SERVICIO = (
+    "La clave del servicio general admite solo minúsculas sin tilde, números y guiones "
+    "(hasta 30 caracteres)."
+)
+MENSAJE_CHEQUEOS_TIPO = "El campo chequeos debe ser una lista de textos."
+MENSAJE_SIN_CHEQUEOS = "El servicio general requiere al menos un chequeo."
+MENSAJE_DEMASIADOS_CHEQUEOS = f"El servicio general admite hasta {CHEQUEOS_MAX} chequeos."
+
+
+def normalizar_nombre_servicio(nombre):
+    """Nombre de servicio general del catalogo: recortado, 1 a 60 caracteres."""
+    return normalizar_nombre(nombre, SERVICIO_NOMBRE_MAX, MENSAJE_NOMBRE_SERVICIO_LARGO)
+
+
+def validar_clave_servicio(clave):
+    return validar_clave(clave, MENSAJE_CLAVE_SERVICIO)
+
+
+def normalizar_chequeos(valor):
+    """Lista de chequeos de un servicio general -> tupla de textos recortados, en orden.
+
+    None o lista vacia = sin chequeos (error); 1 a 30, de 1 a 60 caracteres, sin repetir
+    (casefold). Los errores por chequeo llevan su posicion desde 1.
+    """
+    if valor is None:
+        raise DatosInvalidos(MENSAJE_SIN_CHEQUEOS)
+    if not isinstance(valor, (list, tuple)) or not all(isinstance(v, str) for v in valor):
+        raise DatosInvalidos(MENSAJE_CHEQUEOS_TIPO)
+    if not valor:
+        raise DatosInvalidos(MENSAJE_SIN_CHEQUEOS)
+    if len(valor) > CHEQUEOS_MAX:
+        raise DatosInvalidos(MENSAJE_DEMASIADOS_CHEQUEOS)
+    vistos = set()
+    chequeos = []
+    for posicion, texto in enumerate(valor, start=1):
+        nombre = texto.strip()
+        if not nombre:
+            raise DatosInvalidos(f"Chequeo {posicion}: El nombre es obligatorio.")
+        if len(nombre) > CHEQUEO_NOMBRE_MAX:
+            raise DatosInvalidos(
+                f"Chequeo {posicion}: El nombre admite hasta {CHEQUEO_NOMBRE_MAX} caracteres."
+            )
+        if nombre.casefold() in vistos:
+            raise DatosInvalidos(f"Chequeo {posicion}: '{nombre}' está repetido.")
+        vistos.add(nombre.casefold())
+        chequeos.append(nombre)
+    return tuple(chequeos)

@@ -40,6 +40,21 @@
     }, "Eliminar"));
     art.appendChild(cab);
 
+    // Servicio general (C-06g): solo si la orden lo tiene; va antes de la fila de procesos. En papel pasa primero
+    // (tras el encabezado y antes de la tabla), como "Servicio general".
+    if (o.servicio) {
+      const bloqueServicio = UI.el("div", { "class": "chips chips-srv" });
+      const etiquetaServicio = UI.el("span", { "class": "lbl" });
+      etiquetaServicio.appendChild(UI.el("span", { "class": "lbl-screen" }, "Servicio general:"));
+      etiquetaServicio.appendChild(UI.el("span", { "class": "lbl-print" }, "Servicio general"));
+      bloqueServicio.appendChild(etiquetaServicio);
+      bloqueServicio.appendChild(UI.el("span", { "class": "srv-nombre" }, o.servicio.nombre));
+      const chequeos = UI.el("ul", { "aria-label": "Chequeos del servicio de " + o.numero });
+      o.servicio.chequeos.forEach((c) => chequeos.appendChild(UI.el("li", { "class": "chip" }, c)));
+      bloqueServicio.appendChild(chequeos);
+      art.appendChild(bloqueServicio);
+    }
+
     // Procesos (C-06f): solo si la orden tiene; en pantalla "Procesos:" + chips, en papel "Procesos realizados".
     if (o.procesos && o.procesos.length > 0) {
       const bloque = UI.el("div", { "class": "chips" });

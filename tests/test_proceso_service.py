@@ -5,7 +5,11 @@ from datetime import datetime
 from inventario.domain.entities import Proceso, ProcesoOrden
 from inventario.domain.errors import DatosInvalidos, ProcesoDuplicado, ProcesoNoEncontrado
 from inventario.domain.tiempo import ZONA_AR
-from inventario.repositories.sqlite_repo import SqliteOrdenRepository, SqliteProcesoRepository
+from inventario.repositories.sqlite_repo import (
+    SqliteOrdenRepository,
+    SqliteProcesoRepository,
+    SqliteServicioGeneralRepository,
+)
 from inventario.services.orden_service import OrdenService
 from inventario.services.proceso_service import ProcesoService
 from tests.helpers import conexion_inicializada, insertar_producto, insertar_usuario
@@ -124,6 +128,7 @@ class OrdenBase(unittest.TestCase):
         self.service = OrdenService(
             SqliteOrdenRepository(self.conn),
             SqliteProcesoRepository(self.conn),
+            SqliteServicioGeneralRepository(self.conn),
             ahora=lambda: FECHA_FIJA,
         )
 

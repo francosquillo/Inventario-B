@@ -226,4 +226,37 @@
   .chips .lbl-print { display:inline; }
   .chips ul { display:block; }
   .chip { display:block; background:transparent; border:0; border-bottom:1px solid #ccc; border-radius:0; padding:.2rem .5rem; font-size:10.5pt; color:#111; }
+  /* Servicio general (C-06g): va primero, tras el encabezado y antes de la tabla de componentes; luego la
+     tabla y "Procesos realizados" (order:2). Nombre y chequeos, uno por línea. */
+  .chips.chips-srv { order:0; margin-top:0; margin-bottom:1rem; }
+  .chips .srv-nombre { display:block; font-weight:700; font-size:11pt; color:#111; padding:.2rem .5rem; }
 }
+
+/* ---------- F. Servicios generales (paso-5g-servicios-generales; aprobado en los mockups S1, L2, C1, C2) ---------- */
+
+/* "Nueva orden": chequeos incluidos del servicio elegido (solo lectura) */
+.srv-incluye { margin-top:.5rem; padding:.5rem .75rem; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface-2); }
+.srv-incluye .lbl { display:block; font-size:var(--text-sm); color:var(--color-text-muted); font-weight:var(--weight-medium); margin-bottom:.25rem; }
+.srv-incluye ul { display:flex; flex-wrap:wrap; gap:.375rem; list-style:none; margin:0; padding:0; }
+
+/* /ordenes: fila "Servicio general:" (nombre + chips de chequeos), antes de "Procesos:" */
+.chips .srv-nombre { font-weight:var(--weight-semibold); font-size:var(--text-sm); }
+
+/* Título de /ordenes con el botón "Servicios generales" */
+.page-head { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:.5rem 1rem; }
+
+/* Modal "Servicios generales": lista de tarjetas */
+.srv-list { list-style:none; margin:0; padding:0; }
+.srv-card { padding:.75rem 0; }
+.srv-card + .srv-card { border-top:1px solid var(--color-border); }
+.srv-card-head { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; }
+.srv-card-head h3 { font-weight:var(--weight-semibold); margin-right:auto; }
+.srv-card .chips { padding:.5rem 0 0; }
+.srv-titulo:focus { outline:none; }
+
+/* Formulario: líneas de chequeo (n.º, caja de texto, Quitar) */
+.cline { display:grid; grid-template-columns:1.5rem minmax(0,1fr) auto; gap:.5rem; align-items:center; }
+.cline .line-n { text-align:right; }
+.cline-err { padding-left:2rem; }
+.clist { list-style:none; margin:0; padding:0; }
+.clist > li + li { margin-top:.5rem; }

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nueva orden — maqueta C-06g</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<link rel="stylesheet" href="assets/mockup-5c.css">
+<link rel="stylesheet" href="assets/mockup-5f.css">
+<link rel="stylesheet" href="assets/mockup-5g.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Nueva orden — paso-5g-servicios-generales">
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta"><div class="mk-bar-in">
+<span class="mk-tag">Maqueta</span><label class="sr-only" for="mk-state">Estado</label>
+<select id="mk-state">
+<option value="S1" data-desc="Bloque Servicio general entre la fecha y Componentes: Servicio 20 hs elegido y su lista Incluye: (solo lectura). Por defecto el selector dice Sin servicio general y la lista no se ve.">S1 · servicio elegido</option>
+</select>
+<a href="ordenes.html#L2">Órdenes →</a><span>C-06g</span><p class="mk-desc" id="mk-desc"></p>
+</div></div>
+<main class="mx-auto max-w-5xl px-4 py-6"><p class="text-muted text-sm">Inventario (fondo del modal)</p></main>
+<div class="overlay" data-show="S1" hidden>
+<div class="modal" style="max-width:36rem" role="dialog" aria-modal="true" aria-labelledby="s1-t">
+<div class="modal-head"><h2 id="s1-t">Nueva orden</h2><button class="icon-btn" type="button" aria-label="Cerrar">&times;</button></div>
+<form class="modal-form" novalidate onsubmit="return false"><div class="modal-body space-y-4">
+<div class="grid gap-4 sm:grid-cols-2">
+<div><label class="label" for="s1-num">Número de orden</label><input class="field num" id="s1-num" value="OT-0043"></div>
+<div><label class="label" for="s1-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="s1-fec" type="date" value="2026-11-27"><p class="help">Hoy; se puede cambiar.</p></div></div>
+<fieldset><legend class="label">Servicio general</legend>
+<label class="sr-only" for="s1-srv">Servicio general de la orden</label>
+<select class="field" id="s1-srv" aria-describedby="s1-inc"><option value="">Sin servicio general</option><option value="servicio-100-hs">Servicio 100 hs</option><option value="servicio-20-hs" selected>Servicio 20 hs</option></select>
+<div class="srv-incluye" id="s1-inc" aria-live="polite"><span class="lbl">Incluye:</span><ul aria-label="Chequeos de Servicio 20 hs"><li class="chip">Chequeo de motor</li><li class="chip">Chequeo de combustible</li><li class="chip">Chequeo eléctrico</li></ul></div>
+</fieldset>
+<fieldset><legend class="label">Componentes</legend>
+<ol class="space-y-2"><li data-row><div class="line"><span class="line-n" aria-hidden="true">1</span><select class="field" aria-label="Producto de la línea 1"><option>ACE-01 · Aceite 10W40</option></select><input class="field num" inputmode="numeric" value="2" aria-label="Cantidad de la línea 1"><button class="btn btn-secondary" type="button">Quitar</button></div></li><li data-row><div class="line"><span class="line-n" aria-hidden="true">2</span><select class="field" aria-label="Producto de la línea 2"><option>FIL-01 · Filtro de aceite</option></select><input class="field num" inputmode="numeric" value="1" aria-label="Cantidad de la línea 2"><button class="btn btn-secondary" type="button">Quitar</button></div></li></ol>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar componente</button><span class="text-xs text-muted">2 de 100 líneas</span></div></fieldset>
+<fieldset><legend class="label">Procesos</legend>
+<ul class="plist"><li><div class="pline"><select class="field" aria-label="Proceso de la línea 1"><option>Cambio filtro</option><option>Cambio motor</option><option selected>Limpieza</option><option>Personalizado</option></select><button class="btn btn-secondary" type="button">Quitar</button></div></li></ul>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar proceso</button><span class="text-xs text-muted">0 personalizados de 10</span></div></fieldset>
+</div>
+<div class="modal-foot"><button class="btn btn-secondary" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+</form></div></div>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

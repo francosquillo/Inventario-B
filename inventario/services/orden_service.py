@@ -1,5 +1,5 @@
 """Alta de ordenes de trabajo: validacion, normalizacion y consolidacion de componentes."""
-from inventario.domain.entities import ProcesoOrden
+from inventario.domain.entities import ProcesoOrden, ServicioOrden
 from inventario.domain.errors import DatosInvalidos, OrdenNoEncontrada
 from inventario.domain.tiempo import ahora_argentina
 from inventario.services.fechas import parsear_fecha, parsear_filtro_fecha, validar_rango
@@ -29,6 +29,7 @@ PERSONALIZADOS_MAX = 10
 CLAVE_ERROR_MAX = 30
 MENSAJE_PROCESOS_TIPO = "El campo procesos debe ser una lista de textos."
 MENSAJE_PERSONALIZADOS_TIPO = "El campo procesos_personalizados debe ser una lista de textos."
+MENSAJE_SERVICIO_TIPO = "El campo servicio debe ser texto."
 MENSAJE_PERSONALIZADOS_DEMASIADOS = (
     f"La orden admite hasta {PERSONALIZADOS_MAX} procesos personalizados."
 )
@@ -115,6 +116,21 @@ def _recortar(clave):
     return clave if len(clave) <= CLAVE_ERROR_MAX else clave[:CLAVE_ERROR_MAX] + "…"
 
 
+def _resolver_servicio(servicio, repo):
+    """Clave del catalogo -> ServicioOrden (snapshot de nombre y chequeos); vacio/None = sin servicio."""
+    if servicio is None:
+        return None
+    if not isinstance(servicio, str):
+        raise DatosInvalidos(MENSAJE_SERVICIO_TIPO)
+    clave = servicio.strip().lower()
+    if not clave:
+        return None
+    encontrado = repo.obtener(clave)
+    if encontrado is None:
+        raise DatosInvalidos(f"El servicio general '{_recortar(clave)}' no existe.")
+    return ServicioOrden(encontrado.nombre, tuple(encontrado.chequeos))
+
+
 def _resolver_procesos(procesos, catalogo):
     """Claves del catalogo -> ProcesoOrden (sin repetir, primera aparicion), en el orden recibido."""
     claves = [c.strip().lower() for c in _lista_de_textos(procesos, MENSAJE_PROCESOS_TIPO)]
@@ -155,23 +171,38 @@ def _validar_personalizados(personalizados, catalogo):
 
 
 class OrdenService:
-    def __init__(self, orden_repo, proceso_repo, ahora=ahora_argentina):
+    def __init__(self, orden_repo, proceso_repo, servicio_repo, ahora=ahora_argentina):
         self._repo = orden_repo
         self._procesos = proceso_repo
+        self._servicios = servicio_repo
         self._ahora = ahora
 
     def crear(
-        self, numero, fecha, componentes, usuario_id, procesos=None, procesos_personalizados=None
+        self,
+        numero,
+        fecha,
+        componentes,
+        usuario_id,
+        procesos=None,
+        procesos_personalizados=None,
+        servicio=None,
     ):
         numero = _normalizar_numero(numero)
         f_orden = _parsear_fecha(fecha)
         items = _consolidar(componentes)
+        servicio_orden = _resolver_servicio(servicio, self._servicios)
         catalogo = self._procesos.listar()
         todos = _resolver_procesos(procesos, catalogo) + _validar_personalizados(
             procesos_personalizados, catalogo
         )
         return self._repo.crear(
-            numero, f_orden, items, usuario_id, self._ahora(), procesos=tuple(todos)
+            numero,
+            f_orden,
+            items,
+            usuario_id,
+            self._ahora(),
+            procesos=tuple(todos),
+            servicio=servicio_orden,
         )
 
     def listar(self, numero=None, desde=None, hasta=None):

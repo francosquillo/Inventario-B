@@ -40,6 +40,23 @@ class ProcesoOrden:
 
 
 @dataclass(frozen=True)
+class ServicioGeneral:
+    """Servicio general del catalogo: clave estable, nombre y chequeos en orden (C-06g)."""
+
+    clave: str
+    nombre: str
+    chequeos: "tuple[str, ...]"
+
+
+@dataclass(frozen=True)
+class ServicioOrden:
+    """Servicio de una orden: snapshot del nombre y los chequeos (sin FK al catalogo)."""
+
+    nombre: str
+    chequeos: "tuple[str, ...]"
+
+
+@dataclass(frozen=True)
 class Producto:
     id: int
     codigo: str
@@ -116,6 +133,7 @@ class Orden:
     usuario: str
     items: "tuple[ItemOrden, ...]"
     procesos: "tuple[ProcesoOrden, ...]" = ()
+    servicio: "ServicioOrden | None" = None
 
 
 @dataclass(frozen=True)

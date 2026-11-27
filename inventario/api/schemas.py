@@ -65,6 +65,29 @@ class ProcesoRenombreRequest(BaseModel):
     clave: Optional[Any] = None  # solo para rechazarla: la clave es inmutable
 
 
+class ServicioGeneralOut(BaseModel):
+    clave: str
+    nombre: str
+    chequeos: List[str]
+
+
+class ServicioGeneralAltaRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    # Tipos laxos: los valida el service con mensajes de dominio en espanol.
+    nombre: Optional[Any] = None
+    chequeos: Optional[Any] = None
+    clave: Optional[Any] = None
+
+
+class ServicioGeneralCambioRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    nombre: Optional[Any] = None
+    chequeos: Optional[Any] = None
+    clave: Optional[Any] = None  # solo para rechazarla: la clave es inmutable
+
+
 class ErrorOut(BaseModel):
     detail: str
 
@@ -263,6 +286,7 @@ class OrdenRequest(BaseModel):
     # Tipos laxos: los valida el service con mensajes de dominio en espanol.
     procesos: Optional[Any] = None
     procesos_personalizados: Optional[Any] = None
+    servicio: Optional[Any] = None
 
 
 class ComponenteOut(BaseModel):
@@ -276,6 +300,11 @@ class ProcesoOrdenOut(BaseModel):
     personalizado: bool
 
 
+class ServicioOrdenOut(BaseModel):
+    nombre: str
+    chequeos: List[str]
+
+
 class OrdenOut(BaseModel):
     id: int
     numero: str
@@ -283,6 +312,7 @@ class OrdenOut(BaseModel):
     usuario: str
     componentes: List[ComponenteOut]
     procesos: List[ProcesoOrdenOut] = []
+    servicio: Optional[ServicioOrdenOut] = None
 
 
 class FaltanteOut(BaseModel):
@@ -309,6 +339,11 @@ def orden_out(orden):
         procesos=[
             ProcesoOrdenOut(nombre=p.nombre, personalizado=p.personalizado) for p in orden.procesos
         ],
+        servicio=(
+            ServicioOrdenOut(nombre=orden.servicio.nombre, chequeos=list(orden.servicio.chequeos))
+            if orden.servicio
+            else None
+        ),
     )
 
 

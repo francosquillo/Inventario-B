@@ -298,7 +298,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 
 ### [C-06g] `paso-5g-servicios-generales`
 > Change intermedio agregado el 2026-11-26 (pedido del usuario). Catálogo nuevo ligado a órdenes, sin precios todavía.
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-27)
 - **Scope**:
   - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
   - Catálogo de **servicios generales** de las órdenes; cada uno agrupa una lista de chequeos incluidos. Ejemplo: **servicio de 20 hs** = chequeo de motor, chequeo de combustible, chequeo eléctrico, etc.
@@ -386,7 +386,8 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
   - Paridad con C-06c..C-06f: búsqueda de productos, reporte de productos en órdenes por fechas (RPC `productos_en_ordenes` y `productos_usados`), categorías de productos y procesos de órdenes (tablas, migraciones y RPC equivalentes en Postgres)
   - Paridad con C-06f (procesos): tablas `procesos` (`clave` con CHECK, índice único sobre `lower(nombre)`) y `orden_procesos` (`orden_id` on delete cascade, `nombre` snapshot, `personalizado`, `position`, sin FK al catálogo); RPC `crear_orden` con `p_procesos` y `p_procesos_personalizados` (misma transacción que el descuento de stock); alta/renombrar/borrar de procesos y `DELETE` de categorías como operaciones directas sin RPC (`23505` → 409; `23503` por categoría en uso → 409); seed de `procesos` y `categorias` solo al crear cada tabla (no al estar vacía)
   - Paridad con C-06e (categorías): tabla `categorias` (`clave` única con CHECK, índice único sobre `lower(nombre)`) + `productos.categoria_id` nullable FK; seed `motor`/`aceite`/`filtro` solo con catálogo vacío; RPC de alta y modificación de productos con `p_categoria` (clave); RPC `productos_en_ordenes` devuelve `categoria`; crear (`POST`) y renombrar (`PATCH`) categorías como operaciones directas de una fila (23505 → 409), sin RPC
-  - Paridad con C-06g..C-06j: servicios generales y sus chequeos, precios y datos nuevos de la orden, modificación atómica de órdenes con ajuste de stock (RPC) y checkeo final
+  - Paridad con C-06g (servicios generales, D10 de su design): tablas `servicios_generales` (`clave` con CHECK, índice único sobre `lower(nombre)`, nombre 1-60), `servicio_chequeos` (`servicio_id` on delete cascade, `posicion`, `nombre`, PK `(servicio_id, posicion)` + índice único `(servicio_id, lower(nombre))`), `orden_servicio` (`orden_id bigint` PK references `ordenes(id)` on delete cascade, `nombre` snapshot) y `orden_servicio_chequeos` (`orden_id` references `orden_servicio(orden_id)` on delete cascade, `posicion`, `nombre`, PK `(orden_id, posicion)` + índice único `(orden_id, lower(nombre))`); seed de `servicio-20-hs` con sus tres chequeos solo al crear las tablas; RPC `crear_orden` con `p_servicio jsonb` (`{nombre, chequeos}` o `null`, ya validado) en la misma transacción que el descuento de stock; alta y modificación de servicio (catálogo y chequeos) por RPC transaccional `guardar_servicio_general` (o equivalente); borrar servicio es una fila (cascade); `23505` → 409; RLS como `ordenes`
+  - Paridad con C-06h..C-06j: precios y datos nuevos de la orden, modificación atómica de órdenes con ajuste de stock (RPC) y checkeo final
 - **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-06j`
 - **Governance**: CRITICO (`service_role` key, migración de datos)

@@ -6,6 +6,8 @@ from inventario.domain.entities import (
     Categoria,
     Proceso,
     ProcesoOrden,
+    ServicioGeneral,
+    ServicioOrden,
     LineaModificacion,
     Movimiento,
     Orden,
@@ -88,6 +90,38 @@ class ProcesoRepository(ABC):
         """Borra y devuelve el proceso (las ordenes conservan su snapshot). Lanza ProcesoNoEncontrado."""
 
 
+class ServicioGeneralRepository(ABC):
+    @abstractmethod
+    def listar(self) -> "list[ServicioGeneral]":
+        """Catalogo ordenado por nombre (y clave), con los chequeos en orden."""
+
+    @abstractmethod
+    def obtener(self, clave: str) -> "ServicioGeneral | None": ...
+
+    @abstractmethod
+    def crear(self, clave: str, nombre: str, chequeos: "tuple[str, ...]") -> ServicioGeneral:
+        """Datos ya validados. Lanza ServicioGeneralDuplicado si la clave o el nombre ya existen."""
+
+    @abstractmethod
+    def modificar(
+        self,
+        clave: str,
+        nombre: "str | None" = None,
+        chequeos: "tuple[str, ...] | None" = None,
+    ) -> ServicioGeneral:
+        """Cambia el nombre y/o reemplaza todos los chequeos, todo o nada.
+
+        Lanza ServicioGeneralNoEncontrado o ServicioGeneralDuplicado.
+        """
+
+    @abstractmethod
+    def borrar(self, clave: str) -> ServicioGeneral:
+        """Borra y devuelve el servicio (las ordenes conservan su snapshot).
+
+        Lanza ServicioGeneralNoEncontrado.
+        """
+
+
 class StockRepository(ABC):
     """Cada metodo es una unidad de trabajo atomica (en Postgres sera una funcion RPC)."""
 
@@ -149,8 +183,9 @@ class OrdenRepository(ABC):
         usuario_id: int,
         creada_en: datetime,
         procesos: "tuple[ProcesoOrden, ...]" = (),
+        servicio: "ServicioOrden | None" = None,
     ) -> Orden:
-        """Crea la orden, sus procesos y descuenta el stock; todo o nada.
+        """Crea la orden, sus procesos, su servicio y descuenta el stock; todo o nada.
 
         `items` llega validado y consolidado: (codigo, cantidad_total) en orden de
         primera aparicion, codigos unicos. No escribe en `movimientos` (RN-ST-06).

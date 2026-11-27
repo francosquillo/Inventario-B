@@ -10,6 +10,7 @@ from inventario.repositories.sqlite_repo import (
     SqliteOrdenRepository,
     SqliteProcesoRepository,
     SqliteProductoRepository,
+    SqliteServicioGeneralRepository,
     SqliteStockRepository,
     SqliteUsuarioRepository,
 )
@@ -20,6 +21,7 @@ from inventario.services.movimientos_service import MovimientosService
 from inventario.services.orden_service import OrdenService
 from inventario.services.proceso_service import ProcesoService
 from inventario.services.reporte_service import ReporteService
+from inventario.services.servicio_general_service import ServicioGeneralService
 from inventario.services.producto_service import ProductoService
 from inventario.services.stock_service import StockService
 
@@ -67,11 +69,19 @@ def get_movimientos_service(conn=Depends(get_conexion)):
 
 
 def get_orden_service(conn=Depends(get_conexion)):
-    return OrdenService(SqliteOrdenRepository(conn), SqliteProcesoRepository(conn))
+    return OrdenService(
+        SqliteOrdenRepository(conn),
+        SqliteProcesoRepository(conn),
+        SqliteServicioGeneralRepository(conn),
+    )
 
 
 def get_proceso_service(conn=Depends(get_conexion)):
     return ProcesoService(SqliteProcesoRepository(conn))
+
+
+def get_servicio_general_service(conn=Depends(get_conexion)):
+    return ServicioGeneralService(SqliteServicioGeneralRepository(conn))
 
 
 def get_reporte_service(conn=Depends(get_conexion)):

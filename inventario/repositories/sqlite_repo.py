@@ -20,6 +20,8 @@ from inventario.domain.entities import (
     ResultadoBorradoOrden,
     ResultadoIngreso,
     ResultadoModificacion,
+    ServicioGeneral,
+    ServicioOrden,
     Usuario,
 )
 from inventario.domain.errors import (
@@ -35,6 +37,8 @@ from inventario.domain.errors import (
     ProcesoDuplicado,
     ProcesoNoEncontrado,
     ProductosNoEncontrados,
+    ServicioGeneralDuplicado,
+    ServicioGeneralNoEncontrado,
     StockInsuficiente,
     StockInsuficienteOrden,
 )
@@ -45,6 +49,7 @@ from inventario.repositories.base import (
     OrdenRepository,
     ProcesoRepository,
     ProductoRepository,
+    ServicioGeneralRepository,
     StockRepository,
     UsuarioRepository,
 )
@@ -229,6 +234,44 @@ _CREAR_PROCESOS_SQL = (
 )
 _TABLAS_CONTADAS = ("ordenes", "orden_items", "productos", "categorias", "movimientos")
 
+# Servicios generales de ordenes (C-06g, D1/D3). Tampoco van en ESQUEMA_SQL: los crea
+# `_crear_servicios_generales` con la siembra, en una sola transaccion, solo si
+# `servicios_generales` no existe. El snapshot de la orden no tiene FK al catalogo.
+_SERVICIOS_INICIALES = (
+    (
+        "servicio-20-hs",
+        "Servicio 20 hs",
+        ("Chequeo de motor", "Chequeo de combustible", "Chequeo eléctrico"),
+    ),
+)
+_CREAR_SERVICIOS_SQL = (
+    f"""CREATE TABLE servicios_generales (
+    id INTEGER PRIMARY KEY,
+    clave TEXT NOT NULL UNIQUE {_CLAVE_CHECK},
+    nombre TEXT NOT NULL UNIQUE COLLATE NOCASE
+        CHECK (length(trim(nombre)) BETWEEN 1 AND 60)
+)""",
+    """CREATE TABLE servicio_chequeos (
+    servicio_id INTEGER NOT NULL REFERENCES servicios_generales(id) ON DELETE CASCADE,
+    posicion INTEGER NOT NULL CHECK (typeof(posicion) = 'integer' AND posicion >= 1),
+    nombre TEXT NOT NULL CHECK (length(trim(nombre)) BETWEEN 1 AND 60),
+    PRIMARY KEY (servicio_id, posicion),
+    UNIQUE (servicio_id, nombre COLLATE NOCASE)
+)""",
+    """CREATE TABLE orden_servicio (
+    orden_id INTEGER PRIMARY KEY REFERENCES ordenes(id) ON DELETE CASCADE,
+    nombre TEXT NOT NULL CHECK (length(trim(nombre)) BETWEEN 1 AND 60)
+)""",
+    """CREATE TABLE orden_servicio_chequeos (
+    orden_id INTEGER NOT NULL REFERENCES orden_servicio(orden_id) ON DELETE CASCADE,
+    posicion INTEGER NOT NULL CHECK (typeof(posicion) = 'integer' AND posicion >= 1),
+    nombre TEXT NOT NULL CHECK (length(trim(nombre)) BETWEEN 1 AND 60),
+    PRIMARY KEY (orden_id, posicion),
+    UNIQUE (orden_id, nombre COLLATE NOCASE)
+)""",
+)
+_TABLAS_CONTADAS_SERVICIOS = _TABLAS_CONTADAS + ("procesos", "orden_procesos")
+
 
 def _existe_tabla(conn, nombre):
     return conn.execute(
@@ -292,6 +335,37 @@ def _crear_procesos(conn, loguear=True):
         )
 
 
+def _crear_servicios_generales(conn, loguear=True):
+    """Crea las cuatro tablas de servicios generales y siembra el catalogo (C-06g, D4). Aditiva.
+
+    Idempotente: no hace nada si `servicios_generales` ya existe. Una sola transaccion: ante
+    error se revierte (no queda ninguna de las cuatro tablas) y la excepcion sube.
+    """
+    if _existe_tabla(conn, "servicios_generales"):
+        return
+    with _transaccion(conn):
+        antes = _contar(conn, _TABLAS_CONTADAS_SERVICIOS)
+        for sql in _CREAR_SERVICIOS_SQL:
+            conn.execute(sql)
+        for clave, nombre, items in _SERVICIOS_INICIALES:
+            servicio_id = conn.execute(
+                "INSERT INTO servicios_generales (clave, nombre) VALUES (?, ?)", (clave, nombre)
+            ).lastrowid
+            conn.executemany(
+                "INSERT INTO servicio_chequeos (servicio_id, posicion, nombre) VALUES (?, ?, ?)",
+                [(servicio_id, pos, texto) for pos, texto in enumerate(items, start=1)],
+            )
+        if _contar(conn, _TABLAS_CONTADAS_SERVICIOS) != antes:
+            raise sqlite3.IntegrityError(
+                "La migracion de servicios generales cambio la cantidad de filas."
+            )
+    if loguear:  # una base nueva no es una migracion
+        log.info(
+            "Agregados los servicios generales de ordenes (%d orden(es) conservadas, sin servicio).",
+            antes[0],
+        )
+
+
 def inicializar_esquema(conn):
     categorias_existia = _existe_tabla(conn, "categorias")
     base_existia = _existe_tabla(conn, "ordenes")
@@ -299,6 +373,7 @@ def inicializar_esquema(conn):
     _migrar_movimientos(conn)
     _migrar_productos_categoria(conn, sembrar=not categorias_existia)
     _crear_procesos(conn, loguear=base_existia)
+    _crear_servicios_generales(conn, loguear=base_existia)
     conn.execute(NORMALIZAR_FECHAS_SQL)
     sin_parsear = conn.execute(CONTAR_FECHAS_NO_PARSEABLES_SQL).fetchone()[0]
     if sin_parsear:
@@ -462,6 +537,98 @@ class SqliteProcesoRepository(ProcesoRepository):
                 raise ProcesoNoEncontrado(clave)
             self._conn.execute("DELETE FROM procesos WHERE clave = ?", (clave,))
         return proceso
+
+
+_SQL_CHEQUEOS_DE_SERVICIO = (
+    "SELECT servicio_id, nombre FROM servicio_chequeos ORDER BY servicio_id, posicion"
+)
+_SQL_ALTA_CHEQUEO = "INSERT INTO servicio_chequeos (servicio_id, posicion, nombre) VALUES (?, ?, ?)"
+
+
+class SqliteServicioGeneralRepository(ServicioGeneralRepository):
+    def __init__(self, conn):
+        self._conn = conn
+
+    def listar(self):
+        filas = self._conn.execute(
+            "SELECT id, clave, nombre FROM servicios_generales ORDER BY nombre, clave"
+        ).fetchall()
+        chequeos = {}
+        for f in self._conn.execute(_SQL_CHEQUEOS_DE_SERVICIO).fetchall():
+            chequeos.setdefault(f["servicio_id"], []).append(f["nombre"])
+        return [
+            ServicioGeneral(f["clave"], f["nombre"], tuple(chequeos.get(f["id"], ())))
+            for f in filas
+        ]
+
+    def obtener(self, clave):
+        fila = self._conn.execute(
+            "SELECT id, clave, nombre FROM servicios_generales WHERE clave = ?", (clave,)
+        ).fetchone()
+        return self._armar(fila) if fila else None
+
+    def _armar(self, fila):
+        chequeos = self._conn.execute(
+            "SELECT nombre FROM servicio_chequeos WHERE servicio_id = ? ORDER BY posicion",
+            (fila["id"],),
+        ).fetchall()
+        return ServicioGeneral(fila["clave"], fila["nombre"], tuple(c["nombre"] for c in chequeos))
+
+    def _insertar_chequeos(self, servicio_id, chequeos):
+        self._conn.executemany(
+            _SQL_ALTA_CHEQUEO,
+            [(servicio_id, pos, texto) for pos, texto in enumerate(chequeos, start=1)],
+        )
+
+    def crear(self, clave, nombre, chequeos):
+        with _transaccion(self._conn):
+            try:
+                servicio_id = self._conn.execute(
+                    "INSERT INTO servicios_generales (clave, nombre) VALUES (?, ?)", (clave, nombre)
+                ).lastrowid
+            except sqlite3.IntegrityError:
+                existe = self._conn.execute(
+                    "SELECT 1 FROM servicios_generales WHERE clave = ?", (clave,)
+                ).fetchone()
+                campo, valor = ("clave", clave) if existe else ("nombre", nombre)
+                raise ServicioGeneralDuplicado(campo, valor) from None
+            self._insertar_chequeos(servicio_id, chequeos)
+        return ServicioGeneral(clave, nombre, tuple(chequeos))
+
+    def modificar(self, clave, nombre=None, chequeos=None):
+        with _transaccion(self._conn):
+            fila = self._conn.execute(
+                "SELECT id FROM servicios_generales WHERE clave = ?", (clave,)
+            ).fetchone()
+            if fila is None:
+                raise ServicioGeneralNoEncontrado(clave)
+            if nombre is not None:
+                try:
+                    self._conn.execute(
+                        "UPDATE servicios_generales SET nombre = ? WHERE id = ?",
+                        (nombre, fila["id"]),
+                    )
+                except sqlite3.IntegrityError:
+                    raise ServicioGeneralDuplicado("nombre", nombre) from None
+            if chequeos is not None:
+                self._conn.execute(
+                    "DELETE FROM servicio_chequeos WHERE servicio_id = ?", (fila["id"],)
+                )
+                self._insertar_chequeos(fila["id"], chequeos)
+            return self.obtener(clave)
+
+    def borrar(self, clave):
+        with _transaccion(self._conn):
+            servicio = self.obtener(clave)
+            if servicio is None:
+                raise ServicioGeneralNoEncontrado(clave)
+            self._conn.execute(
+                "DELETE FROM servicio_chequeos WHERE servicio_id = "
+                "(SELECT id FROM servicios_generales WHERE clave = ?)",
+                (clave,),
+            )
+            self._conn.execute("DELETE FROM servicios_generales WHERE clave = ?", (clave,))
+        return servicio
 
 
 class SqliteProductoRepository(ProductoRepository):
@@ -773,6 +940,18 @@ _SQL_PROCESOS_DE_ORDENES = (
     "WHERE orden_id IN ({}) ORDER BY orden_id, posicion"
 )
 _SQL_BORRAR_ORDEN = "DELETE FROM ordenes WHERE id = ?"
+_SQL_BORRAR_SERVICIO_CHEQUEOS = "DELETE FROM orden_servicio_chequeos WHERE orden_id = ?"
+_SQL_BORRAR_SERVICIO = "DELETE FROM orden_servicio WHERE orden_id = ?"
+_SQL_ALTA_SERVICIO = "INSERT INTO orden_servicio (orden_id, nombre) VALUES (?, ?)"
+_SQL_ALTA_SERVICIO_CHEQUEO = (
+    "INSERT INTO orden_servicio_chequeos (orden_id, posicion, nombre) VALUES (?, ?, ?)"
+)
+_SQL_SERVICIOS_DE_ORDENES = (
+    "SELECT s.orden_id, s.nombre AS servicio, c.nombre AS chequeo "
+    "FROM orden_servicio s "
+    "LEFT JOIN orden_servicio_chequeos c ON c.orden_id = s.orden_id "
+    "WHERE s.orden_id IN ({}) ORDER BY s.orden_id, c.posicion"
+)
 
 
 def _leer_procesos(conn, orden_ids):
@@ -791,9 +970,24 @@ def _leer_procesos(conn, orden_ids):
     return {orden_id: tuple(lista) for orden_id, lista in por_orden.items()}
 
 
-def _a_ordenes(filas, procesos=None):
+def _leer_servicios(conn, orden_ids):
+    """Servicio de varias ordenes en una consulta por lote: {orden_id: ServicioOrden}."""
+    if not orden_ids:
+        return {}
+    sql = _SQL_SERVICIOS_DE_ORDENES.format(", ".join("?" * len(orden_ids)))
+    nombres, chequeos = {}, {}
+    for f in conn.execute(sql, list(orden_ids)).fetchall():
+        nombres[f["orden_id"]] = f["servicio"]
+        lista = chequeos.setdefault(f["orden_id"], [])
+        if f["chequeo"] is not None:
+            lista.append(f["chequeo"])
+    return {i: ServicioOrden(nombre, tuple(chequeos[i])) for i, nombre in nombres.items()}
+
+
+def _a_ordenes(filas, procesos=None, servicios=None):
     """Agrupa las filas del JOIN (contiguas por orden) en entidades `Orden`."""
     procesos = procesos or {}
+    servicios = servicios or {}
     ordenes = []
     for _, grupo in groupby(filas, key=lambda f: f["id"]):
         lineas = list(grupo)
@@ -810,6 +1004,7 @@ def _a_ordenes(filas, procesos=None):
                     if f["codigo"] is not None
                 ),
                 procesos=procesos.get(cabecera["id"], ()),
+                servicio=servicios.get(cabecera["id"]),
             )
         )
     return ordenes
@@ -837,7 +1032,7 @@ class SqliteOrdenRepository(OrdenRepository):
     def __init__(self, conn):
         self._conn = conn
 
-    def crear(self, numero, fecha, items, usuario_id, creada_en, procesos=()):
+    def crear(self, numero, fecha, items, usuario_id, creada_en, procesos=(), servicio=None):
         texto_creada = _fecha_a_texto(creada_en)
         try:
             with _transaccion(self._conn):
@@ -849,12 +1044,21 @@ class SqliteOrdenRepository(OrdenRepository):
                         _SQL_ALTA_PROCESO,
                         (orden_id, posicion, proceso.nombre, int(proceso.personalizado)),
                     )
+                if servicio is not None:
+                    self._guardar_servicio(orden_id, servicio)
                 return self._leer_orden(orden_id)
         except sqlite3.IntegrityError as exc:
             # Respaldo del paso 1: el UNIQUE de ordenes.numero ante una carrera.
             if "ordenes.numero" in str(exc):
                 raise OrdenDuplicada(numero) from exc
             raise
+
+    def _guardar_servicio(self, orden_id, servicio):
+        self._conn.execute(_SQL_ALTA_SERVICIO, (orden_id, servicio.nombre))
+        self._conn.executemany(
+            _SQL_ALTA_SERVICIO_CHEQUEO,
+            [(orden_id, pos, texto) for pos, texto in enumerate(servicio.chequeos, start=1)],
+        )
 
     def _crear_en_transaccion(self, numero, fecha, items, usuario_id, texto_creada):
         conn = self._conn
@@ -906,7 +1110,9 @@ class SqliteOrdenRepository(OrdenRepository):
 
     def _armar(self, filas):
         ids = list(dict.fromkeys(f["id"] for f in filas))
-        return _a_ordenes(filas, _leer_procesos(self._conn, ids))
+        return _a_ordenes(
+            filas, _leer_procesos(self._conn, ids), _leer_servicios(self._conn, ids)
+        )
 
     def productos_en_ordenes(self, desde, hasta, codigo):
         sql = _SQL_REPORTE_EN_ORDENES
@@ -936,6 +1142,8 @@ class SqliteOrdenRepository(OrdenRepository):
             if orden is None:
                 raise OrdenNoEncontrada(numero)
             reintegros = self._reintegrar(orden.id) if reintegrar else ()
+            self._conn.execute(_SQL_BORRAR_SERVICIO_CHEQUEOS, (orden.id,))
+            self._conn.execute(_SQL_BORRAR_SERVICIO, (orden.id,))
             self._conn.execute(_SQL_BORRAR_PROCESOS, (orden.id,))
             self._conn.execute(_SQL_BORRAR_ITEMS, (orden.id,))
             cur = self._conn.execute(_SQL_BORRAR_ORDEN, (orden.id,))

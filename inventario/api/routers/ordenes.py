@@ -47,6 +47,7 @@ def crear_orden(datos: OrdenRequest, usuario: Usuario, ordenes: Servicio):
             usuario.id,
             procesos=datos.procesos,
             procesos_personalizados=datos.procesos_personalizados,
+            servicio=datos.servicio,
         )
     )
 

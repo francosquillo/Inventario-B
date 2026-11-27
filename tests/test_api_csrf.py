@@ -58,6 +58,30 @@ class CsrfTest(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_servicios_generales_con_cualquier_tipo_no_json_422_sin_efectos(self):
+        login(self.client)
+        cuerpo = json.dumps({"nombre": "Servicio 50 hs", "chequeos": ["A"]})
+        for tipo in TIPOS_NO_JSON:
+            with self.subTest(tipo=tipo):
+                r = self.client.post(
+                    "/api/servicios-generales", content=cuerpo, headers={"Content-Type": tipo}
+                )
+                self.assertEqual((r.status_code, r.json()), (422, {"detail": MENSAJE}))
+                r = self.client.patch(
+                    "/api/servicios-generales/servicio-20-hs",
+                    content=json.dumps({"nombre": "X"}),
+                    headers={"Content-Type": tipo},
+                )
+                self.assertEqual((r.status_code, r.json()), (422, {"detail": MENSAJE}))
+        self.assertEqual(
+            self.client.get("/api/servicios-generales").json(),
+            [{
+                "clave": "servicio-20-hs",
+                "nombre": "Servicio 20 hs",
+                "chequeos": ["Chequeo de motor", "Chequeo de combustible", "Chequeo eléctrico"],
+            }],
+        )
+
     def test_alta_y_modificacion_con_cualquier_tipo_no_json_422_sin_efectos(self):
         sembrar(self.ruta, [("A-01", "Tornillo", 5, 1)])
         login(self.client)

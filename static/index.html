@@ -17,6 +17,7 @@
   <script src="/static/js/busqueda.js" defer></script>
   <script src="/static/js/exportar.js" defer></script>
   <script src="/static/js/procesos.js" defer></script>
+  <script src="/static/js/servicios.js" defer></script>
   <script src="/static/js/inventario.js" defer></script>
 </head>
 <body>
@@ -204,6 +205,18 @@
               <p class="help" id="ord-fecha-h">Hoy; se puede cambiar.</p>
             </div>
           </div>
+          <fieldset>
+            <legend class="label">Servicio general</legend>
+            <p id="ord-servicio-aviso" class="err" role="alert" hidden></p>
+            <label class="sr-only" for="ord-servicio">Servicio general de la orden</label>
+            <select class="field" id="ord-servicio" aria-describedby="ord-servicio-inc" data-desc-base="ord-servicio-inc">
+              <option value="">Sin servicio general</option>
+            </select>
+            <div class="srv-incluye" id="ord-servicio-inc" aria-live="polite" hidden>
+              <span class="lbl">Incluye:</span>
+              <ul id="ord-servicio-chequeos"></ul>
+            </div>
+          </fieldset>
           <fieldset>
             <legend class="label">Componentes</legend>
             <p id="ord-general-e" class="err" role="alert" hidden></p>

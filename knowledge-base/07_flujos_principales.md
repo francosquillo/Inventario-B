@@ -96,15 +96,15 @@ Usuario → Adaptador → StockService → ProductoRepo / MovimientoRepo
 **Actor**: Usuario autenticado.
 
 **Pasos**:
-1. Adaptador recoge número, fecha `YYYY-MM-DD`, lista de (producto, cantidad) y, opcionales, `procesos` (claves del catálogo) y `procesos_personalizados` (textos); valida formatos.
+1. Adaptador recoge número, fecha `YYYY-MM-DD`, lista de (producto, cantidad) y, opcionales, `servicio` (clave del catálogo de servicios generales o `null`), `procesos` (claves del catálogo) y `procesos_personalizados` (textos); valida formatos.
 2. OrdenService verifica unicidad del número, que haya ≥ 1 componente y que todos sean productos activos.
 3. Valida stock de TODOS los componentes; si alguno falla, devuelve la lista de faltantes y no modifica nada.
-4. Atómico: inserta la orden, inserta `orden_items`, descuenta stock de cada producto e inserta `orden_procesos` (catálogo primero, luego personalizados; nombre como snapshot).
+4. Atómico: inserta la orden, inserta `orden_items`, descuenta stock de cada producto, inserta `orden_procesos` (catálogo primero, luego personalizados; nombre como snapshot) e inserta `orden_servicio` con sus `orden_servicio_chequeos` (snapshot de nombre y chequeos, C-06g).
 
 ```
 Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
                                        SQLite: transacción
-                                       Supabase: RPC crear_orden(..., p_procesos, p_procesos_personalizados)
+                                       Supabase: RPC crear_orden(..., p_servicio, p_procesos, p_procesos_personalizados)
         ← orden creada | error con faltantes
 ```
 
@@ -116,8 +116,11 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 - Proceso del catálogo inexistente → 422 "El proceso 'x' no existe." sin tocar stock (RN-OR-13).
 - Personalizado vacío o de más de 60 → 422 "Proceso personalizado N: ..."; más de 10 → 422 "La orden admite hasta 10 procesos personalizados."; igual a uno del catálogo o repetido → 422 con su posición (RN-OR-14).
 - Orden solo con procesos y sin componentes → 422 "La orden requiere al menos un componente."
+- Servicio general inexistente → 422 "El servicio general 'x' no existe."; `servicio` que no es texto ni `null` → 422 "El campo servicio debe ser texto.". Ambos sin tocar stock (RN-OR-18).
 
 **En la web (modal "Nueva orden", C-06f)**: debajo de "Componentes", el bloque "Procesos" con líneas (Agregar proceso / Quitar; cero permitido). Cada línea tiene un selector con los procesos de `GET /api/procesos` y "Personalizado", que muestra un cuadro de texto (hasta 10 líneas personalizadas). Si el catálogo no carga se avisa "No se pudo cargar la lista de procesos." y solo queda "Personalizado". El mismo proceso en dos líneas se envía una vez. Si un proceso fue borrado con el modal abierto, el backend responde 422 y se muestra el mensaje.
+
+**En la web (bloque "Servicio general", C-06g)**: entre la fecha y "Componentes", un selector con "Sin servicio general" (por defecto) y los servicios de `GET /api/servicios-generales`; al elegir uno se listan sus chequeos (solo lectura). Si el catálogo no carga se avisa "No se pudo cargar la lista de servicios generales." y queda solo "Sin servicio general". Si el servicio fue borrado con el modal abierto, el backend responde 422 y se muestra junto al bloque, con el selector vuelto a "Sin servicio general".
 
 ## Flujo 5: Listar órdenes
 **Disparador**: `GET /api/ordenes?numero&desde&hasta` (Fase 1, `/docs`) / pantalla de órdenes (Fase 2).
@@ -126,7 +129,7 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 **Pasos**:
 1. Usuario elige "todas", ingresa un número de orden y/o `desde` y `hasta` (cada fecha opcional por separado; vacío = sin filtro).
 2. OrdenService normaliza el número (recorte + MAYÚSCULAS), valida fechas y desde ≤ hasta.
-3. Repo busca por número exacto y/o `fecha BETWEEN desde AND hasta` (inclusivo, rangos abiertos permitidos), combinados por AND, junto a sus ítems y los nombres de producto (activos o no), ordenados por fecha DESC, id DESC.
+3. Repo busca por número exacto y/o `fecha BETWEEN desde AND hasta` (inclusivo, rangos abiertos permitidos), combinados por AND, junto a sus ítems, los nombres de producto (activos o no), su servicio general con chequeos (si tiene) y sus procesos, ordenados por fecha DESC, id DESC.
 
 **Casos de error**:
 - Fecha inválida o rango invertido → 422 con mensaje claro.
@@ -158,6 +161,7 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 3. Estilos de impresión: página clara, controles y columna de acciones ocultos, stock 0 como "0 (sin stock)", encabezados de tabla repetidos por página.
 
 **Casos especiales**:
+- Orden con servicio general (C-06g): el PDF muestra primero el bloque "Servicio general" (nombre y chequeos uno por línea), antes de la tabla de componentes; sin servicio no se muestra.
 - No existe exportación de la lista completa de órdenes (solo por orden); el reporte de C-06d (Flujo 5d) reutiliza `exportar.js`.
 
 ## Flujo 5d: Reporte de productos usados en órdenes por fechas (C-06d)
@@ -208,6 +212,24 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 - Sin sesión → 401.
 - Proceso: clave o nombre repetido → 409; nombre vacío o de más de 60, o clave inválida → 422; renombrar con `clave` en el cuerpo → 422; clave inexistente (renombrar o borrar) → 404.
 - Categoría: clave inexistente → 404; con algún producto asignado (activo o dado de baja) → 409 "La categoría 'x' está asignada a N producto(s)." sin cambios.
+
+## Flujo 5g: Servicios generales de órdenes (C-06g)
+**Actor**: Usuario autenticado.
+
+**Asignar**: al crear la orden, el bloque "Servicio general" (ver Flujo 4) envía `servicio` con la clave elegida o `null`. El snapshot guarda el nombre y todos los chequeos del servicio en ese momento.
+
+**Ver**: `/ordenes` muestra bajo la cabecera de cada orden con servicio una fila "Servicio general:" con el nombre y sus chequeos como chips; sin servicio, no hay fila. El PDF de la orden (Flujo 5c) lo muestra primero, antes de los componentes.
+
+**Administrar el catálogo (web)**: el botón "Servicios generales" junto al título de `/ordenes` abre un modal con tres vistas: lista (cada servicio con "Editar" / "Eliminar" y "Nuevo servicio"), formulario (nombre de hasta 60; chequeos en líneas numeradas, de 1 a 30, cada uno de 1 a 60 caracteres, sin repetir; "Agregar chequeo" / "Quitar"; se guardan en el orden de las líneas) y confirmación de borrado. Tras guardar o eliminar, el modal muestra un mensaje de éxito. La lista de órdenes no se recarga: los snapshots no cambian.
+
+**Administrar el catálogo (API, desde `/docs`)**: `GET /api/servicios-generales` lista por nombre; `POST /api/servicios-generales {nombre, chequeos, clave?}` → 201 (clave derivada del nombre si falta); `PATCH /api/servicios-generales/{clave} {nombre?, chequeos?}` → 200 (`chequeos` reemplaza la lista completa); `DELETE /api/servicios-generales/{clave}` → 200 con el servicio borrado.
+
+**Casos de error**:
+- Sin sesión → 401.
+- Clave o nombre repetido → 409 "Ya existe un servicio general con clave 'x'." / "…con nombre 'X'."
+- Nombre vacío o de más de 60 → 422; chequeos que no son una lista, lista vacía, más de 30, vacío, de más de 60 o repetido → 422 con su posición ("Chequeo N: ...").
+- Modificar sin nombre ni chequeos → 422 "Indicá el nombre o los chequeos a modificar."; `clave` en el cuerpo → 422.
+- Clave inexistente (modificar o borrar) → 404 "No existe un servicio general con clave 'x'.".
 
 ## Flujo 6: Borrar orden
 **Disparador**: `DELETE /api/ordenes/{numero}?reintegrar=true|false` (Fase 1, `/docs`) / modal de borrado (Fase 2). La orden se identifica por su número normalizado, nunca por id (C-05).

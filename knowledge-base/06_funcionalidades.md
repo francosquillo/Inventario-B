@@ -100,8 +100,9 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 - [ ] Si algún componente no tiene stock suficiente, se rechaza toda la orden y no se descuenta nada (el mensaje indica cuáles).
 - [ ] Si alcanza, se descuentan todos los componentes y se crea la orden atómicamente.
 - [ ] No se generan filas en `movimientos` por la orden.
+- [ ] (C-06g) Campo opcional `servicio` (clave del catálogo o `null`): el servicio se guarda como snapshot (nombre y todos sus chequeos) en la misma transacción; si no existe, se rechaza con 422 "El servicio general 'x' no existe." sin tocar stock. Ver US-017.
 
-**Reglas relacionadas**: RN-OR-01, RN-OR-02, RN-OR-03, RN-OR-04, RN-OR-05, RN-OR-06, RN-ST-06, RN-VA-01, RN-VA-02, RN-VA-03
+**Reglas relacionadas**: RN-OR-01, RN-OR-02, RN-OR-03, RN-OR-04, RN-OR-05, RN-OR-06, RN-OR-18, RN-OR-19, RN-ST-06, RN-VA-01, RN-VA-02, RN-VA-03
 
 ### US-007 — Listar órdenes
 **Como** usuario
@@ -118,8 +119,9 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 - [ ] Orden de la lista: la más nueva primero (fecha de la orden DESC, luego id DESC).
 - [ ] Fecha inválida o desde > hasta se rechaza con mensaje claro.
 - [ ] Cada orden muestra número, fecha y componentes con cantidades (incluso de productos dados de baja).
+- [ ] (C-06g) Cada orden con servicio general muestra su nombre y sus chequeos tal como quedaron al crearla, aunque el catálogo haya cambiado después; sin servicio, no hay fila.
 
-**Reglas relacionadas**: RN-OR-07, RN-PR-04, RN-VA-03
+**Reglas relacionadas**: RN-OR-07, RN-OR-19, RN-PR-04, RN-VA-03
 
 ### US-008 — Borrar orden
 **Como** usuario
@@ -238,6 +240,26 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 - [ ] Catálogo de procesos por API (sin pantalla): `GET`/`POST /api/procesos`, `PATCH`/`DELETE /api/procesos/{clave}`; `DELETE /api/categorias/{clave}` borra una categoría sin productos (409 si alguno, activo o dado de baja, la usa).
 
 **Reglas relacionadas**: RN-OR-13..RN-OR-17, RN-PR-15
+
+## Épica 3e: Servicios generales de órdenes (C-06g)
+
+### US-017 — Servicio general con chequeos incluidos
+**Como** usuario
+**Quiero** asignar a una orden un servicio general (por ejemplo, "Servicio 20 hs") que trae una lista de chequeos incluidos, y administrar ese catálogo
+**Para** dejar constancia de qué servicio se hizo y qué chequeos incluye
+
+**Paso**: 5g (cambia el esquema: tablas `servicios_generales`, `servicio_chequeos`, `orden_servicio` y `orden_servicio_chequeos`; migración aditiva)
+
+**Criterios de aceptación**:
+- [ ] El servicio general es opcional y como máximo uno por orden; las órdenes existentes quedan sin servicio tras la migración, sin perder datos.
+- [ ] "Nueva orden" tiene un bloque "Servicio general" entre la fecha y "Componentes": un selector con "Sin servicio general" (por defecto) y los servicios del catálogo; al elegir uno se listan sus chequeos (solo lectura).
+- [ ] El servicio y sus chequeos se crean en la misma transacción que el descuento de stock; borrar la orden borra su servicio.
+- [ ] `/ordenes` muestra una fila "Servicio general:" bajo la cabecera de cada orden con servicio (antes de "Procesos:"); el PDF de una orden muestra el bloque "Servicio general" primero, antes de la tabla de componentes.
+- [ ] Renombrar, cambiar chequeos o borrar un servicio del catálogo no cambia las órdenes pasadas.
+- [ ] Botón "Servicios generales" junto al título de `/ordenes` que abre un modal para listar, crear, editar y borrar servicios; cada servicio tiene de 1 a 30 chequeos, sin repetir, y el nombre de hasta 60 caracteres.
+- [ ] Catálogo también por API: `GET`/`POST /api/servicios-generales`, `PATCH`/`DELETE /api/servicios-generales/{clave}`.
+
+**Reglas relacionadas**: RN-OR-18, RN-OR-19, RN-OR-20, RN-OR-21
 
 ## Épica 4: Web y despliegue
 

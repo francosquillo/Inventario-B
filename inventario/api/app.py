@@ -22,6 +22,7 @@ from inventario.api.routers import (
     procesos,
     productos,
     reportes,
+    servicios_generales,
     stock,
 )
 from inventario.domain.errors import (
@@ -40,6 +41,8 @@ from inventario.domain.errors import (
     ProductoNoEncontrado,
     ProductosInexistentes,
     ProductosNoEncontrados,
+    ServicioGeneralDuplicado,
+    ServicioGeneralNoEncontrado,
     StockInsuficiente,
     StockInsuficienteOrden,
 )
@@ -111,6 +114,7 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
     app.include_router(inventario.router)
     app.include_router(categorias.router)
     app.include_router(procesos.router)
+    app.include_router(servicios_generales.router)
     app.include_router(stock.router)
     app.include_router(movimientos.router)
     app.include_router(ordenes.router)
@@ -143,6 +147,8 @@ def crear_app(*, ruta_db=None, secret_key=None, password_admin=_SIN_VALOR, https
         (CategoriaEnUso, 409),
         (ProcesoDuplicado, 409),
         (ProcesoNoEncontrado, 404),
+        (ServicioGeneralDuplicado, 409),
+        (ServicioGeneralNoEncontrado, 404),
     ):
         app.add_exception_handler(tipo, _responder(status))
 

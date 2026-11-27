@@ -1,7 +1,7 @@
 import unittest
 from datetime import date, datetime
 
-from inventario.domain.entities import Faltante
+from inventario.domain.entities import Faltante, ServicioOrden
 from inventario.domain.errors import (
     DatosInvalidos,
     OrdenDuplicada,
@@ -10,8 +10,13 @@ from inventario.domain.errors import (
     StockInsuficienteOrden,
 )
 from inventario.domain.tiempo import ZONA_AR
-from inventario.repositories.sqlite_repo import SqliteOrdenRepository, SqliteProcesoRepository
+from inventario.repositories.sqlite_repo import (
+    SqliteOrdenRepository,
+    SqliteProcesoRepository,
+    SqliteServicioGeneralRepository,
+)
 from inventario.services.orden_service import OrdenService
+from inventario.services.servicio_general_service import ServicioGeneralService
 from tests.helpers import conexion_inicializada, insertar_producto, insertar_usuario, movimientos
 
 FECHA_FIJA = datetime(2026, 11, 19, 15, 30, tzinfo=ZONA_AR)
@@ -27,6 +32,7 @@ class ServiceBase(unittest.TestCase):
         insertar_producto(self.conn, "B-02", "Tuerca", 10)
         self.service = OrdenService(
             SqliteOrdenRepository(self.conn), SqliteProcesoRepository(self.conn),
+            SqliteServicioGeneralRepository(self.conn),
             ahora=lambda: FECHA_FIJA,
         )
 
@@ -253,7 +259,8 @@ class ListarServiceTest(ServiceBase):
                 return super().existe_numero(numero)
 
         self.service = OrdenService(
-            RepoEspia(self.conn), SqliteProcesoRepository(self.conn), ahora=lambda: FECHA_FIJA
+            RepoEspia(self.conn), SqliteProcesoRepository(self.conn),
+            SqliteServicioGeneralRepository(self.conn), ahora=lambda: FECHA_FIJA,
         )
         return llamadas
 
@@ -388,3 +395,107 @@ class BorrarServiceTest(ServiceBase):
         self.assertInvalidoBorrar(
             "El campo reintegrar debe ser true o false.", "   ", "si"
         )
+
+
+class OrdenConServicioBase(unittest.TestCase):
+    def setUp(self):
+        self.conn = conexion_inicializada()
+        self.addCleanup(self.conn.close)
+        self.uid = insertar_usuario(self.conn)
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        self.catalogo = ServicioGeneralService(SqliteServicioGeneralRepository(self.conn))
+        self.service = OrdenService(
+            SqliteOrdenRepository(self.conn),
+            SqliteProcesoRepository(self.conn),
+            SqliteServicioGeneralRepository(self.conn),
+            ahora=lambda: FECHA_FIJA,
+        )
+
+    def crear(self, numero="OT-1", componentes=(("A-01", 1),), **kwargs):
+        return self.service.crear(numero, "2026-11-20", componentes, self.uid, **kwargs)
+
+    def stock(self):
+        return self.conn.execute("SELECT stock FROM productos WHERE codigo='A-01'").fetchone()[0]
+
+    def ordenes(self):
+        return self.conn.execute("SELECT COUNT(*) FROM ordenes").fetchone()[0]
+
+    def assertInvalido(self, mensaje, **kwargs):
+        with self.assertRaises(DatosInvalidos) as cm:
+            self.crear(**kwargs)
+        self.assertEqual(str(cm.exception), mensaje)
+        self.assertEqual(self.stock(), 5)
+
+
+SERVICIO_20 = ServicioOrden(
+    "Servicio 20 hs", ("Chequeo de motor", "Chequeo de combustible", "Chequeo eléctrico")
+)
+
+
+class AltaConServicioTest(OrdenConServicioBase):
+    def test_clave_con_espacios_y_mayusculas_resuelve_el_snapshot(self):
+        self.assertEqual(self.crear(servicio=" Servicio-20-HS ").servicio, SERVICIO_20)
+
+    def test_sin_servicio_ausente_none_o_blanco(self):
+        self.assertIsNone(self.crear("OT-1").servicio)
+        self.assertIsNone(self.crear("OT-2", servicio=None).servicio)
+        self.assertIsNone(self.crear("OT-3", servicio="  ").servicio)
+        self.assertIsNone(self.crear("OT-4", servicio="").servicio)
+
+    def test_inexistente_no_toca_el_stock(self):
+        self.assertInvalido("El servicio general 'servicio-500-hs' no existe.", servicio="servicio-500-hs")
+        self.assertEqual(self.ordenes(), 0)
+
+    def test_clave_larga_se_recorta_a_30_con_puntos(self):
+        self.assertInvalido(
+            f"El servicio general '{'x' * 30}…' no existe.", servicio="x" * 40
+        )
+
+    def test_tipo_invalido(self):
+        for valor in (["servicio-20-hs"], 3, {"a": 1}, True):
+            with self.subTest(valor=valor):
+                self.assertInvalido("El campo servicio debe ser texto.", servicio=valor)
+
+    def test_usa_los_chequeos_actuales_del_catalogo(self):
+        self.catalogo.modificar("servicio-20-hs", chequeos=["Uno", "Dos"])
+        self.assertEqual(
+            self.crear(servicio="servicio-20-hs").servicio, ServicioOrden("Servicio 20 hs", ("Uno", "Dos"))
+        )
+
+    def test_servicio_y_procesos_juntos(self):
+        orden = self.crear(servicio="servicio-20-hs", procesos=["limpieza"])
+        self.assertEqual((orden.servicio, [p.nombre for p in orden.procesos]), (SERVICIO_20, ["Limpieza"]))
+        self.assertEqual(self.stock(), 4)
+
+    def test_solo_servicio_sin_componentes_se_rechaza(self):
+        with self.assertRaises(DatosInvalidos) as cm:
+            self.crear(componentes=[], servicio="servicio-20-hs")
+        self.assertEqual(str(cm.exception), "La orden requiere al menos un componente.")
+
+
+class PrioridadDelServicioTest(OrdenConServicioBase):
+    def test_componentes_vacios_ganan_al_servicio_inexistente(self):
+        self.assertInvalido(
+            "La orden requiere al menos un componente.", componentes=[], servicio="servicio-500-hs"
+        )
+
+    def test_servicio_inexistente_gana_al_proceso_inexistente(self):
+        self.assertInvalido(
+            "El servicio general 'servicio-500-hs' no existe.",
+            servicio="servicio-500-hs", procesos=["pintura"],
+        )
+
+    def test_servicio_inexistente_gana_al_numero_duplicado(self):
+        self.crear("OT-1")
+        with self.assertRaises(DatosInvalidos) as cm:
+            self.crear("OT-1", servicio="servicio-500-hs")
+        self.assertEqual(str(cm.exception), "El servicio general 'servicio-500-hs' no existe.")
+
+    def test_servicio_inexistente_gana_a_los_personalizados_invalidos(self):
+        self.assertInvalido(
+            "El servicio general 'servicio-500-hs' no existe.",
+            servicio="servicio-500-hs", procesos_personalizados=["  "],
+        )
+
+    def test_servicio_valido_y_proceso_inexistente_informa_el_proceso(self):
+        self.assertInvalido("El proceso 'pintura' no existe.", servicio="servicio-20-hs", procesos=["pintura"])

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Órdenes — maqueta C-06g</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<link rel="stylesheet" href="assets/mockup-5c.css">
+<link rel="stylesheet" href="assets/mockup-5f.css">
+<link rel="stylesheet" href="assets/mockup-5g.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Órdenes (/ordenes) — paso-5g-servicios-generales">
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta"><div class="mk-bar-in">
+<span class="mk-tag">Maqueta</span><label class="sr-only" for="mk-state">Estado</label>
+<select id="mk-state">
+<option value="L2" data-desc="Botón Servicios generales junto al título. OT-0043 con fila Servicio general: (nombre + chips de chequeos) antes de Procesos:; OT-0042 solo con procesos; OT-0041 sin servicio ni procesos (sin filas).">L2 · lista con servicio</option>
+<option value="C1" data-desc="Modal Servicios generales, vista lista: una tarjeta por servicio (nombre, chequeos como chips, Editar / Eliminar) y Nuevo servicio. Mensaje de éxito tras guardar.">C1 · catálogo (lista)</option>
+<option value="C2" data-desc="Mismo modal, vista formulario al pulsar Editar: Nombre, líneas numeradas de chequeos con Quitar, Agregar chequeo con contador; Volver / Guardar. Eliminar usa la confirmación ya aprobada de Borrar orden.">C2 · editar servicio</option>
+</select>
+<a href="nueva-orden.html#S1">← Nueva orden</a><span>C-06g</span><p class="mk-desc" id="mk-desc"></p>
+</div></div>
+
+<div data-show="L2 C1 C2">
+<header class="bg-surface border-b border-line"><div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+<p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+<nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0"><a class="navlink" href="nueva-orden.html">Inventario</a><a class="navlink" href="ordenes.html" aria-current="page">Órdenes</a><a class="navlink" href="#">Reportes</a></nav>
+<div class="ml-auto flex items-center gap-3 text-sm"><span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">franco</strong></span><button class="btn btn-secondary" type="button">Cerrar sesión</button></div></div></header>
+<main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+<div class="page-head"><div><a href="nueva-orden.html" class="text-sm font-semibold text-accent-text underline">&larr; Inventario</a><h1 class="text-2xl font-bold mt-1">Órdenes</h1></div>
+<button class="btn btn-secondary" type="button" aria-haspopup="dialog">Servicios generales</button></div>
+<section class="bg-surface border border-line rounded-lg" aria-labelledby="t-ord"><h2 id="t-ord" class="sr-only">Lista de órdenes</h2>
+<p class="px-3 pt-3 text-sm text-muted">3 órdenes</p><div class="pt-2">
+
+<article class="ord" aria-labelledby="t-OT-0043"><div class="ord-head"><h3 id="t-OT-0043" class="num font-bold">OT-0043</h3><span class="num text-sm text-muted">2026-11-27</span><span class="text-sm text-muted">2 componentes</span>
+<div class="ord-actions"><button class="btn btn-secondary btn-sm" type="button" aria-label="Exportar PDF de la orden OT-0043">Exportar PDF</button><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar orden OT-0043">Eliminar</button></div></div>
+<div class="chips"><span class="lbl">Servicio general:</span><span class="srv-nombre">Servicio 20 hs</span><ul aria-label="Chequeos del servicio de OT-0043"><li class="chip">Chequeo de motor</li><li class="chip">Chequeo de combustible</li><li class="chip">Chequeo eléctrico</li></ul></div>
+<div class="chips"><span class="lbl">Procesos:</span><ul aria-label="Procesos de OT-0043"><li class="chip">Limpieza</li></ul></div>
+<div class="overflow-x-auto" tabindex="0" role="region" aria-label="Componentes de OT-0043"><table class="tbl tbl-fit tbl-comp"><thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th></tr></thead><tbody><tr><td class="num">ACE-01</td><td>Aceite 10W40</td><td class="num r">2</td></tr><tr><td class="num">FIL-01</td><td>Filtro de aceite</td><td class="num r">1</td></tr></tbody></table></div></article>
+
+<article class="ord" aria-labelledby="t-OT-0042"><div class="ord-head"><h3 id="t-OT-0042" class="num font-bold">OT-0042</h3><span class="num text-sm text-muted">2026-11-24</span><span class="text-sm text-muted">1 componente</span>
+<div class="ord-actions"><button class="btn btn-secondary btn-sm" type="button" aria-label="Exportar PDF de la orden OT-0042">Exportar PDF</button><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar orden OT-0042">Eliminar</button></div></div>
+<div class="chips"><span class="lbl">Procesos:</span><ul aria-label="Procesos de OT-0042"><li class="chip">Cambio motor</li><li class="chip">Pulido</li></ul></div>
+<div class="overflow-x-auto" tabindex="0" role="region" aria-label="Componentes de OT-0042"><table class="tbl tbl-fit tbl-comp"><thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th></tr></thead><tbody><tr><td class="num">MOT-02</td><td>Motor fuera de borda 15 HP</td><td class="num r">1</td></tr></tbody></table></div></article>
+
+<article class="ord" aria-labelledby="t-OT-0041"><div class="ord-head"><h3 id="t-OT-0041" class="num font-bold">OT-0041</h3><span class="num text-sm text-muted">2026-11-22</span><span class="text-sm text-muted">1 componente</span>
+<div class="ord-actions"><button class="btn btn-secondary btn-sm" type="button" aria-label="Exportar PDF de la orden OT-0041">Exportar PDF</button><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar orden OT-0041">Eliminar</button></div></div>
+<div class="overflow-x-auto" tabindex="0" role="region" aria-label="Componentes de OT-0041"><table class="tbl tbl-fit tbl-comp"><thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cantidad</th></tr></thead><tbody><tr><td class="num">JUN-12</td><td>Junta industrial 12"</td><td class="num r">6</td></tr></tbody></table></div></article>
+</div></section></main></div>
+
+<!-- C1: modal Servicios generales, vista lista -->
+<div class="overlay" data-show="C1" hidden>
+<div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="c1-t">
+<div class="modal-head"><h2 id="c1-t">Servicios generales</h2><button class="icon-btn" type="button" aria-label="Cerrar">&times;</button></div>
+<div class="modal-body space-y-3">
+<div role="status" class="flex items-start gap-2 py-1 px-3 rounded-md border border-success bg-success-subtle text-success-fg text-sm">Servicio general Servicio 100 hs guardado.</div>
+<div class="flex flex-wrap items-center justify-between gap-2"><p class="text-sm text-muted">2 servicios. Las órdenes ya creadas conservan el servicio como estaba.</p><button class="btn btn-primary" type="button">Nuevo servicio</button></div>
+<ul class="srv-list" aria-label="Servicios generales">
+<li class="srv-card"><div class="srv-card-head"><h3>Servicio 100 hs</h3><button class="btn btn-secondary btn-sm" type="button" aria-label="Editar Servicio 100 hs">Editar</button><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar Servicio 100 hs">Eliminar</button></div>
+<div class="chips"><ul aria-label="Chequeos de Servicio 100 hs"><li class="chip">Cambio de aceite</li><li class="chip">Chequeo de motor</li><li class="chip">Cambio de impulsor</li><li class="chip">Chequeo de hélice</li></ul></div></li>
+<li class="srv-card"><div class="srv-card-head"><h3>Servicio 20 hs</h3><button class="btn btn-secondary btn-sm" type="button" aria-label="Editar Servicio 20 hs">Editar</button><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar Servicio 20 hs">Eliminar</button></div>
+<div class="chips"><ul aria-label="Chequeos de Servicio 20 hs"><li class="chip">Chequeo de motor</li><li class="chip">Chequeo de combustible</li><li class="chip">Chequeo eléctrico</li></ul></div></li>
+</ul>
+</div>
+<div class="modal-foot"><button class="btn btn-secondary" type="button">Cerrar</button></div>
+</div></div>
+
+<!-- C2: mismo modal, vista formulario (Editar) -->
+<div class="overlay" data-show="C2" hidden>
+<div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="c2-t">
+<div class="modal-head"><h2 id="c2-t">Editar servicio general</h2><button class="icon-btn" type="button" aria-label="Cerrar">&times;</button></div>
+<form class="modal-form" novalidate onsubmit="return false"><div class="modal-body space-y-4">
+<div><label class="label" for="c2-nom">Nombre</label><input class="field" id="c2-nom" maxlength="60" autocomplete="off" value="Servicio 20 hs"></div>
+<fieldset><legend class="label">Chequeos</legend>
+<p class="help" style="margin-top:0;margin-bottom:.5rem">Se copian en este orden a cada orden nueva con este servicio.</p>
+<ol class="clist">
+<li><div class="cline"><span class="line-n" aria-hidden="true">1</span><input class="field" maxlength="60" autocomplete="off" value="Chequeo de motor" aria-label="Chequeo 1"><button class="btn btn-secondary" type="button" aria-label="Quitar chequeo 1">Quitar</button></div></li>
+<li><div class="cline"><span class="line-n" aria-hidden="true">2</span><input class="field" maxlength="60" autocomplete="off" value="Chequeo de combustible" aria-label="Chequeo 2"><button class="btn btn-secondary" type="button" aria-label="Quitar chequeo 2">Quitar</button></div></li>
+<li><div class="cline"><span class="line-n" aria-hidden="true">3</span><input class="field" maxlength="60" autocomplete="off" value="Chequeo eléctrico" aria-label="Chequeo 3"><button class="btn btn-secondary" type="button" aria-label="Quitar chequeo 3">Quitar</button></div></li>
+<li><div class="cline"><span class="line-n" aria-hidden="true">4</span><input class="field" maxlength="60" autocomplete="off" value="Chequeo de batería" aria-label="Chequeo 4"><button class="btn btn-secondary" type="button" aria-label="Quitar chequeo 4">Quitar</button></div></li>
+</ol>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar chequeo</button><span class="text-xs text-muted">4 de 30 chequeos</span></div></fieldset>
+</div>
+<div class="modal-foot"><button class="btn btn-secondary" type="button">Volver</button><button class="btn btn-primary" type="submit">Guardar</button></div>
+</form></div></div>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

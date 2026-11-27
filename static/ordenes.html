@@ -15,6 +15,8 @@
   <script src="/static/js/ui.js" defer></script>
   <script src="/static/js/sesion.js" defer></script>
   <script src="/static/js/exportar.js" defer></script>
+  <script src="/static/js/servicios.js" defer></script>
+  <script src="/static/js/servicios-admin.js" defer></script>
   <script src="/static/js/ordenes.js" defer></script>
 </head>
 <body>
@@ -35,9 +37,12 @@
   </header>
 
   <main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
-    <div class="no-print">
-      <a href="/inventario" class="text-sm font-semibold text-accent-text underline">&larr; Inventario</a>
-      <h1 class="text-2xl font-bold mt-1">Órdenes</h1>
+    <div class="page-head no-print">
+      <div>
+        <a href="/inventario" class="text-sm font-semibold text-accent-text underline">&larr; Inventario</a>
+        <h1 class="text-2xl font-bold mt-1">Órdenes</h1>
+      </div>
+      <button id="btn-servicios" class="btn btn-secondary" type="button" aria-haspopup="dialog">Servicios generales</button>
     </div>
 
     <!-- Resumen del borrado: persistente hasta cerrarlo o hasta la próxima acción -->
@@ -97,6 +102,72 @@
         <div class="flex flex-wrap justify-end gap-2">
           <button id="del-cancelar" class="btn btn-secondary" type="button" data-close>Cancelar</button>
           <button id="del-confirmar" class="btn btn-danger" type="button">Borrar y devolver stock</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Modal Servicios generales (catálogo): lista, formulario y confirmación de borrado ===================== -->
+  <div class="overlay" id="modal-servicios" hidden>
+    <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="srv-titulo-lista">
+      <!-- Vista lista -->
+      <div id="srv-vista-lista" class="modal-form">
+        <div class="modal-head"><h2 id="srv-titulo-lista" class="srv-titulo" tabindex="-1">Servicios generales</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+        <div class="modal-body space-y-3">
+          <div id="srv-exito" role="status" hidden class="flex items-start gap-2 py-1 px-3 rounded-md border border-success bg-success-subtle text-success-fg text-sm"></div>
+          <div id="srv-cargando" role="status" class="p-6 text-center text-sm text-muted">Cargando servicios…</div>
+          <div id="srv-error" hidden>
+            <div role="alert" class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-md border border-danger bg-danger-subtle text-danger-fg text-sm">
+              <p id="srv-error-texto" class="flex-1 min-w-[12rem]"></p>
+              <button id="srv-reintentar" class="btn btn-secondary" type="button">Reintentar</button>
+            </div>
+          </div>
+          <div id="srv-contenido" hidden class="space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p id="srv-conteo" class="text-sm text-muted"></p>
+              <button id="srv-nuevo" class="btn btn-primary" type="button">Nuevo servicio</button>
+            </div>
+            <p id="srv-vacio" hidden class="border border-dashed border-line rounded-lg p-6 text-center text-sm text-muted">No hay servicios generales.</p>
+            <ul id="srv-lista" class="srv-list" aria-label="Servicios generales"></ul>
+          </div>
+        </div>
+        <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cerrar</button></div>
+      </div>
+
+      <!-- Vista formulario (nuevo / editar) -->
+      <form id="srv-vista-form" class="modal-form" novalidate hidden>
+        <div class="modal-head"><h2 id="srv-titulo-form" class="srv-titulo" tabindex="-1">Nuevo servicio general</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+        <div class="modal-body space-y-4">
+          <div id="srv-form-alerta" hidden></div>
+          <div>
+            <label class="label" for="srv-nombre">Nombre</label>
+            <input class="field" id="srv-nombre" maxlength="60" autocomplete="off">
+          </div>
+          <fieldset>
+            <legend class="label">Chequeos</legend>
+            <p class="help" style="margin-top:0;margin-bottom:.5rem">Se copian en este orden a cada orden nueva con este servicio.</p>
+            <p id="srv-chequeos-e" class="err" role="alert" hidden></p>
+            <ol id="srv-chequeos" class="clist"></ol>
+            <div class="flex flex-wrap items-center justify-between gap-2 mt-3">
+              <button id="srv-agregar" class="btn btn-secondary" type="button" aria-describedby="srv-max">Agregar chequeo</button>
+              <span id="srv-contador" class="text-xs text-muted" aria-live="polite"></span>
+            </div>
+            <p class="help" id="srv-max" hidden>Un servicio admite hasta 30 chequeos.</p>
+          </fieldset>
+        </div>
+        <div class="modal-foot"><button id="srv-volver" class="btn btn-secondary" type="button">Volver</button><button id="srv-guardar" class="btn btn-primary" type="submit">Guardar</button></div>
+      </form>
+
+      <!-- Vista confirmación de borrado -->
+      <div id="srv-vista-borrar" class="modal-form" hidden>
+        <div class="modal-head"><h2 id="srv-titulo-borrar" class="srv-titulo" tabindex="-1">Eliminar servicio general</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+        <div class="modal-body space-y-4">
+          <div id="srv-borrar-alerta" hidden></div>
+          <p id="srv-borrar-desc" class="text-sm"></p>
+          <div class="flex flex-wrap justify-end gap-2">
+            <button id="srv-eliminar-cancelar" class="btn btn-secondary" type="button">Cancelar</button>
+            <button id="srv-eliminar-confirmar" class="btn btn-danger" type="button">Eliminar servicio</button>
+          </div>
         </div>
       </div>
     </div>

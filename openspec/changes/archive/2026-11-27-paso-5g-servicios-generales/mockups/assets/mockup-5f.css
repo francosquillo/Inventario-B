@@ -1,0 +1,14 @@
+/* Piezas nuevas de paso-5f-procesos-ordenes. Solo tokens de design-system/tokens.css; la hoja impresa usa colores de papel. */
+.plist { list-style:none; margin:0; padding:0; }
+.pline { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.5rem; align-items:center; }
+.pline-txt { grid-column:1 / -1; }
+.plist > li + li { border-top:1px solid var(--color-border); padding-top:.5rem; margin-top:.5rem; }
+.chips { display:flex; flex-wrap:wrap; align-items:center; gap:.375rem; padding:0 .75rem .625rem; }
+.chips ul { display:flex; flex-wrap:wrap; gap:.375rem; list-style:none; margin:0; padding:0; }
+.chip { display:inline-block; padding:.125rem .5rem; border-radius:var(--radius-md); background:var(--color-surface-2); border:1px solid var(--color-border); font-size:var(--text-sm); }
+.chips .lbl { font-size:var(--text-sm); color:var(--color-text-muted); font-weight:var(--weight-medium); }
+.sheet .sheet-proc { margin-top:1rem; }
+.sheet .sheet-proc h2 { font-size:9pt; text-transform:uppercase; letter-spacing:.04em; color:#444; margin:0 0 .25rem; border-bottom:1.5px solid #111; padding-bottom:.25rem; }
+.sheet .sheet-proc ul { list-style:none; margin:0; padding:0; font-size:10.5pt; }
+.sheet .sheet-proc li { padding:.2rem .5rem; border-bottom:1px solid #ccc; }
+.mk-sheet-only { display:none; }
