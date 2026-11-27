@@ -81,6 +81,7 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 - [ ] Se pueden modificar también productos dados de baja: se reactivan solo si el stock cambia y queda > 0.
 - [ ] Errores por línea ("Línea N: ..."), producto repetido → 422, códigos inexistentes → 404 con `codigos`; el stock nunca queda negativo.
 - [ ] `GET /api/productos/inactivos` alimenta el selector de la web.
+- [ ] (C-06h2, solo web) Cada línea tiene un filtro "Filtrar por categoría" antes del producto ("Todas las categorías" por defecto, cada categoría y "Sin categoría") que acota ambos grupos del selector (activos y dados de baja). Al cambiarlo, el producto elegido se conserva si pertenece a la categoría; si no, la línea vuelve a "Elegí un producto…". Si la categoría no tiene productos, la línea muestra "No hay productos en esta categoría.". El filtro es solo de presentación: no cambia la "Categoría" de la línea ni se envía en `POST /api/stock/modificaciones`.
 - [ ] `POST /api/stock/egreso` (cantidad entera > 0 y ≤ stock, `egreso` sin motivo) sigue disponible solo por API; ya no se usa desde la web.
 
 **Reglas relacionadas**: RN-ST-02, RN-ST-03, RN-ST-04, RN-ST-05, RN-ST-07, RN-ST-08, RN-ST-09, RN-ST-10, RN-PR-02, RN-VA-01

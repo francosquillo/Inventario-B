@@ -341,7 +341,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 
 ### [C-06h2] `paso-5h2-filtro-categoria-stock`
 > Change chico agregado el 2026-11-27 (pedido del usuario). Solo frontend: sin cambios de esquema ni de API.
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-27)
 - **Scope**:
   - **Cambio visual**: política `system-and-mockups`. Mockups (solo los necesarios) aprobados ANTES de `apply`
   - En el modal **"Modificar stock"**, agregar a cada línea un **filtro por categoría** que acote el selector de producto, igual al de las líneas de "Nueva orden" (C-06e): opción "Todas", cada categoría y "Sin categoría"; si el producto elegido no pertenece a la categoría filtrada se resetea; ayuda "No hay productos en esta categoría." cuando el filtro deja la lista vacía

@@ -224,5 +224,31 @@ class OrdenPorCategoriaTest(unittest.TestCase):
         self.assertEqual(res, [True, False, True, False, False, True])
 
 
+BAJAS = [
+    {"codigo": "C-99", "nombre": "Junta", "categoria": "motor"},
+    {"codigo": "D-05", "nombre": "Sello", "categoria": None},
+]
+ACTIVOS_MOD = [
+    {"codigo": "A-01", "nombre": "Filtro", "categoria": "aceite"},
+    {"codigo": "B-02", "nombre": "Bujia", "categoria": "motor"},
+]
+
+
+class FiltroModificarStockTest(unittest.TestCase):
+    """C-06h2: el filtro de "Modificar stock" reutiliza porCategoria/productoSigueVisible con dados de baja."""
+
+    def test_por_categoria_sobre_dados_de_baja(self):
+        casos = [["porCategoria", [BAJAS, c]] for c in ("motor", "__sin__", "helices", "")]
+        res = ejecutar(casos)
+        self.assertEqual([codigos(r) for r in res], [["C-99"], ["D-05"], [], ["C-99", "D-05"]])
+
+    def test_producto_sigue_visible_con_activos_y_bajas(self):
+        todos = ACTIVOS_MOD + BAJAS
+        casos = [["C-99", todos, "motor"], ["C-99", todos, "aceite"], ["D-05", todos, "__sin__"],
+                 ["B-02", todos, "motor"], ["", todos, "motor"]]
+        res = ejecutar([["productoSigueVisible", c] for c in casos])
+        self.assertEqual(res, [True, False, True, True, False])
+
+
 if __name__ == "__main__":
     unittest.main()

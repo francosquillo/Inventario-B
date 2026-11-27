@@ -80,6 +80,7 @@ Usuario → Adaptador → StockService → ProductoRepo / MovimientoRepo
 
 **Pasos**:
 1. La web carga los productos activos y los dados de baja (`GET /api/inventario`, `GET /api/productos/inactivos`); el usuario arma de 1 a 100 líneas con modo "Fijar en" o "Sumar" y nombre opcional; los ya elegidos quedan deshabilitados.
+   - Filtro por línea (C-06h2, solo web): antes del producto, "Filtrar por categoría" acota los dos grupos del selector. Al cambiarlo, el producto elegido se conserva si pertenece a la categoría; si no, la línea vuelve a "Elegí un producto…" (sin modificar datos). Si la categoría no tiene productos, la línea muestra "No hay productos en esta categoría.". El filtro no altera la "Categoría" de la línea ni se envía al servidor.
 2. El servicio valida en orden: datos (primera línea inválida), producto repetido, códigos inexistentes.
 3. Atómico: por línea fija o suma el stock, registra `ajuste` (fijar con cambio) o `ingreso` (sumar), renombra si corresponde y reactiva un dado de baja solo si el stock cambia y queda > 0.
 4. Responde 200 con el resultado por línea (`stock_anterior`, `nombre_anterior`, `reactivado`); la web muestra un resumen persistente.

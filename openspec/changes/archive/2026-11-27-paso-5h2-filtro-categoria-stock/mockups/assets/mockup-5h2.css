@@ -1,0 +1,31 @@
+/* Piezas nuevas de C-06h2 (filtro por categoría en cada línea de "Modificar stock"). Solo tokens de design-system/. */
+
+/* Ya aprobado en C-06e: nombre nuevo + Categoría */
+.mline-two { display:grid; gap:.5rem; }
+@media (min-width: 640px) { .mline-two { grid-template-columns: minmax(0,1fr) 12rem; } }
+
+/* Cabecera de la línea: número · Filtrar por categoría · Producto · Quitar (≥ 640 px, una fila) */
+.mline-head { grid-template-columns: 1.25rem 12rem minmax(0,1fr) auto; grid-template-areas: "n fil prod quitar"; align-items:start; }
+/* número y Quitar a la altura de los campos (debajo de las etiquetas de 1.25rem) */
+.mline-head > .line-n { grid-area:n; margin-top:1.25rem; min-height:2.5rem; display:flex; align-items:center; justify-content:flex-end; }
+.mline-head > .mh-fil { grid-area:fil; min-width:0; }
+.mline-head > .mh-prod { grid-area:prod; min-width:0; }
+.mline-head > [data-quitar] { grid-area:quitar; margin-top:1.25rem; }
+
+/* < 640 px: filtro y Quitar arriba; el producto a todo el ancho debajo */
+@media (max-width: 639.98px) {
+  .mline-head { grid-template-columns: 1rem minmax(0,1fr) auto; grid-template-areas: "n fil quitar" ". prod prod"; row-gap:.5rem; }
+}
+
+/* Ayuda de lista vacía (mismo texto y estilo .help que "Nueva orden") */
+.mline-body > .help { margin-top:0; }
+
+/* Ilustración del desplegable abierto (el nativo no se captura abierto) */
+select.mk-open { height:auto; padding-top:.25rem; padding-bottom:.25rem; }
+select.mk-open optgroup { font-style:normal; font-weight:var(--weight-semibold); color:var(--color-text-muted); }
+select.mk-open option { color:var(--color-text); padding:.125rem 0; }
+
+/* ?largo: el modal entero sin overlay, para capturas de página completa */
+.mk-largo .overlay { position:static; min-height:100dvh; align-items:flex-start; }
+.mk-largo .modal { max-height:none !important; }
+.mk-largo main { display:none; }

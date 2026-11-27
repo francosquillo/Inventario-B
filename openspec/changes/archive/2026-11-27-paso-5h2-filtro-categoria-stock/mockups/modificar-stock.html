@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modificar stock — maqueta C-06h2</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<link rel="stylesheet" href="assets/mockup-5h2.css?v=2">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Modificar stock — paso-5h2-filtro-categoria-stock">
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta"><div class="mk-bar-in">
+<span class="mk-tag">Maqueta</span><label class="sr-only" for="mk-state">Estado</label>
+<select id="mk-state">
+<option value="S1" data-desc="Cada línea con 'Filtrar por categoría' (etiqueta visible) antes de 'Producto', en 'Todas las categorías' por defecto. Línea 1: FIL-01 elegido, Categoría 'Filtro' precargada (abajo, sin cambios). Línea 2 recién agregada, vacía.">S1 · filtro por defecto</option>
+<option value="S2" data-desc="Línea 2 filtrada por 'Motor': el producto (desplegado como ilustración) ofrece solo MOT-01 y MOT-02 en 'Activos' y C-99 en 'Dados de baja'. La línea 1 sigue con todos.">S2 · línea filtrada (activos + dados de baja)</option>
+<option value="S3" data-desc="Línea 2 filtrada por 'Hélices' (categoría sin productos): el producto ofrece solo 'Elegí un producto…' y la ayuda 'No hay productos en esta categoría.'.">S3 · categoría sin productos</option>
+</select>
+<span>C-06h2</span><p class="mk-desc" id="mk-desc"></p>
+</div></div>
+<main class="mx-auto max-w-5xl px-4 py-6"><p class="text-muted text-sm">Inventario (fondo del modal)</p></main>
+
+<div class="overlay" data-show="S1 S2 S3" hidden>
+<div class="modal" style="max-width:44rem" role="dialog" aria-modal="true" aria-labelledby="m-t">
+<div class="modal-head"><h2 id="m-t">Modificar stock</h2><button class="icon-btn" type="button" aria-label="Cerrar">&times;</button></div>
+<form class="modal-form" novalidate onsubmit="return false"><div class="modal-body space-y-3">
+<p class="text-sm text-muted"><strong class="text-ink">Fijar en</strong> reemplaza el stock por el valor contado; <strong class="text-ink">Sumar</strong> agrega unidades. Se guarda todo junto o nada.</p>
+<fieldset>
+<legend class="sr-only">Productos a modificar</legend>
+<ol class="space-y-2">
+
+<!-- Línea 1 (igual en los tres estados) -->
+<li class="mline" data-row>
+<div class="mline-head">
+<span class="line-n" aria-hidden="true">1</span>
+<div class="mh-fil"><label class="mlabel" for="l1-fil">Filtrar por categoría</label>
+<select class="field" id="l1-fil" aria-label="Filtrar por categoría, línea 1"><option selected>Todas las categorías</option><option>Aceite</option><option>Filtro</option><option>Hélices</option><option>Motor</option><option>Sin categoría</option></select></div>
+<div class="mh-prod"><label class="mlabel" for="l1-prod">Producto</label>
+<select class="field" id="l1-prod" data-opts aria-label="Producto de la línea 1"><option value="">Elegí un producto…</option>
+<optgroup label="Activos"><option>A-01 · Tornillo M8 (stock 120)</option><option>ACE-01 · Aceite 10W-40 1 L (stock 18)</option><option>ACE-02 · Aceite 5W-30 sintético 4 L (stock 7)</option><option selected>FIL-01 · Filtro de aceite Ford (stock 9)</option><option>FIL-02 · Filtro de aire universal (stock 5)</option><option>MOT-01 · Junta de culata (stock 4)</option><option>MOT-02 · Correa de distribución (stock 6)</option></optgroup>
+<optgroup label="Dados de baja"><option>C-99 · Junta tórica (stock 2)</option><option>D-05 · Disco de corte 115 mm (stock 0)</option></optgroup></select></div>
+<button class="btn btn-secondary" type="button" data-quitar aria-label="Quitar producto de la línea 1">Quitar</button>
+</div>
+<div class="mline-body">
+<div class="mline-val">
+<fieldset class="seg" aria-label="Modo de la línea 1"><label><input type="radio" name="l1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="l1-m" value="sumar"><span>Sumar</span></label></fieldset>
+<input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 1" value="9">
+<span class="delta" aria-live="polite">Stock actual <strong class="num">9</strong> · sin cambios</span>
+</div>
+<div class="mline-two">
+<div><label class="mlabel" for="l1-nom">Nuevo nombre (opcional)</label><input class="field" id="l1-nom" maxlength="120" autocomplete="off" placeholder="Sin cambios (Filtro de aceite Ford)"></div>
+<div><label class="mlabel" for="l1-cat">Categoría</label><select class="field" id="l1-cat" aria-label="Categoría de la línea 1"><option>Sin categoría</option><option>Aceite</option><option selected>Filtro</option><option>Hélices</option><option>Motor</option></select></div>
+</div>
+</div>
+</li>
+
+<!-- Línea 2 · S1: recién agregada -->
+<li class="mline" data-row data-show="S1" hidden>
+<div class="mline-head">
+<span class="line-n" aria-hidden="true">2</span>
+<div class="mh-fil"><label class="mlabel" for="s1-fil">Filtrar por categoría</label>
+<select class="field" id="s1-fil" aria-label="Filtrar por categoría, línea 2"><option selected>Todas las categorías</option><option>Aceite</option><option>Filtro</option><option>Hélices</option><option>Motor</option><option>Sin categoría</option></select></div>
+<div class="mh-prod"><label class="mlabel" for="s1-prod">Producto</label>
+<select class="field" id="s1-prod" data-opts aria-label="Producto de la línea 2"><option value="" selected>Elegí un producto…</option></select></div>
+<button class="btn btn-secondary" type="button" data-quitar aria-label="Quitar producto de la línea 2">Quitar</button>
+</div>
+<div class="mline-body">
+<div class="mline-val">
+<fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="s1-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="s1-m" value="sumar"><span>Sumar</span></label></fieldset>
+<input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 2">
+<span class="delta" aria-live="polite"></span>
+</div>
+<div class="mline-two">
+<div><label class="mlabel" for="s1-nom">Nuevo nombre (opcional)</label><input class="field" id="s1-nom" maxlength="120" autocomplete="off"></div>
+<div><label class="mlabel" for="s1-cat">Categoría</label><select class="field" id="s1-cat" aria-label="Categoría de la línea 2"><option selected>Sin categoría</option><option>Aceite</option><option>Filtro</option><option>Hélices</option><option>Motor</option></select></div>
+</div>
+</div>
+</li>
+
+<!-- Línea 2 · S2: filtrada por Motor, desplegable abierto (ilustración) -->
+<li class="mline" data-row data-show="S2" hidden>
+<div class="mline-head">
+<span class="line-n" aria-hidden="true">2</span>
+<div class="mh-fil"><label class="mlabel" for="s2-fil">Filtrar por categoría</label>
+<select class="field" id="s2-fil" aria-label="Filtrar por categoría, línea 2"><option>Todas las categorías</option><option>Aceite</option><option>Filtro</option><option>Hélices</option><option selected>Motor</option><option>Sin categoría</option></select></div>
+<div class="mh-prod"><label class="mlabel" for="s2-prod">Producto</label>
+<select class="field mk-open" id="s2-prod" data-opts size="6" aria-label="Producto de la línea 2"><option value="" selected>Elegí un producto…</option>
+<optgroup label="Activos"><option>MOT-01 · Junta de culata (stock 4)</option><option>MOT-02 · Correa de distribución (stock 6)</option></optgroup>
+<optgroup label="Dados de baja"><option>C-99 · Junta tórica (stock 2)</option></optgroup></select></div>
+<button class="btn btn-secondary" type="button" data-quitar aria-label="Quitar producto de la línea 2">Quitar</button>
+</div>
+<div class="mline-body">
+<div class="mline-val">
+<fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="s2-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="s2-m" value="sumar"><span>Sumar</span></label></fieldset>
+<input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 2">
+<span class="delta" aria-live="polite"></span>
+</div>
+<div class="mline-two">
+<div><label class="mlabel" for="s2-nom">Nuevo nombre (opcional)</label><input class="field" id="s2-nom" maxlength="120" autocomplete="off"></div>
+<div><label class="mlabel" for="s2-cat">Categoría</label><select class="field" id="s2-cat" aria-label="Categoría de la línea 2"><option selected>Sin categoría</option><option>Aceite</option><option>Filtro</option><option>Hélices</option><option>Motor</option></select></div>
+</div>
+</div>
+</li>
+
+<!-- Línea 2 · S3: filtrada por Hélices, sin productos -->
+<li class="mline" data-row data-show="S3" hidden>
+<div class="mline-head">
+<span class="line-n" aria-hidden="true">2</span>
+<div class="mh-fil"><label class="mlabel" for="s3-fil">Filtrar por categoría</label>
+<select class="field" id="s3-fil" aria-label="Filtrar por categoría, línea 2"><option>Todas las categorías</option><option>Aceite</option><option>Filtro</option><option selected>Hélices</option><option>Motor</option><option>Sin categoría</option></select></div>
+<div class="mh-prod"><label class="mlabel" for="s3-prod">Producto</label>
+<select class="field" id="s3-prod" data-opts aria-label="Producto de la línea 2" aria-describedby="s3-vacio"><option value="" selected>Elegí un producto…</option></select></div>
+<button class="btn btn-secondary" type="button" data-quitar aria-label="Quitar producto de la línea 2">Quitar</button>
+</div>
+<div class="mline-body">
+<p class="help" id="s3-vacio">No hay productos en esta categoría.</p>
+<div class="mline-val">
+<fieldset class="seg" aria-label="Modo de la línea 2"><label><input type="radio" name="s3-m" value="fijar" checked><span>Fijar en</span></label><label><input type="radio" name="s3-m" value="sumar"><span>Sumar</span></label></fieldset>
+<input class="field num" inputmode="numeric" autocomplete="off" aria-label="Stock nuevo de la línea 2">
+<span class="delta" aria-live="polite"></span>
+</div>
+<div class="mline-two">
+<div><label class="mlabel" for="s3-nom">Nuevo nombre (opcional)</label><input class="field" id="s3-nom" maxlength="120" autocomplete="off"></div>
+<div><label class="mlabel" for="s3-cat">Categoría</label><select class="field" id="s3-cat" aria-label="Categoría de la línea 2"><option selected>Sin categoría</option><option>Aceite</option><option>Filtro</option><option>Hélices</option><option>Motor</option></select></div>
+</div>
+</div>
+</li>
+
+</ol>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar producto</button><span class="text-xs text-muted" aria-live="polite">2 de 100 productos</span></div>
+</fieldset>
+</div>
+<div class="modal-foot"><button class="btn btn-secondary" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Guardar cambios</button></div>
+</form></div></div>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

@@ -134,7 +134,7 @@
 
   <!-- ===================== Modal Modificar stock ===================== -->
   <div class="overlay" id="modal-modificar" hidden>
-    <div class="modal" style="max-width:40rem" role="dialog" aria-modal="true" aria-labelledby="mod-titulo">
+    <div class="modal" style="max-width:44rem" role="dialog" aria-modal="true" aria-labelledby="mod-titulo">
       <div class="modal-head"><h2 id="mod-titulo">Modificar stock</h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
       <form id="form-modificar" class="modal-form" novalidate>
         <div class="modal-body space-y-3">
@@ -162,7 +162,14 @@
     <li class="mline" data-row>
       <div class="mline-head">
         <span class="line-n" aria-hidden="true">0</span>
-        <select class="field" data-opts data-producto aria-label="Producto de la línea"></select>
+        <div class="mh-fil">
+          <label class="mlabel" data-filtro-etiqueta>Filtrar por categoría</label>
+          <select class="field" data-filtro aria-label="Filtrar por categoría de la línea"></select>
+        </div>
+        <div class="mh-prod">
+          <label class="mlabel" data-producto-etiqueta>Producto</label>
+          <select class="field" data-opts data-producto aria-label="Producto de la línea"></select>
+        </div>
         <button class="btn btn-secondary" type="button" data-quitar>Quitar</button>
       </div>
       <div class="mline-body">

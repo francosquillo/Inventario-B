@@ -73,6 +73,7 @@
     llenarSelectCategoria($("inv-categoria"), "Todas las categorías", true);
     llenarSelectCategoria($("nu-categoria"), "Sin categoría", false);
     document.querySelectorAll("#mod-lineas select[data-categoria]").forEach((s) => llenarSelectCategoria(s, "Sin categoría", false));
+    document.querySelectorAll("#mod-lineas select[data-filtro]").forEach((s) => llenarSelectCategoria(s, "Todas las categorías", true));
     document.querySelectorAll("#ord-lineas select[data-cat]").forEach((s) => llenarSelectCategoria(s, "Todas", true));
   }
 
@@ -198,7 +199,9 @@
   function inputCantidad(li) { return li.querySelector("input[data-cant]"); }
   function inputImporte(li) { return li.querySelector("input[data-imp]"); }
 
-  // Ayuda "No hay productos en esta categoria." bajo la linea cuando el filtro no deja ninguno.
+  // Ayuda bajo la linea cuando el filtro de categoria no deja ningun producto (Nueva orden y Modificar stock).
+  const AYUDA_SIN_PRODUCTOS = "No hay productos en esta categoría.";
+
   function actualizarAyudaLinea(li) {
     const categoria = selectCategoria(li).value;
     const vacia = Busqueda.porCategoria(productos, categoria).length === 0;
@@ -207,7 +210,7 @@
     if (previa) previa.remove();
     selectProducto(li).removeAttribute("aria-describedby");
     if (!vacia || categoria === "") return;
-    li.appendChild(UI.el("p", { "class": "help line-help", id: id }, "No hay productos en esta categoría."));
+    li.appendChild(UI.el("p", { "class": "help line-help", id: id }, AYUDA_SIN_PRODUCTOS));
     selectProducto(li).setAttribute("aria-describedby", id);
   }
 
@@ -385,11 +388,12 @@
     return li.querySelector('input[type="radio"]:checked').value;
   }
 
-  function llenarSelectMod(select, ocupados, conservar) {
+  function llenarSelectMod(select, ocupados, conservar, categoria) {
     const previo = select.value;
     UI.vaciar(select);
     select.appendChild(UI.el("option", { value: "" }, "Elegí un producto…"));
-    [["Activos", productos], ["Dados de baja", inactivos]].forEach((g) => {
+    [["Activos", Busqueda.porCategoria(productos, categoria)],
+      ["Dados de baja", Busqueda.porCategoria(inactivos, categoria)]].forEach((g) => {
       if (g[1].length === 0) return;
       const grupo = UI.el("optgroup", { label: g[0] });
       g[1].forEach((p) => {
@@ -403,7 +407,8 @@
       select.appendChild(grupo);
     });
     if (previo && buscarProducto(previo)) {
-      select.value = previo;
+      // Existe pero quedo fuera del filtro: la opcion no esta y el selector vuelve a "Elegí un producto…".
+      if (Busqueda.productoSigueVisible(previo, productos.concat(inactivos), categoria)) select.value = previo;
     } else if (previo && conservar) {
       select.appendChild(UI.el("option", { value: previo }, previo + " · (ya no existe)"));
       select.value = previo;
@@ -416,9 +421,26 @@
     const valores = filas.map((li) => li.querySelector("select[data-producto]").value);
     filas.forEach((li, i) => {
       const ocupados = new Set(valores.filter((v, j) => j !== i && v !== ""));
-      llenarSelectMod(li.querySelector("select[data-producto]"), ocupados, conservar);
+      llenarSelectMod(li.querySelector("select[data-producto]"), ocupados, conservar, li.querySelector("select[data-filtro]").value);
     });
+    filas.forEach(actualizarAyudaMod);
     filas.forEach(actualizarLineaMod);
+  }
+
+  // Ayuda de lista vacía cuando el filtro de la línea no deja activos ni dados de baja.
+  function actualizarAyudaMod(li) {
+    const categoria = li.querySelector("select[data-filtro]").value;
+    const vacia = categoria !== "" && Busqueda.porCategoria(productos, categoria).length === 0
+      && Busqueda.porCategoria(inactivos, categoria).length === 0;
+    const id = "mod-" + li.getAttribute("data-k") + "-vacio";
+    const select = li.querySelector("select[data-producto]");
+    const previa = document.getElementById(id);
+    if (previa) previa.remove();
+    if (select.getAttribute("aria-describedby") === id) select.removeAttribute("aria-describedby");
+    if (!vacia) return;
+    const cuerpo = li.querySelector(".mline-body");
+    cuerpo.insertBefore(UI.el("p", { "class": "help", id: id }, AYUDA_SIN_PRODUCTOS), cuerpo.firstChild);
+    if (!select.hasAttribute("aria-invalid")) select.setAttribute("aria-describedby", id);
   }
 
   function renumerarMod() {
@@ -426,7 +448,14 @@
     filas.forEach((li, i) => {
       const n = i + 1, k = li.getAttribute("data-k");
       li.querySelector(".line-n").textContent = String(n);
-      li.querySelector("select[data-producto]").setAttribute("aria-label", "Producto de la línea " + n);
+      const fil = li.querySelector("select[data-filtro]");
+      fil.setAttribute("aria-label", "Filtrar por categoría, línea " + n);
+      fil.id = "mod-" + k + "-fil";
+      li.querySelector("[data-filtro-etiqueta]").setAttribute("for", fil.id);
+      const prod = li.querySelector("select[data-producto]");
+      prod.setAttribute("aria-label", "Producto de la línea " + n);
+      prod.id = "mod-" + k + "-prod";
+      li.querySelector("[data-producto-etiqueta]").setAttribute("for", prod.id);
       const cat = li.querySelector("select[data-categoria]");
       cat.setAttribute("aria-label", "Categoría de la línea " + n);
       cat.id = "mod-" + k + "-cat";
@@ -452,6 +481,7 @@
     li.setAttribute("data-k", String(secuenciaLinea));
     li.querySelectorAll('input[type="radio"]').forEach((r) => { r.name = "mod-" + secuenciaLinea + "-modo"; });
     llenarSelectCategoria(li.querySelector("select[data-categoria]"), "Sin categoría", false);
+    llenarSelectCategoria(li.querySelector("select[data-filtro]"), "Todas las categorías", true);
     return li;
   }
 
@@ -474,6 +504,14 @@
     lineasMod()[Math.min(i, filas.length - 2)].querySelector("select[data-producto]").focus();
   }
 
+  // Valor propuesto y categoría precargada según el producto elegido (o vacíos si no hay ninguno).
+  function aplicarProductoMod(li) {
+    const info = buscarProducto(li.querySelector("select[data-producto]").value);
+    if (modoDe(li) === "fijar") li.querySelector("[data-valor]").value = info ? String(info.p.stock) : "";
+    // La categoría se precarga con la del producto elegido (activo o dado de baja).
+    elegirCategoria(li.querySelector("select[data-categoria]"), info ? info.p.categoria : "");
+  }
+
   // Pone el valor propuesto (stock actual) al elegir un producto en "Fijar en" o al cambiar de modo.
   function alCambiarLineaMod(e) {
     const li = e.target.closest("li");
@@ -482,9 +520,16 @@
     const info = buscarProducto(li.querySelector("select[data-producto]").value);
     if (e.target.matches("select[data-producto]")) {
       refrescarSelectsMod(false);
-      if (modoDe(li) === "fijar") campoValor.value = info ? String(info.p.stock) : "";
-      // La categoría se precarga con la del producto elegido (activo o dado de baja).
-      elegirCategoria(li.querySelector("select[data-categoria]"), info ? info.p.categoria : "");
+      aplicarProductoMod(li);
+    } else if (e.target.matches("select[data-filtro]")) {
+      // Solo presentación: conserva el producto si pertenece al filtro; si no, lo deselecciona
+      // (antes de refrescar, porque refrescarSelectsMod calcula los ocupados con los valores previos).
+      const select = li.querySelector("select[data-producto]");
+      if (select.value !== "" && !Busqueda.productoSigueVisible(select.value, productos.concat(inactivos), e.target.value)) {
+        select.value = "";
+        aplicarProductoMod(li);
+      }
+      refrescarSelectsMod(false);
     } else if (e.target.matches("select[data-categoria]")) {
       // solo cambia la categoria: no toca el stock propuesto
     } else if (e.target.matches('input[type="radio"]')) {
