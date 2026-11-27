@@ -195,6 +195,8 @@
 
   function selectProducto(li) { return li.querySelector("select[data-opts]"); }
   function selectCategoria(li) { return li.querySelector("select[data-cat]"); }
+  function inputCantidad(li) { return li.querySelector("input[data-cant]"); }
+  function inputImporte(li) { return li.querySelector("input[data-imp]"); }
 
   // Ayuda "No hay productos en esta categoria." bajo la linea cuando el filtro no deja ninguno.
   function actualizarAyudaLinea(li) {
@@ -611,12 +613,14 @@
     return primero === null && !r.general;
   }
 
+  // "Proceso N: ..." (lista del catalogo) o "Proceso personalizado N: ..." -> {li, mensaje, importe}
+  // con la linea de la orden que corresponde; `importe` si el error es del precio.
   function procesoDeError(detail) {
-    const m = /^Proceso personalizado (\d+):\s*(.*)$/.exec(detail);
+    const m = /^Proceso (personalizado )?(\d+):\s*(.*)$/.exec(detail);
     if (!m) return null;
-    const lineasPers = lineasProc().filter((li) => selectProceso(li).value === PERSONALIZADO);
-    const li = lineasPers[Number(m[1]) - 1];
-    return li ? { li: li, mensaje: m[2] } : null;
+    const delTipo = lineasProc().filter((li) => (selectProceso(li).value === PERSONALIZADO) === Boolean(m[1]));
+    const li = delTipo[Number(m[2]) - 1];
+    return li ? { li: li, mensaje: m[3], importe: /precio/i.test(m[3]) } : null;
   }
 
   function mapearErrorModificar(err, alerta) {
@@ -724,6 +728,7 @@
   // Procesos de la orden (C-06f): lineas con un select (catalogo + "Personalizado") y, en
   // "Personalizado", una caja de texto. Cero lineas es valido.
   const PERSONALIZADO = Procesos.PERSONALIZADO;
+  const MSG_ADICIONALES_CAIDOS = "No se pudo cargar la lista de servicios adicionales.";
 
   function lineasProc() {
     return Array.from(document.querySelectorAll("#ord-procesos > li"));
@@ -731,6 +736,7 @@
 
   function selectProceso(li) { return li.querySelector("select[data-proc]"); }
   function textoProceso(li) { return li.querySelector("input[data-proc-texto]"); }
+  function importeProceso(li) { return li.querySelector("input[data-proc-imp]"); }
 
   function mostrarAvisoProcesos(mensaje) {
     const p = $("ord-proc-aviso");
@@ -756,7 +762,7 @@
       select.value = previo;
     } else {
       // El proceso elegido ya no existe: la linea queda sin seleccion hasta que se elija otro.
-      select.insertBefore(UI.el("option", { value: "", disabled: true }, "Elegí un proceso"), select.firstChild);
+      select.insertBefore(UI.el("option", { value: "", disabled: true }, "Elegí un servicio adicional"), select.firstChild);
       select.value = "";
     }
   }
@@ -771,13 +777,14 @@
     const lleno = usados >= Procesos.PERSONALIZADOS_MAX;
     filas.forEach((li, i) => {
       const select = selectProceso(li);
-      select.setAttribute("aria-label", "Proceso de la línea " + (i + 1));
-      li.querySelector("[data-quitar-proc]").setAttribute("aria-label", "Quitar proceso " + (i + 1));
+      select.setAttribute("aria-label", "Servicio adicional de la línea " + (i + 1));
+      importeProceso(li).setAttribute("aria-label", "Precio del servicio adicional " + (i + 1));
+      li.querySelector("[data-quitar-proc]").setAttribute("aria-label", "Quitar servicio adicional " + (i + 1));
       const opcion = Array.from(select.options).find((o) => o.value === PERSONALIZADO);
       if (opcion) opcion.disabled = lleno && select.value !== PERSONALIZADO;
       const caja = li.querySelector(".pline-txt");
       caja.hidden = select.value !== PERSONALIZADO;
-      textoProceso(li).setAttribute("aria-label", "Proceso personalizado de la línea " + (i + 1));
+      textoProceso(li).setAttribute("aria-label", "Servicio adicional personalizado de la línea " + (i + 1));
     });
     $("ord-proc-max").hidden = !lleno;
     $("ord-proc-contador").textContent =
@@ -788,14 +795,20 @@
     secuenciaLinea += 1;
     const k = String(secuenciaLinea);
     const li = UI.el("li", { "data-k": k });
-    const fila = UI.el("div", { "class": "pline" });
+    const fila = UI.el("div", { "class": "pline pline-p" });
     const select = UI.el("select", { "class": "field", "data-proc": true });
     fila.appendChild(select);
+    const importe = UI.el("div", { "class": "money" });
+    importe.appendChild(UI.el("input", {
+      "class": "field", inputmode: "decimal", autocomplete: "off", placeholder: "0,00", "data-proc-imp": true
+    }));
+    fila.appendChild(importe);
     fila.appendChild(UI.el("button", { "class": "btn btn-secondary", type: "button", "data-quitar-proc": true }, "Quitar"));
     const caja = UI.el("div", { "class": "pline-txt" });
-    caja.appendChild(UI.el("label", { "class": "label", "for": "ord-pt-" + k }, "Proceso personalizado"));
+    caja.appendChild(UI.el("label", { "class": "sr-only", "for": "ord-pt-" + k }, "Servicio adicional personalizado"));
     caja.appendChild(UI.el("input", {
-      "class": "field", id: "ord-pt-" + k, "data-proc-texto": true, maxlength: String(Procesos.NOMBRE_MAX), autocomplete: "off"
+      "class": "field", id: "ord-pt-" + k, "data-proc-texto": true, maxlength: String(Procesos.NOMBRE_MAX),
+      autocomplete: "off", placeholder: "Servicio adicional personalizado"
     }));
     fila.appendChild(caja);
     li.appendChild(fila);
@@ -807,6 +820,7 @@
     const li = nuevaLineaProceso();
     $("ord-procesos").appendChild(li);
     renumerarProcesos();
+    actualizarResumen();
     selectProceso(li).focus();
   }
 
@@ -815,6 +829,7 @@
     const i = filas.indexOf(li);
     li.remove();
     renumerarProcesos();
+    actualizarResumen();
     const resto = lineasProc();
     (resto.length ? selectProceso(resto[Math.min(i, resto.length - 1)]) : $("ord-proc-agregar")).focus();
   }
@@ -829,9 +844,23 @@
     return campo;
   }
 
+  function marcarImporteProceso(li, mensaje) {
+    const campo = importeProceso(li);
+    const id = "ord-pi-" + li.getAttribute("data-k");
+    const previo = document.getElementById(id);
+    if (previo) previo.remove();
+    campo.parentElement.insertAdjacentElement("afterend", UI.el("p", { "class": "err", id: id, role: "alert", "data-error": true }, mensaje));
+    UI.invalido(campo, id);
+    return campo;
+  }
+
   function leerProcesos() {
     return Procesos.armar(
-      lineasProc().map((li) => ({ valor: selectProceso(li).value, texto: textoProceso(li).value })),
+      lineasProc().map((li) => ({
+        valor: selectProceso(li).value,
+        texto: textoProceso(li).value,
+        precio: Precios.parsear(importeProceso(li).value).centavos
+      })),
       catalogoProcesos
     );
   }
@@ -876,6 +905,10 @@
     const servicio = catalogoServicios.find((s) => s.clave === clave);
     lista.setAttribute("aria-label", servicio ? "Chequeos de " + servicio.nombre : "Chequeos");
     $("ord-servicio-inc").hidden = chequeos.length === 0;
+    const precio = $("ord-servicio-precio");
+    precio.disabled = clave === "";
+    if (precio.disabled) precio.value = "";
+    actualizarResumen();
   }
 
   function llenarSelectServicio() {
@@ -894,6 +927,34 @@
     return Array.from(document.querySelectorAll("#ord-lineas > li"));
   }
 
+  // Vista previa de subtotales y total (solo en pantalla, nunca se envia). Importes vacios o
+  // todavia invalidos cuentan 0 (Precios.parsear devuelve centavos null).
+  function centavosDe(campo) {
+    return Precios.parsear(campo.value).centavos;
+  }
+
+  function actualizarResumen() {
+    const r = Precios.resumen({
+      servicio: centavosDe($("ord-servicio-precio")),
+      adicionales: lineasProc().map((li) => centavosDe(importeProceso(li))),
+      items: lineas().map((li) => centavosDe(inputImporte(li)))
+    });
+    $("ord-sub-servicios").textContent = Precios.formatear(r.subtotal_servicios);
+    $("ord-sub-items").textContent = Precios.formatear(r.subtotal_items);
+    $("ord-total").textContent = Precios.formatear(r.total);
+  }
+
+  const CAMPOS_DATOS = {
+    cliente: "ord-cliente", celular: "ord-celular", casco: "ord-casco", motor: "ord-motor",
+    trailer: "ord-trailer", fecha_ingreso: "ord-ingreso", fecha_egreso: "ord-egreso"
+  };
+
+  function leerDatosCliente() {
+    const campos = {};
+    Object.keys(CAMPOS_DATOS).forEach((c) => { campos[c] = $(CAMPOS_DATOS[c]).value; });
+    return DatosOrden.validar(campos);
+  }
+
   function limpiarMarcaLinea(li) {
     li.removeAttribute("data-invalid");
     li.querySelectorAll("[data-error]").forEach((n) => n.remove());
@@ -903,7 +964,7 @@
   function marcarLinea(li, campo, mensaje, comoAlerta) {
     li.setAttribute("data-invalid", "");
     const idx = lineas().indexOf(li) + 1;
-    const id = "ord-l" + idx + (campo.tagName === "SELECT" ? "-p" : "-c") + "-e";
+    const id = "ord-l" + idx + (campo.tagName === "SELECT" ? "-p" : campo.hasAttribute("data-imp") ? "-i" : "-c") + "-e";
     const previo = document.getElementById(id);
     if (previo) previo.remove();
     const attrs = { "class": "err line-err", id: id, "data-error": true };
@@ -919,7 +980,8 @@
       li.querySelector(".line-n").textContent = String(n);
       selectProducto(li).setAttribute("aria-label", "Producto del componente " + n);
       selectCategoria(li).setAttribute("aria-label", "Categoría de la línea " + n);
-      li.querySelector("input").setAttribute("aria-label", "Cantidad del componente " + n);
+      inputCantidad(li).setAttribute("aria-label", "Cantidad del componente " + n);
+      inputImporte(li).setAttribute("aria-label", "Importe de la línea " + n);
       const quitar = li.querySelector("[data-quitar]");
       quitar.setAttribute("aria-label", "Quitar componente " + n);
       quitar.disabled = filas.length === 1;
@@ -933,12 +995,19 @@
   function nuevaLinea(codigo, cantidad) {
     secuenciaLinea += 1;
     const li = UI.el("li", { "data-row": true, "data-k": String(secuenciaLinea) });
-    const fila = UI.el("div", { "class": "line" });
+    const fila = UI.el("div", { "class": "line line-p" });
     fila.appendChild(UI.el("span", { "class": "line-n", "aria-hidden": "true" }, "0"));
     fila.appendChild(UI.el("select", { "class": "field", "data-cat": true }));
     const select = UI.el("select", { "class": "field", "data-opts": true });
     fila.appendChild(select);
-    fila.appendChild(UI.el("input", { "class": "field num", inputmode: "numeric", autocomplete: "off", value: cantidad || "" }));
+    fila.appendChild(UI.el("input", {
+      "class": "field num", inputmode: "numeric", autocomplete: "off", "data-cant": true, value: cantidad || ""
+    }));
+    const importe = UI.el("div", { "class": "money" });
+    importe.appendChild(UI.el("input", {
+      "class": "field", inputmode: "decimal", autocomplete: "off", placeholder: "0,00", "data-imp": true
+    }));
+    fila.appendChild(importe);
     fila.appendChild(UI.el("button", { "class": "btn btn-secondary", type: "button", "data-quitar": true }, "Quitar"));
     li.appendChild(fila);
     llenarSelectCategoria(selectCategoria(li), "Todas", true);
@@ -952,6 +1021,7 @@
     const li = nuevaLinea();
     $("ord-lineas").appendChild(li);
     renumerar();
+    actualizarResumen();
     selectProducto(li).focus();
   }
 
@@ -961,6 +1031,7 @@
     const i = filas.indexOf(li);
     li.remove();
     renumerar();
+    actualizarResumen();
     const resto = lineas();
     selectProducto(resto[Math.min(i, resto.length - 1)]).focus();
   }
@@ -976,10 +1047,11 @@
     UI.vaciar($("ord-lineas")).appendChild(nuevaLinea());
     renumerar();
     UI.vaciar($("ord-procesos"));
-    mostrarAvisoProcesos(procesosFallo ? "No se pudo cargar la lista de procesos." : "");
+    mostrarAvisoProcesos(procesosFallo ? MSG_ADICIONALES_CAIDOS : "");
     renumerarProcesos();
     llenarSelectServicio();
     mostrarAvisoServicio(serviciosFallo ? MSG_SERVICIOS_CAIDOS : "");
+    actualizarResumen();
     UI.abrir($("modal-orden"));
   }
 
@@ -992,7 +1064,7 @@
   function leerLineas() {
     return lineas().map((li) => ({
       codigo: selectProducto(li).value,
-      cantidad: li.querySelector("input").value
+      cantidad: inputCantidad(li).value
     }));
   }
 
@@ -1006,19 +1078,38 @@
     if (eNumero) { UI.errorBajoCampo(numero, eNumero); primero = numero; }
     const eFecha = Validacion.fecha(fecha.value);
     if (eFecha) { UI.errorBajoCampo(fecha, eFecha, fecha); primero = primero || fecha; }
+    const datos = leerDatosCliente();
+    Object.keys(CAMPOS_DATOS).forEach((c) => {
+      if (!datos.errores[c]) return;
+      const campo = $(CAMPOS_DATOS[c]);
+      UI.errorBajoCampo(campo, datos.errores[c]);
+      primero = primero || campo;
+    });
     const rs = Servicios.armar($("ord-servicio").value, catalogoServicios);
     mostrarAvisoServicio(serviciosFallo ? MSG_SERVICIOS_CAIDOS : "");
     if (rs.error) {
       const select = marcarServicio(rs.error);
       primero = primero || select;
     }
+    const precioServicio = Precios.parsear($("ord-servicio-precio").value);
+    if (precioServicio.error) {
+      const campo = $("ord-servicio-precio");
+      UI.errorBajoCampo(campo, precioServicio.error, campo.parentElement);
+      primero = primero || campo;
+    }
     const r = Validacion.componentes(leerLineas());
     const rp = leerProcesos();
     lineasProc().forEach((li, i) => {
-      const e = selectProceso(li).value === "" ? "Elegí un proceso o quitá la línea." : rp.errores[i];
-      if (!e) return;
-      const campo = marcarProceso(li, e);
-      primero = primero || campo;
+      const e = selectProceso(li).value === "" ? "Elegí un servicio adicional o quitá la línea." : rp.errores[i];
+      if (e) {
+        const campo = marcarProceso(li, e);
+        primero = primero || campo;
+      }
+      const importe = Precios.parsear(importeProceso(li).value);
+      if (importe.error) {
+        const campo = marcarImporteProceso(li, importe.error);
+        primero = primero || campo;
+      }
     });
     if (r.general) {
       const p = $("ord-general-e");
@@ -1033,12 +1124,27 @@
         primero = primero || selectProducto(li);
       }
       if (e.cantidad) {
-        marcarLinea(li, li.querySelector("input"), e.cantidad, true);
-        primero = primero || li.querySelector("input");
+        marcarLinea(li, inputCantidad(li), e.cantidad, true);
+        primero = primero || inputCantidad(li);
+      }
+      const importe = Precios.parsear(inputImporte(li).value);
+      if (importe.error) {
+        marcarLinea(li, inputImporte(li), importe.error, true);
+        primero = primero || inputImporte(li);
       }
     });
     if (primero) primero.focus();
     return primero === null && !r.general;
+  }
+
+  // Campo de "Cliente y embarcacion" al que apunta un 422 del backend (o null).
+  function campoDeDatos(detalle) {
+    if (/^La fecha de ingreso/.test(detalle)) return $("ord-ingreso");
+    if (/^La fecha de egreso/.test(detalle)) return $("ord-egreso");
+    if (/^El cliente /.test(detalle) || /^El campo cliente /.test(detalle)) return $("ord-cliente");
+    if (/^El celular /.test(detalle) || /^El campo celular /.test(detalle)) return $("ord-celular");
+    const m = /^El campo (casco|motor|trailer) /.exec(detalle);
+    return m ? $("ord-" + m[1]) : null;
   }
 
   function mapearErrorOrden(err, alerta) {
@@ -1050,7 +1156,7 @@
       err.faltantes.forEach((f) => {
         filas.forEach((li) => {
           if (selectProducto(li).value !== f.codigo) return;
-          const campo = li.querySelector("input");
+          const campo = inputCantidad(li);
           marcarLinea(li, campo, "Disponible " + f.disponible + ", solicitado " + f.solicitado, false);
           foco = foco || campo;
         });
@@ -1086,12 +1192,19 @@
       return;
     } else if (err.status === 422 && procesoDeError(err.detail)) {
       const p = procesoDeError(err.detail);
-      foco = marcarProceso(p.li, p.mensaje);
+      foco = p.importe ? marcarImporteProceso(p.li, p.mensaje) : marcarProceso(p.li, p.mensaje);
+    } else if (err.status === 422 && campoDeDatos(err.detail)) {
+      foco = campoDeDatos(err.detail);
+      UI.errorBajoCampo(foco, err.detail);
+    } else if (err.status === 422 && err.detail.indexOf("precio del servicio general") !== -1) {
+      foco = $("ord-servicio-precio");
+      UI.errorBajoCampo(foco, err.detail, foco.parentElement);
     } else if (err.status === 422) {
       const m = /^Componente (\d+):\s*(.*)$/.exec(err.detail);
       if (m && filas[Number(m[1]) - 1]) {
         const li = filas[Number(m[1]) - 1];
-        const campo = /producto|código/i.test(m[2]) ? selectProducto(li) : li.querySelector("input");
+        const campo = /producto|código/i.test(m[2]) ? selectProducto(li)
+          : /precio/i.test(m[2]) ? inputImporte(li) : inputCantidad(li);
         marcarLinea(li, campo, m[2], false);
         foco = campo;
       } else if (/fecha/i.test(err.detail)) {
@@ -1108,16 +1221,22 @@
     if (boton.disabled) return;
     UI.ocultarAlerta(alerta);
     if (!validarOrden(form)) return;
+    const importes = lineas().map((li) => centavosDe(inputImporte(li)));
     const cuerpo = {
       numero: $("ord-numero").value.trim(),
       fecha: $("ord-fecha").value.trim(),
-      componentes: leerLineas().map((l) => ({ codigo: l.codigo, cantidad: Number(l.cantidad.trim()) }))
+      componentes: leerLineas().map((l, i) => ({
+        codigo: l.codigo, cantidad: Number(l.cantidad.trim()), precio: importes[i]
+      }))
     };
+    const datos = leerDatosCliente().valores;
+    Object.keys(CAMPOS_DATOS).forEach((c) => { cuerpo[c] = datos[c]; });
     const rp = leerProcesos();
     cuerpo.procesos = rp.procesos;
     cuerpo.procesos_personalizados = rp.procesos_personalizados;
     const rsv = Servicios.armar($("ord-servicio").value, catalogoServicios);
     cuerpo.servicio = rsv.servicio;
+    cuerpo.precio_servicio = rsv.servicio === null ? null : centavosDe($("ord-servicio-precio"));
     const restaurar = UI.ocupado(boton, "Creando orden…");
     Api.post("/api/ordenes", cuerpo).then(
       (orden) => {
@@ -1214,6 +1333,9 @@
     });
     $("form-modificar").addEventListener("submit", enviarModificar);
 
+    $("form-orden").addEventListener("input", (e) => {
+      if (e.target.matches(".money input")) actualizarResumen();
+    });
     $("ord-agregar").addEventListener("click", agregarLinea);
     $("ord-lineas").addEventListener("click", (e) => {
       const q = e.target.closest("[data-quitar]");

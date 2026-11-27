@@ -23,6 +23,56 @@
     $("ord-conteo").hidden = estado !== "lista";
   }
 
+  // Importe en pesos o "—" si no tiene precio (los precios llegan de la API en centavos).
+  function precioEl(centavos, extra) {
+    const sin = centavos == null;
+    return UI.el("span", { "class": "precio" + (sin ? " sin" : "") + (extra ? " " + extra : "") }, Precios.formatear(centavos));
+  }
+
+  // Fila de datos del cliente y la embarcacion: solo los que la orden tiene (en papel, en dos columnas).
+  function filaDatos(o) {
+    const campos = [
+      ["cliente", "Cliente:", "Cliente:", o.cliente],
+      ["celular", "Cel.:", "Celular:", o.celular],
+      ["casco", "Casco:", "Casco:", o.casco],
+      ["motor", "Motor:", "Motor:", o.motor],
+      ["trailer", "Trailer:", "Trailer:", o.trailer],
+      ["ingreso", "Ingreso:", "Ingreso:", o.fecha_ingreso],
+      ["egreso", "Egreso:", "Egreso:", o.fecha_egreso]
+    ];
+    const datos = campos.filter((c) => c[3]);
+    if (datos.length === 0) return null;
+    const dl = UI.el("dl", { "class": "ord-datos", "aria-label": "Datos del cliente de " + o.numero });
+    datos.forEach((c) => {
+      const item = UI.el("div", { "class": "d-" + c[0] });
+      const dt = UI.el("dt");
+      dt.appendChild(UI.el("span", { "class": "lbl-screen" }, c[1]));
+      dt.appendChild(UI.el("span", { "class": "lbl-print" }, c[2]));
+      item.appendChild(dt);
+      item.appendChild(UI.el("dd", { "class": c[0] === "ingreso" || c[0] === "egreso" || c[0] === "celular" ? "num" : "" }, c[3]));
+      dl.appendChild(item);
+    });
+    return dl;
+  }
+
+  // Resumen al pie de la orden: los tres valores salen de la API (nunca se recalculan aca).
+  function resumenOrden(o) {
+    const pie = UI.el("div", { "class": "ord-foot" });
+    const caja = UI.el("div", { "class": "resumen", "aria-label": "Resumen de precios de " + o.numero });
+    const dl = UI.el("dl");
+    [
+      ["Subtotal servicios", o.subtotal_servicios, ""],
+      ["Subtotal ítems", o.subtotal_items, ""],
+      ["Total", o.total, "tot"]
+    ].forEach((f) => {
+      dl.appendChild(UI.el("dt", { "class": f[2] }, f[0]));
+      dl.appendChild(UI.el("dd", { "class": f[2] }, Precios.formatear(f[1])));
+    });
+    caja.appendChild(dl);
+    pie.appendChild(caja);
+    return pie;
+  }
+
   function articulo(o) {
     const art = UI.el("article", { "class": "ord", "aria-labelledby": "ord-t-" + o.id });
     const cab = UI.el("div", { "class": "ord-head" });
@@ -40,6 +90,9 @@
     }, "Eliminar"));
     art.appendChild(cab);
 
+    const datos = filaDatos(o);
+    if (datos) art.appendChild(datos);
+
     // Servicio general (C-06g): solo si la orden lo tiene; va antes de la fila de procesos. En papel pasa primero
     // (tras el encabezado y antes de la tabla), como "Servicio general".
     if (o.servicio) {
@@ -48,22 +101,31 @@
       etiquetaServicio.appendChild(UI.el("span", { "class": "lbl-screen" }, "Servicio general:"));
       etiquetaServicio.appendChild(UI.el("span", { "class": "lbl-print" }, "Servicio general"));
       bloqueServicio.appendChild(etiquetaServicio);
-      bloqueServicio.appendChild(UI.el("span", { "class": "srv-nombre" }, o.servicio.nombre));
+      const linea = UI.el("span", { "class": "srv-linea" });
+      linea.appendChild(UI.el("span", { "class": "srv-nombre" }, o.servicio.nombre));
+      linea.appendChild(precioEl(o.servicio.precio));
+      bloqueServicio.appendChild(linea);
       const chequeos = UI.el("ul", { "aria-label": "Chequeos del servicio de " + o.numero });
       o.servicio.chequeos.forEach((c) => chequeos.appendChild(UI.el("li", { "class": "chip" }, c)));
       bloqueServicio.appendChild(chequeos);
       art.appendChild(bloqueServicio);
     }
 
-    // Procesos (C-06f): solo si la orden tiene; en pantalla "Procesos:" + chips, en papel "Procesos realizados".
+    // Servicios adicionales (procesos, C-06f): solo si la orden tiene; en pantalla "Servicios adicionales:"
+    // + chips con su precio, en papel "Servicios adicionales" (uno por linea, precio a la derecha).
     if (o.procesos && o.procesos.length > 0) {
       const bloque = UI.el("div", { "class": "chips" });
       const etiqueta = UI.el("span", { "class": "lbl" });
-      etiqueta.appendChild(UI.el("span", { "class": "lbl-screen" }, "Procesos:"));
-      etiqueta.appendChild(UI.el("span", { "class": "lbl-print" }, "Procesos realizados"));
+      etiqueta.appendChild(UI.el("span", { "class": "lbl-screen" }, "Servicios adicionales:"));
+      etiqueta.appendChild(UI.el("span", { "class": "lbl-print" }, "Servicios adicionales"));
       bloque.appendChild(etiqueta);
-      const lista = UI.el("ul", { "aria-label": "Procesos de " + o.numero });
-      o.procesos.forEach((p) => lista.appendChild(UI.el("li", { "class": "chip" }, p.nombre)));
+      const lista = UI.el("ul", { "aria-label": "Servicios adicionales de " + o.numero });
+      o.procesos.forEach((p) => {
+        const chip = UI.el("li", { "class": "chip" }, p.nombre);
+        chip.appendChild(UI.el("span", { "class": "sep", "aria-hidden": "true" }, " · "));
+        chip.appendChild(precioEl(p.precio));
+        lista.appendChild(chip);
+      });
       bloque.appendChild(lista);
       art.appendChild(bloque);
     }
@@ -76,6 +138,7 @@
     fila.appendChild(UI.el("th", { scope: "col" }, "Código"));
     fila.appendChild(UI.el("th", { scope: "col" }, "Nombre"));
     fila.appendChild(UI.el("th", { scope: "col", "class": "r" }, "Cantidad"));
+    fila.appendChild(UI.el("th", { scope: "col", "class": "r" }, "Importe"));
     tabla.appendChild(UI.el("thead")).appendChild(fila);
     const cuerpo = UI.el("tbody");
     o.componentes.forEach((c) => {
@@ -83,11 +146,13 @@
       tr.appendChild(UI.el("td", { "class": "num" }, c.codigo));
       tr.appendChild(UI.el("td", null, c.nombre));
       tr.appendChild(UI.el("td", { "class": "num r" }, String(c.cantidad)));
+      tr.appendChild(UI.el("td", { "class": "num r" + (c.precio == null ? " text-muted" : "") }, Precios.formatear(c.precio)));
       cuerpo.appendChild(tr);
     });
     tabla.appendChild(cuerpo);
     region.appendChild(tabla);
     art.appendChild(region);
+    art.appendChild(resumenOrden(o));
     return art;
   }
 

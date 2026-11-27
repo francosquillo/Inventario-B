@@ -3,6 +3,7 @@ from datetime import date, datetime
 from typing import Annotated, Any, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic.json_schema import SkipJsonSchema
 
 
 class LoginRequest(BaseModel):
@@ -43,7 +44,8 @@ class CategoriaRenombreRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
     nombre: Optional[Any] = None
-    clave: Optional[Any] = None  # solo para rechazarla: la clave es inmutable
+    # Solo para rechazarla (la clave es inmutable y va en la URL); oculta en /docs.
+    clave: SkipJsonSchema[Optional[Any]] = None
 
 
 class ProcesoOut(BaseModel):
@@ -62,7 +64,8 @@ class ProcesoRenombreRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
     nombre: Optional[Any] = None
-    clave: Optional[Any] = None  # solo para rechazarla: la clave es inmutable
+    # Solo para rechazarla (la clave es inmutable y va en la URL); oculta en /docs.
+    clave: SkipJsonSchema[Optional[Any]] = None
 
 
 class ServicioGeneralOut(BaseModel):
@@ -270,11 +273,21 @@ def producto_usado_out(producto):
 TextoRecortado = Annotated[str, StringConstraints(strip_whitespace=True)]
 
 
+DESCRIPCION_PRECIO = (
+    "Precio en centavos de ARS (entero >= 0, p. ej. 1250050 = $ 12.500,50) o null. "
+    "Un precio vacio cuenta 0 en los subtotales."
+)
+
+
 class ComponenteRequest(BaseModel):
     model_config = ConfigDict(strict=True)
 
     codigo: TextoRecortado = Field(min_length=1, max_length=50)
     cantidad: Cantidad
+    # Tipo laxo: lo valida el service (con prefijo "Componente N:").
+    precio: Optional[Any] = Field(
+        default=None, description="Importe de la linea. " + DESCRIPCION_PRECIO
+    )
 
 
 class OrdenRequest(BaseModel):
@@ -284,35 +297,75 @@ class OrdenRequest(BaseModel):
     fecha: str = Field(min_length=1)
     componentes: List[ComponenteRequest] = Field(min_length=1, max_length=100)
     # Tipos laxos: los valida el service con mensajes de dominio en espanol.
-    procesos: Optional[Any] = None
-    procesos_personalizados: Optional[Any] = None
+    procesos: Optional[Any] = Field(
+        default=None,
+        description=(
+            "Claves del catalogo (texto) u objetos {clave, precio}; "
+            "el precio es opcional (" + DESCRIPCION_PRECIO + ")"
+        ),
+    )
+    procesos_personalizados: Optional[Any] = Field(
+        default=None,
+        description="Textos u objetos {nombre, precio}; el precio es opcional (centavos o null).",
+    )
     servicio: Optional[Any] = None
+    precio_servicio: Optional[Any] = Field(
+        default=None, description="Precio del servicio general. " + DESCRIPCION_PRECIO
+    )
+    cliente: Optional[Any] = Field(default=None, description="Opcional, hasta 80 caracteres.")
+    celular: Optional[Any] = Field(
+        default=None, description="Opcional, 6 a 20 caracteres: digitos, espacios, +, - y ()."
+    )
+    casco: Optional[Any] = Field(default=None, description="Opcional, hasta 60 caracteres.")
+    motor: Optional[Any] = Field(default=None, description="Opcional, hasta 60 caracteres.")
+    trailer: Optional[Any] = Field(default=None, description="Opcional, hasta 60 caracteres.")
+    fecha_ingreso: Optional[Any] = Field(
+        default=None,
+        description="Opcional, AAAA-MM-DD: ingreso de la embarcacion (distinta de `fecha`).",
+    )
+    fecha_egreso: Optional[Any] = Field(
+        default=None,
+        description="Opcional, AAAA-MM-DD: egreso; no puede ser anterior al ingreso.",
+    )
 
 
 class ComponenteOut(BaseModel):
     codigo: str
     nombre: str
     cantidad: int
+    precio: Optional[int] = None
 
 
 class ProcesoOrdenOut(BaseModel):
     nombre: str
     personalizado: bool
+    precio: Optional[int] = None
 
 
 class ServicioOrdenOut(BaseModel):
     nombre: str
     chequeos: List[str]
+    precio: Optional[int] = None
 
 
 class OrdenOut(BaseModel):
     id: int
     numero: str
     fecha: date
+    fecha_ingreso: Optional[date] = None
+    fecha_egreso: Optional[date] = None
+    cliente: Optional[str] = None
+    celular: Optional[str] = None
+    casco: Optional[str] = None
+    motor: Optional[str] = None
+    trailer: Optional[str] = None
     usuario: str
     componentes: List[ComponenteOut]
     procesos: List[ProcesoOrdenOut] = []
     servicio: Optional[ServicioOrdenOut] = None
+    subtotal_servicios: int = Field(description="Centavos; un precio vacio cuenta 0.")
+    subtotal_items: int = Field(description="Centavos; un precio vacio cuenta 0.")
+    total: int = Field(description="Centavos: subtotal_servicios + subtotal_items.")
 
 
 class FaltanteOut(BaseModel):
@@ -331,19 +384,34 @@ def orden_out(orden):
         id=orden.id,
         numero=orden.numero,
         fecha=orden.fecha,
+        fecha_ingreso=orden.datos.fecha_ingreso,
+        fecha_egreso=orden.datos.fecha_egreso,
+        cliente=orden.datos.cliente,
+        celular=orden.datos.celular,
+        casco=orden.datos.casco,
+        motor=orden.datos.motor,
+        trailer=orden.datos.trailer,
         usuario=orden.usuario,
         componentes=[
-            ComponenteOut(codigo=i.codigo, nombre=i.nombre, cantidad=i.cantidad)
+            ComponenteOut(codigo=i.codigo, nombre=i.nombre, cantidad=i.cantidad, precio=i.precio)
             for i in orden.items
         ],
         procesos=[
-            ProcesoOrdenOut(nombre=p.nombre, personalizado=p.personalizado) for p in orden.procesos
+            ProcesoOrdenOut(nombre=p.nombre, personalizado=p.personalizado, precio=p.precio)
+            for p in orden.procesos
         ],
         servicio=(
-            ServicioOrdenOut(nombre=orden.servicio.nombre, chequeos=list(orden.servicio.chequeos))
+            ServicioOrdenOut(
+                nombre=orden.servicio.nombre,
+                chequeos=list(orden.servicio.chequeos),
+                precio=orden.servicio.precio,
+            )
             if orden.servicio
             else None
         ),
+        subtotal_servicios=orden.subtotal_servicios,
+        subtotal_items=orden.subtotal_items,
+        total=orden.total,
     )
 
 

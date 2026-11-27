@@ -134,6 +134,12 @@ class RenombrarTest(Base):
         )
         self.assertIn(("motor", "Motor"), self.catalogo())
 
+    def test_openapi_el_cuerpo_del_renombrado_solo_pide_nombre(self):
+        doc = self.client.get("/openapi.json").json()
+        ref = doc["paths"][URL + "/{clave}"]["patch"]["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+        esquema = doc["components"]["schemas"][ref.rsplit("/", 1)[1]]
+        self.assertEqual(list(esquema["properties"]), ["nombre"])
+
     def test_422_nombre_vacio(self):
         r = self.client.patch(f"{URL}/motor", json={})
         self.assertEqual((r.status_code, r.json()), (422, {"detail": "El campo nombre es obligatorio."}))

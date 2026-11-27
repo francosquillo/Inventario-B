@@ -118,8 +118,19 @@ def base_5e(ruta=":memory:", categorias=True):
     return conn
 
 
+# Columnas que agrega C-06h (datos del cliente y precios): estos tests comparan las anteriores.
+COLUMNAS_5H = (
+    "cliente", "celular", "casco", "motor", "trailer", "fecha_ingreso", "fecha_egreso",
+    "precio_centavos",
+)
+
+
 def filas(conn, tabla):
-    return [tuple(f) for f in conn.execute(f"SELECT * FROM {tabla} ORDER BY 1, 2")]
+    cols = [
+        f["name"] for f in conn.execute(f"PRAGMA table_info({tabla})")
+        if f["name"] not in COLUMNAS_5H
+    ]
+    return [tuple(f) for f in conn.execute(f"SELECT {', '.join(cols)} FROM {tabla} ORDER BY 1, 2")]
 
 
 def procesos(conn):

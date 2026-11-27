@@ -64,6 +64,13 @@ Borrado desde C-06f (solo API): se rechaza con 409 si algún producto, activo o 
 | numero | TEXT, UNIQUE, NOT NULL | alfanumérico; se guarda sin espacios sobrantes y en mayúsculas (`"  ot-0003 "` → `OT-0003`), de 1 a 30 caracteres; unicidad sobre el valor normalizado (PA-06, resuelta en C-03) |
 | fecha | DATE (`YYYY-MM-DD`), NOT NULL | ingresada a mano por el usuario |
 | usuario_id | FK → usuarios.id, NOT NULL | quién la cargó |
+| cliente | TEXT, NULL | (C-06h) opcional; recortado, 1 a 80 caracteres; `NULL` = sin dato |
+| celular | TEXT, NULL | (C-06h) opcional; 6 a 20 caracteres, solo dígitos, espacios, `+`, `-` y paréntesis, con al menos 6 dígitos; se guarda como se escribió |
+| casco | TEXT, NULL | (C-06h) opcional; recortado, 1 a 60 caracteres |
+| motor | TEXT, NULL | (C-06h) opcional; recortado, 1 a 60 caracteres |
+| trailer | TEXT, NULL | (C-06h) opcional; recortado, 1 a 60 caracteres |
+| fecha_ingreso | TEXT, NULL | (C-06h) opcional; `YYYY-MM-DD` real; cuándo entra la embarcación al taller. Sin relación con `fecha` |
+| fecha_egreso | TEXT, NULL | (C-06h) opcional; `YYYY-MM-DD` real; cuándo sale. CHECK: si hay ingreso y egreso, `fecha_egreso >= fecha_ingreso` |
 | created_at | TIMESTAMP, NOT NULL | default now; la app lo escribe como ISO 8601 con offset -03:00 (mismo formato que `movimientos`) |
 
 Índice: `fecha` (filtro por rango).
@@ -74,6 +81,7 @@ Borrado desde C-06f (solo API): se rechaza con 409 si algún producto, activo o 
 | orden_id | FK → ordenes.id, NOT NULL, ON DELETE CASCADE | |
 | producto_id | FK → productos.id, NOT NULL | sin cascade: el producto nunca se borra físicamente |
 | cantidad | INTEGER, NOT NULL, CHECK (cantidad > 0) | |
+| precio_centavos | INTEGER, NULL | (C-06h) importe de la línea en centavos; `NULL` = sin precio (distinto de 0); CHECK entero (`typeof = 'integer'`) entre 0 y 99.999.999.999 |
 
 PK compuesta (orden_id, producto_id): un producto aparece una sola vez por orden (SU-05).
 
@@ -93,6 +101,7 @@ Catálogo administrado solo por la API (alta, renombrar, borrar). Seed: `cambio-
 | nombre | TEXT, NOT NULL | snapshot del nombre al crear la orden (renombrar o borrar el proceso del catálogo no lo altera) |
 | personalizado | BOOLEAN, NOT NULL | true = texto libre de esa orden; false = del catálogo (SQLite: INTEGER 0/1) |
 | position | INTEGER, NOT NULL | orden de carga: primero los del catálogo, luego los personalizados |
+| precio_centavos | INTEGER, NULL | (C-06h) precio de este servicio adicional en centavos; mismo CHECK que `orden_items` |
 
 Sin FK a `procesos`: por eso se puede borrar un proceso usado. La unicidad de nombre por orden, sin distinguir mayúsculas, la valida el service.
 
@@ -119,6 +128,7 @@ Seed del servicio de ejemplo: "Chequeo de motor", "Chequeo de combustible", "Che
 |-------|------|-------|
 | orden_id | PK y FK → ordenes.id, NOT NULL, ON DELETE CASCADE | una sola fila por orden: cero o un servicio general |
 | nombre | TEXT, NOT NULL, 1 a 60 | snapshot del nombre al crear la orden |
+| precio_centavos | INTEGER, NULL | (C-06h) precio del servicio general en centavos; mismo CHECK que `orden_items` |
 
 ### orden_servicio_chequeos (C-06g)
 | Campo | Tipo | Notas |
@@ -130,6 +140,8 @@ Seed del servicio de ejemplo: "Chequeo de motor", "Chequeo de combustible", "Che
 Sin FK al catálogo: renombrar, cambiar chequeos o borrar el servicio no altera órdenes pasadas (todos los chequeos se copian al crear la orden).
 
 **Migración (C-06g, SQLite)**: aditiva y sin `ALTER`. Al arrancar, si `servicios_generales` no existe, se crean las cuatro tablas y se siembra el ejemplo en una sola transacción, verificando que los conteos de órdenes, ítems, productos, categorías, movimientos y procesos no cambien; ante error no queda ninguna tabla nueva. Las órdenes existentes quedan sin servicio. Si la tabla ya existe, no resiembra.
+
+**Migración (C-06h, SQLite)**: aditiva, idempotente y sin tocar `ESQUEMA_SQL`: `ALTER TABLE ... ADD COLUMN` de diez columnas (las siete de `ordenes`, `precio_centavos` en `orden_items`, `orden_procesos` y `orden_servicio`), en una sola transacción, verificando que los conteos de órdenes, ítems, procesos, servicios, productos, categorías y movimientos no cambien; ante error no queda ninguna columna nueva. Si ya están todas, no hace nada. Las órdenes existentes quedan con datos y precios en `NULL` (subtotales y total en 0). Antes del primer arranque se hace backup de `dev-local.db`. `ordenes.fecha` no cambia.
 
 ### movimientos
 | Campo | Tipo | Notas |
@@ -156,6 +168,7 @@ CHECK de coherencia: `((tipo = 'ajuste') = (stock_anterior IS NOT NULL)) AND ((t
 - Categorías (C-06e): en Postgres `categorias.id` identity, `clave` con CHECK `^[a-z0-9]+(-[a-z0-9]+)*$` y largo <= 30, índice único sobre `lower(nombre)` (equivale al NOCASE) y `productos.categoria_id bigint null references categorias(id)`; RLS como `productos`. Crear y renombrar categorías son operaciones de una sola fila (sin RPC; violación `23505` → 409). Las RPC de alta y modificación de productos reciben `p_categoria` (clave) y la de reporte devuelve `categoria`.
 - Procesos (C-06f): en Postgres `procesos` (identity, `clave` con el mismo CHECK que `categorias`, índice único sobre `lower(nombre)`) y `orden_procesos (orden_id bigint references ordenes(id) on delete cascade, nombre text, personalizado boolean, position int)`; RLS como las demás. La RPC `crear_orden` recibe `p_procesos` (claves) y `p_procesos_personalizados` y registra los procesos en la misma transacción. Alta, renombrar y borrar de procesos y el borrado de categorías son operaciones directas (sin RPC; `23505` → 409; `23503` en categorías en uso → 409). El seed de `procesos` y `categorias` ocurre solo al crear cada tabla en `schema.sql`.
 - Servicios generales (C-06g): en Postgres `servicios_generales` (identity, `clave` con el mismo CHECK, índice único sobre `lower(nombre)`), `servicio_chequeos` (`servicio_id` on delete cascade, `posicion`, PK compuesta, índice único `(servicio_id, lower(nombre))`), `orden_servicio (orden_id bigint primary key references ordenes(id) on delete cascade, nombre text)` y `orden_servicio_chequeos` (mismo patrón que `orden_procesos`). La RPC `crear_orden` recibe `p_servicio` (`{nombre, chequeos}` o `null`, ya validado) en la misma transacción. Alta y modificación de servicio (catálogo y chequeos) son multi-tabla y van por RPC transaccional; borrar es una fila (cascade).
+- Datos y precios de órdenes (C-06h): en Postgres `ordenes` gana `cliente text check (char_length(btrim(cliente)) between 1 and 80)`, `celular text check` (6 a 20, mismo patrón), `casco`, `motor` y `trailer text check` (1 a 60), `fecha_ingreso date` y `fecha_egreso date check (fecha_egreso is null or fecha_ingreso is null or fecha_egreso >= fecha_ingreso)`; `precio_centavos bigint check (precio_centavos between 0 and 99999999999)` en `orden_items`, `orden_procesos` y `orden_servicio`. Los subtotales y el total no se guardan: los calcula el dominio Python y la API los devuelve. La RPC `crear_orden` recibe los datos y los precios (ítems y procesos con `precio` en `jsonb`, y `p_precio_servicio`) en la misma transacción que el descuento de stock. **Ojo de paridad**: SQLite tiene affinity INTEGER y convierte `'10'` en `10`, así que el rechazo de precios escritos como texto depende de la validación Pydantic estricta (el service exige `int`, no `bool`, `float` ni texto) y del CHECK `typeof(precio_centavos) = 'integer'`. Supabase tiene que replicar esas columnas y CHECK y validar el tipo en la RPC igual que el service.
 - Operaciones multi-tabla atómicas: SQLite con transacción; Supabase con funciones PL/pgSQL vía RPC definidas en `schema.sql` (ver 08 y R-01).
 
 ## Seed data inicial

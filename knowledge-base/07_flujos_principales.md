@@ -97,7 +97,7 @@ Usuario → Adaptador → StockService → ProductoRepo / MovimientoRepo
 
 **Pasos**:
 1. Adaptador recoge número, fecha `YYYY-MM-DD`, lista de (producto, cantidad) y, opcionales, `servicio` (clave del catálogo de servicios generales o `null`), `procesos` (claves del catálogo) y `procesos_personalizados` (textos); valida formatos.
-2. OrdenService verifica unicidad del número, que haya ≥ 1 componente y que todos sean productos activos.
+2. OrdenService verifica unicidad del número, que haya ≥ 1 componente y que todos sean productos activos. Valida los datos opcionales del cliente y la embarcación (C-06h) y los precios (en centavos enteros, opcionales, entre 0 y 99.999.999.999).
 3. Valida stock de TODOS los componentes; si alguno falla, devuelve la lista de faltantes y no modifica nada.
 4. Atómico: inserta la orden, inserta `orden_items`, descuenta stock de cada producto, inserta `orden_procesos` (catálogo primero, luego personalizados; nombre como snapshot) e inserta `orden_servicio` con sus `orden_servicio_chequeos` (snapshot de nombre y chequeos, C-06g).
 
@@ -117,6 +117,10 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 - Personalizado vacío o de más de 60 → 422 "Proceso personalizado N: ..."; más de 10 → 422 "La orden admite hasta 10 procesos personalizados."; igual a uno del catálogo o repetido → 422 con su posición (RN-OR-14).
 - Orden solo con procesos y sin componentes → 422 "La orden requiere al menos un componente."
 - Servicio general inexistente → 422 "El servicio general 'x' no existe."; `servicio` que no es texto ni `null` → 422 "El campo servicio debe ser texto.". Ambos sin tocar stock (RN-OR-18).
+- (C-06h) Dato del cliente o embarcación fuera de formato o de límite (cliente > 80; casco, motor o trailer > 60; celular fuera de 6 a 20 o con otros caracteres) → 422 con el nombre del campo; fecha de ingreso o de egreso inválida, o egreso anterior a ingreso → 422 "La fecha de egreso no puede ser anterior a la de ingreso." (RN-OR-22, RN-OR-23).
+- (C-06h) Precio inválido (texto, decimal, negativo o mayor al tope) → 422 con la posición ("Componente N: ...", "Proceso N: ...", "Proceso personalizado N: ..." o "El precio del servicio general debe ser un entero de centavos entre 0 y 99.999.999.999."), sin tocar stock (RN-OR-24).
+- (C-06h) Precio del servicio general sin servicio elegido → 422 "No se puede indicar el precio del servicio general sin elegir uno.".
+- (C-06h) En la web, el mismo producto en dos líneas de ítems o el mismo servicio adicional del catálogo en dos líneas → error en el formulario ("Ya está en otra línea.") (RN-OR-26).
 
 **En la web (modal "Nueva orden", C-06f)**: debajo de "Componentes", el bloque "Procesos" con líneas (Agregar proceso / Quitar; cero permitido). Cada línea tiene un selector con los procesos de `GET /api/procesos` y "Personalizado", que muestra un cuadro de texto (hasta 10 líneas personalizadas). Si el catálogo no carga se avisa "No se pudo cargar la lista de procesos." y solo queda "Personalizado". El mismo proceso en dos líneas se envía una vez. Si un proceso fue borrado con el modal abierto, el backend responde 422 y se muestra el mensaje.
 
@@ -230,6 +234,15 @@ Usuario → Adaptador → OrdenService → OrdenRepo.crear_con_descuento()
 - Nombre vacío o de más de 60 → 422; chequeos que no son una lista, lista vacía, más de 30, vacío, de más de 60 o repetido → 422 con su posición ("Chequeo N: ...").
 - Modificar sin nombre ni chequeos → 422 "Indicá el nombre o los chequeos a modificar."; `clave` en el cuerpo → 422.
 - Clave inexistente (modificar o borrar) → 404 "No existe un servicio general con clave 'x'.".
+
+## Flujo 5h: Datos del cliente y precios (C-06h)
+**Actor**: Usuario autenticado.
+
+**Alta**: en "Nueva orden", el bloque "Cliente y embarcación" (Flujo 4) envía los datos opcionales, y cada línea de ítems, cada servicio adicional y el servicio general envían su precio (vacío = sin precio). Mientras se tipea, "Subtotal servicios", "Subtotal ítems" y "Total" se recalculan en el navegador con las mismas reglas que la API; el total que queda guardado es el que devuelve el backend. La "Fecha" de la orden sigue junto al número, como antes.
+
+**Ver**: `/ordenes` muestra, en cada orden, los datos del cliente y la embarcación (ingreso y egreso en su fila), los precios por línea (ítems, servicio general y "Servicios adicionales") y el resumen de subtotales y total, todos desde la API. El PDF (Flujo 5c) imprime lo mismo con la columna "Importe".
+
+**Casos de error**: los de Flujo 4 para datos y precios (RN-OR-22 a RN-OR-26). Una orden creada antes de C-06h aparece sin datos ni precios (`NULL`, subtotales en 0).
 
 ## Flujo 6: Borrar orden
 **Disparador**: `DELETE /api/ordenes/{numero}?reintegrar=true|false` (Fase 1, `/docs`) / modal de borrado (Fase 2). La orden se identifica por su número normalizado, nunca por id (C-05).

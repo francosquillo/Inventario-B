@@ -30,17 +30,20 @@ C-01 paso-1-base-cli
                 └── C-05 paso-4b-borrado-ordenes-productos
                      └── C-06 paso-5-web-local
                           └── C-06b paso-5b-fixes-menores
-                               └── C-06c paso-5c-buscador-pdf
-                                    └── C-06d paso-5d-reporte-ordenes-fechas
-                                         └── C-06e paso-5e-categorias-productos
-                                              └── C-06f paso-5f-procesos-ordenes
-                                                   └── C-06g paso-5g-servicios-generales
-                                                        └── C-06h paso-5h-precios-datos-orden
-                                                             └── C-06i paso-5i-modificar-ordenes-checkeo
-                                                                  └── C-06j paso-5j-impresion-ordenes
-                                                                       └── C-07 paso-6-migracion-supabase
-                                                                            └── C-08 paso-7-despliegue-vercel
+                          └── C-06c paso-5c-buscador-pdf
+                          └── C-06d paso-5d-reporte-ordenes-fechas
+                          └── C-06e paso-5e-categorias-productos
+                          └── C-06f paso-5f-procesos-ordenes
+                          └── C-06g paso-5g-servicios-generales
+                          └── C-06h paso-5h-precios-datos-orden
+                          └── C-06h2 paso-5h2-filtro-categoria-stock
+                          └── C-06i paso-5i-modificar-ordenes-checkeo
+                          └── C-06j paso-5j-impresion-ordenes
+                               └── C-07 paso-6-migracion-supabase
+                                    └── C-08 paso-7-despliegue-vercel
 ```
+
+> Los sub-changes de C-06 (C-06b..C-06j) van en la misma columna pero se ejecutan **en secuencia**: cada uno depende del anterior (ver "Dependencias" de cada change). C-07 depende de C-06j.
 
 ### Paralelismo por fase
 
@@ -52,13 +55,14 @@ GATE 0: (inicio)
 GATE 1..7: cada change archivado desbloquea únicamente el siguiente (sin fork).
 ```
 
-### Camino crítico (17 changes — mínimo irreducible)
+### Camino crítico (18 changes — mínimo irreducible)
 
-C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d → C-06e → C-06f → C-06g → C-06h → C-06i → C-06j → C-07 → C-08
+C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d → C-06e → C-06f → C-06g → C-06h → C-06h2 → C-06i → C-06j → C-07 → C-08
 
 > C-06b (`paso-5b-fixes-menores`) es un change intermedio agregado el 2026-11-20 a pedido del usuario, entre C-06 y C-07.
 > C-06c..C-06f son changes intermedios agregados el 2026-11-24 a pedido del usuario, antes de C-07, ordenados de más simple a más complejo: los dos primeros no tocan el esquema; los dos últimos agregan tablas/columnas con migración.
 > C-06g..C-06j son changes intermedios agregados el 2026-11-26 a pedido del usuario, antes de C-07, ordenados de más simple a más complejo **respetando dependencias**: C-06j (impresión) es el más chico en código pero va último porque el formato impreso necesita los campos que agregan C-06h (precios, cliente, embarcación, fechas) y C-06i (checkeo final); hacerlo antes obligaría a rehacerlo.
+> C-06h2 (`paso-5h2-filtro-categoria-stock`) se agregó el 2026-11-27 a pedido del usuario, después de C-06h (decisión explícita: primero los precios). Solo frontend.
 
 ### Plan óptimo con 3 agentes
 
@@ -77,6 +81,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 | 6f | C-06f (mockups + apply) | — | — |
 | 6g | C-06g (mockups + apply) | — | — |
 | 6h | C-06h (mockups + apply) | — | — |
+| 6h2 | C-06h2 (mockups + apply) | — | — |
 | 6i | C-06i (mockups + apply) | — | — |
 | 6j | C-06j (mockups + apply) | — | — |
 | 7 | C-07 | — | — |
@@ -317,7 +322,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 
 ### [C-06h] `paso-5h-precios-datos-orden`
 > Change intermedio agregado el 2026-11-26 (pedido del usuario). Agrega columnas a órdenes y precios en varias tablas.
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-27)
 - **Scope**:
   - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
   - **Precios tipeados por el usuario** en la orden (no hay lista de precios automática): uno para el **servicio general** (C-06g), uno **por cada ítem** de la orden y uno **por cada servicio adicional** (los que hoy se ven como "procesos" en las órdenes, C-06f). Decidir en propose: moneda, decimales (centavos enteros vs. decimal), si el precio es obligatorio u opcional, total calculado, y si "procesos" se renombra a "servicios adicionales" en la UI
@@ -334,6 +339,23 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
   - `knowledge-base/05_reglas_de_negocio.md` §RN-OR, §RN-VA
   - `knowledge-base/06_funcionalidades.md`
 
+### [C-06h2] `paso-5h2-filtro-categoria-stock`
+> Change chico agregado el 2026-11-27 (pedido del usuario). Solo frontend: sin cambios de esquema ni de API.
+- **Estado**: `[ ]` pendiente
+- **Scope**:
+  - **Cambio visual**: política `system-and-mockups`. Mockups (solo los necesarios) aprobados ANTES de `apply`
+  - En el modal **"Modificar stock"**, agregar a cada línea un **filtro por categoría** que acote el selector de producto, igual al de las líneas de "Nueva orden" (C-06e): opción "Todas", cada categoría y "Sin categoría"; si el producto elegido no pertenece a la categoría filtrada se resetea; ayuda "No hay productos en esta categoría." cuando el filtro deja la lista vacía
+  - No confundir con el selector "Categoría" que ya tiene la línea, que sirve para **cambiar** la categoría del producto: el filtro es aparte, con etiqueta distinta (p. ej. "Filtrar por categoría"); definir en propose su ubicación en la línea
+  - Reutilizar la lógica existente (`Busqueda.porCategoria`, `productoSigueVisible`) sin duplicarla
+  - Al archivar: actualizar KB 06 y 07
+- **Test runner**: `unittest` (guardas estáticas de frontend) + Node para la lógica JS pura (Strict TDD)
+- **Dependencias**: `C-06h`
+- **Governance**: BAJO (solo presentación, sin cambios de datos)
+- **Leer antes**:
+  - `knowledge-base/06_funcionalidades.md` §US-005 (modificar stock)
+  - `openspec/changes/archive/` de C-06e (filtro por categoría en las líneas de "Nueva orden")
+  - `static/js/inventario.js` (`llenarSelect`, `actualizarAyudaLinea`)
+
 ### [C-06i] `paso-5i-modificar-ordenes-checkeo`
 > Change intermedio agregado el 2026-11-26 (pedido del usuario). El más complejo: edición de órdenes con ajuste atómico de stock.
 - **Estado**: `[ ]` pendiente
@@ -345,7 +367,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
   - Detalle de la orden y PDF (C-06c) muestran el checkeo final
   - Al archivar: actualizar KB 04, 05, 06 y 07
 - **Test runner**: `unittest` + `TestClient` (Strict TDD)
-- **Dependencias**: `C-06h`
+- **Dependencias**: `C-06h2`
 - **Governance**: ALTO (edición atómica de órdenes con stock + migración de esquema) con componente visual
 - **Leer antes**:
   - `knowledge-base/05_reglas_de_negocio.md` §RN-OR, §RN-ST
@@ -437,7 +459,8 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 | C-06f | paso-5f-procesos-ordenes | 2 | C-06e | ALTO |
 | C-06g | paso-5g-servicios-generales | 2 | C-06f | MEDIO/ALTO |
 | C-06h | paso-5h-precios-datos-orden | 2 | C-06g | ALTO |
-| C-06i | paso-5i-modificar-ordenes-checkeo | 2 | C-06h | ALTO |
+| C-06h2 | paso-5h2-filtro-categoria-stock | 2 | C-06h | BAJO |
+| C-06i | paso-5i-modificar-ordenes-checkeo | 2 | C-06h2 | ALTO |
 | C-06j | paso-5j-impresion-ordenes | 2 | C-06i | BAJO/MEDIO |
 | C-07 | paso-6-migracion-supabase | 3 | C-06j | CRITICO |
 | C-08 | paso-7-despliegue-vercel (antes paso-6-despliegue-vercel) | 4 | C-07 | ALTO |

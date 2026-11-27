@@ -119,7 +119,9 @@ def productos(conn):
 
 
 def tabla(conn, nombre):
-    return [tuple(f) for f in conn.execute(f"SELECT * FROM {nombre} ORDER BY 1, 2")]
+    from tests.test_sqlite_migracion_procesos import filas
+
+    return filas(conn, nombre)
 
 
 def categorias(conn):

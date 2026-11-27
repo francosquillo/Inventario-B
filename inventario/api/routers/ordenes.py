@@ -38,7 +38,13 @@ MENSAJE_REINTEGRAR_REPETIDO = "El campo reintegrar debe enviarse una sola vez."
     },
 )
 def crear_orden(datos: OrdenRequest, usuario: Usuario, ordenes: Servicio):
-    componentes = [(c.codigo, c.cantidad) for c in datos.componentes]
+    componentes = [(c.codigo, c.cantidad, c.precio) for c in datos.componentes]
+    datos_orden = {
+        campo: getattr(datos, campo)
+        for campo in (
+            "cliente", "celular", "casco", "motor", "trailer", "fecha_ingreso", "fecha_egreso"
+        )
+    }
     return orden_out(
         ordenes.crear(
             datos.numero,
@@ -48,6 +54,8 @@ def crear_orden(datos: OrdenRequest, usuario: Usuario, ordenes: Servicio):
             procesos=datos.procesos,
             procesos_personalizados=datos.procesos_personalizados,
             servicio=datos.servicio,
+            datos=datos_orden,
+            precio_servicio=datos.precio_servicio,
         )
     )
 

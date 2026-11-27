@@ -177,3 +177,57 @@ def normalizar_chequeos(valor):
         vistos.add(nombre.casefold())
         chequeos.append(nombre)
     return tuple(chequeos)
+
+
+# --- Precios y datos del cliente de ordenes (C-06h) ---
+PRECIO_MAX = 99_999_999_999
+MENSAJE_PRECIO = f"El precio debe ser un entero de centavos entre 0 y {PRECIO_MAX:,}.".replace(",", ".")
+CELULAR_MIN = 6
+CELULAR_MAX = 20
+MENSAJE_CELULAR = (
+    "El celular admite solo números, espacios, +, - y paréntesis "
+    f"(de {CELULAR_MIN} a {CELULAR_MAX} caracteres)."
+)
+_CELULAR = re.compile(r"\+?[0-9 ()-]+")
+
+
+def validar_precio(valor, mensaje=MENSAJE_PRECIO):
+    """Precio opcional en centavos: None = sin precio; si no, entero (no bool) de 0 al maximo."""
+    if valor is None:
+        return None
+    if type(valor) is not int or not 0 <= valor <= PRECIO_MAX:
+        raise DatosInvalidos(mensaje)
+    return valor
+
+
+def normalizar_texto_opcional(valor, campo, tope, mensaje_largo, mensaje_tipo=None):
+    """Texto opcional: None o blanco = None; recortado, hasta `tope` caracteres."""
+    if valor is None:
+        return None
+    if not isinstance(valor, str):
+        raise DatosInvalidos(mensaje_tipo or f"El campo {campo} debe ser texto.")
+    valor = valor.strip()
+    if not valor:
+        return None
+    if len(valor) > tope:
+        raise DatosInvalidos(mensaje_largo)
+    return valor
+
+
+def validar_celular(valor):
+    """Celular opcional: recortado, 6 a 20 caracteres, solo digitos, espacios, - y () con un + inicial."""
+    if valor is None:
+        return None
+    if not isinstance(valor, str):
+        raise DatosInvalidos("El campo celular debe ser texto.")
+    valor = valor.strip()
+    if not valor:
+        return None
+    digitos = sum(c.isdigit() for c in valor)
+    if (
+        not CELULAR_MIN <= len(valor) <= CELULAR_MAX
+        or not _CELULAR.fullmatch(valor)
+        or digitos < CELULAR_MIN
+    ):
+        raise DatosInvalidos(MENSAJE_CELULAR)
+    return valor

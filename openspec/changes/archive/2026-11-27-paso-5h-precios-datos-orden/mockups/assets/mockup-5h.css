@@ -1,0 +1,72 @@
+/* Piezas nuevas de paso-5h-precios-datos-orden (candidatas a static/css/app.css en el apply). Solo tokens de
+   design-system/tokens.css, salvo la hoja impresa (colores de papel). Se carga después de mockup-5g.css. */
+
+/* "Nueva orden" más ancha: más campos por fila en escritorio; en 390 px todo apila */
+.modal.modal-wide { max-width:44rem; }
+
+/* Fila de número + fechas y grilla de "Cliente y embarcación" */
+.grid-3 { display:grid; gap:.75rem 1rem; grid-template-columns:minmax(0,1fr); }
+@media (min-width: 640px) { .grid-3 { grid-template-columns:repeat(3, minmax(0,1fr)); } .grid-3 .span-2 { grid-column:span 2; } .grid-3 .span-3 { grid-column:1 / -1; } }
+@media (max-width: 639.98px) { .grid-3.mob-2 { grid-template-columns:repeat(2, minmax(0,1fr)); } .grid-3.mob-2 .mob-full { grid-column:1 / -1; } }
+.label .opt { font-weight:var(--weight-normal, 400); color:var(--color-text-muted); font-size:var(--text-xs); }
+
+/* Caja de importe: "$" fijo a la izquierda, cifras a la derecha y tabulares */
+.money { position:relative; min-width:0; }
+.money::before { content:"$"; position:absolute; left:.625rem; top:50%; transform:translateY(-50%); color:var(--color-text-muted); font-size:var(--text-sm); pointer-events:none; }
+.money > .field { padding-left:1.5rem; text-align:right; font-variant-numeric:tabular-nums; }
+.money > .field:disabled { opacity:.55; }
+
+/* Servicio general: selector + precio */
+.srv-row { display:grid; grid-template-columns:minmax(0,1fr) 8.5rem; gap:.5rem; align-items:center; }
+
+/* Línea de componente con importe.
+   Móvil: [n | producto] / [ | cantidad | importe | Quitar]. Desde 640 px: una sola fila. */
+.line.line-p { grid-template-columns:1rem 4rem minmax(0,1fr) auto; grid-template-areas:"n sel sel sel" ". cant imp quitar"; column-gap:.375rem; }
+.line.line-p > .money { grid-area:imp; }
+@media (min-width: 640px) {
+  .line.line-p { grid-template-columns:1.5rem minmax(0,1fr) 4.5rem 8.5rem auto; grid-template-areas:"n sel cant imp quitar"; column-gap:.5rem; }
+}
+.cols-head { display:none; }
+@media (min-width: 640px) {
+  .cols-head { display:grid; grid-template-columns:1.5rem minmax(0,1fr) 4.5rem 8.5rem 4.75rem; gap:.5rem; font-size:var(--text-xs); color:var(--color-text-muted); font-weight:var(--weight-medium); margin-bottom:.25rem; }
+  .cols-head .r { text-align:right; }
+}
+
+/* Línea de servicio adicional: selector + importe + Quitar (la caja personalizada ocupa la fila de abajo) */
+.pline.pline-p { grid-template-columns:minmax(0,1fr) 8.5rem auto; }
+@media (max-width: 639.98px) { .pline.pline-p { grid-template-columns:minmax(0,1fr) 7rem auto; } }
+
+/* Resumen de precios (Nueva orden y /ordenes) */
+.resumen { margin-left:auto; width:100%; max-width:20rem; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--color-surface-2); padding:.5rem .75rem; }
+.resumen dl { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.25rem 0; margin:0; font-size:var(--text-sm); }
+.resumen dt { color:var(--color-text-muted); }
+.resumen dd { margin:0; padding-left:1rem; text-align:right; font-family:var(--font-mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.resumen .tot { border-top:1px solid var(--color-border-strong); padding-top:.375rem; margin-top:.125rem; color:var(--color-text); font-weight:var(--weight-bold); font-size:var(--text-base, 1rem); }
+
+/* /ordenes: fila de datos del cliente, precios en línea y resumen al pie */
+.ord-datos { display:flex; flex-wrap:wrap; gap:.25rem 1rem; margin:0; padding:0 .75rem .625rem; font-size:var(--text-sm); }
+.ord-datos div { display:flex; gap:.25rem; }
+.ord-datos dt { color:var(--color-text-muted); font-weight:var(--weight-medium); }
+.ord-datos dd { margin:0; }
+.precio { font-family:var(--font-mono); font-size:var(--text-sm); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.precio.sin { color:var(--color-text-muted); }
+.chip .precio { margin-left:.25rem; color:var(--color-text-muted); }
+.ord-foot { padding:.625rem .75rem .875rem; display:flex; }
+
+/* Hoja impresa (P1): datos, precios y resumen */
+.sheet .sheet-datos { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:.125rem 1.5rem; margin:0 0 .75rem; font-size:10.5pt; }
+.sheet .sheet-datos div { display:flex; gap:.375rem; }
+.sheet .sheet-datos dt { color:#444; }
+.sheet .sheet-datos dd { margin:0; font-weight:600; }
+.sheet .sheet-proc li { display:flex; justify-content:space-between; gap:1rem; }
+.sheet .sheet-srv-nombre { display:flex; justify-content:space-between; font-weight:700; padding:.2rem .5rem; border-bottom:1px solid #ccc; }
+.sheet .sheet-proc ul.chq li { padding-left:1.25rem; color:#333; }
+.sheet .sheet-resumen { margin:1rem 0 0 auto; width:16rem; max-width:100%; font-size:10.5pt; }
+.sheet .sheet-resumen div { display:flex; justify-content:space-between; padding:.15rem .5rem; }
+.sheet .sheet-resumen .tot { border-top:1.5px solid #111; margin-top:.25rem; padding-top:.3rem; font-weight:700; font-size:12pt; }
+.sheet .sin { color:#666; }
+
+/* Solo maqueta: ?largo muestra el modal entero (sin overlay fijo) para capturas de página completa */
+.mk-largo .overlay { position:static; min-height:100dvh; align-items:flex-start; }
+.mk-largo .modal { max-height:none !important; }
+.mk-largo main { display:none; }

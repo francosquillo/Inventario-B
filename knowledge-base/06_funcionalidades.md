@@ -101,6 +101,8 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 - [ ] Si alcanza, se descuentan todos los componentes y se crea la orden atómicamente.
 - [ ] No se generan filas en `movimientos` por la orden.
 - [ ] (C-06g) Campo opcional `servicio` (clave del catálogo o `null`): el servicio se guarda como snapshot (nombre y todos sus chequeos) en la misma transacción; si no existe, se rechaza con 422 "El servicio general 'x' no existe." sin tocar stock. Ver US-017.
+- [ ] (C-06h) Cada componente y cada servicio adicional aceptan un `precio` opcional en centavos (≥ 0); `precio_servicio` opcional para el servicio general. Sin precio = `NULL`. Ver US-019.
+- [ ] (C-06h) Campos opcionales de cliente y embarcación (`cliente`, `celular`, `casco`, `motor`, `trailer`, `fecha_ingreso`, `fecha_egreso`). Ver US-018.
 
 **Reglas relacionadas**: RN-OR-01, RN-OR-02, RN-OR-03, RN-OR-04, RN-OR-05, RN-OR-06, RN-OR-18, RN-OR-19, RN-ST-06, RN-VA-01, RN-VA-02, RN-VA-03
 
@@ -121,7 +123,9 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 - [ ] Cada orden muestra número, fecha y componentes con cantidades (incluso de productos dados de baja).
 - [ ] (C-06g) Cada orden con servicio general muestra su nombre y sus chequeos tal como quedaron al crearla, aunque el catálogo haya cambiado después; sin servicio, no hay fila.
 
-**Reglas relacionadas**: RN-OR-07, RN-OR-19, RN-PR-04, RN-VA-03
+- [ ] (C-06h) Cada orden muestra sus datos del cliente y la embarcación (ingreso y egreso en su fila), sus precios por línea y el resumen de subtotales y total.
+
+**Reglas relacionadas**: RN-OR-07, RN-OR-19, RN-OR-22, RN-OR-23, RN-OR-25, RN-PR-04, RN-VA-03
 
 ### US-008 — Borrar orden
 **Como** usuario
@@ -260,6 +264,41 @@ Organizadas por épica y por historia de usuario (US-NNN). El campo "Paso" mapea
 - [ ] Catálogo también por API: `GET`/`POST /api/servicios-generales`, `PATCH`/`DELETE /api/servicios-generales/{clave}`.
 
 **Reglas relacionadas**: RN-OR-18, RN-OR-19, RN-OR-20, RN-OR-21
+
+## Épica 3f: Datos del cliente y precios de la orden (C-06h)
+
+### US-018 — Datos del cliente y de la embarcación
+**Como** usuario
+**Quiero** registrar en cada orden a quién pertenece la embarcación y cuándo entra y sale del taller
+**Para** tener el dato del cliente y las fechas de estadía
+
+**Paso**: 6 (cambia el esquema: siete columnas nuevas en `ordenes`; migración aditiva)
+
+**Criterios de aceptación**:
+- [ ] Cliente, celular, casco, motor, trailer, fecha de ingreso y fecha de egreso son opcionales; se validan solo si se cargan.
+- [ ] Cliente hasta 80 caracteres; casco, motor y trailer hasta 60; celular de 6 a 20 caracteres con solo dígitos, espacios, `+`, `-` y paréntesis.
+- [ ] Fechas de ingreso y egreso en `YYYY-MM-DD` reales; con ambas, egreso ≥ ingreso. No tienen relación con la fecha de la orden, que queda como estaba.
+- [ ] "Nueva orden" muestra el bloque "Cliente y embarcación" (en ese orden: cliente, celular, casco, motor, trailer y las dos fechas); la validación del navegador es igual que la de la API.
+- [ ] `/ordenes` y el PDF muestran los datos; las órdenes existentes quedan sin datos tras la migración.
+
+**Reglas relacionadas**: RN-OR-22, RN-OR-23
+
+### US-019 — Precios de la orden y total
+**Como** usuario
+**Quiero** tipear el precio del servicio general, de cada ítem y de cada servicio adicional, y ver subtotales y total
+**Para** cobrarle al cliente
+
+**Paso**: 6 (cambia el esquema: columna `precio_centavos` en `orden_items`, `orden_procesos` y `orden_servicio`; migración aditiva)
+
+**Criterios de aceptación**:
+- [ ] Precios opcionales, en pesos en la web (`12.500`, `12.500,50`, `$ 12.500`; `12.5` es inválido) y en centavos enteros en la API; entre 0 y $ 999.999.999,99.
+- [ ] Vacío = sin precio, distinto de 0. En ítems el precio es el importe de la línea.
+- [ ] "Procesos" se llama "Servicios adicionales" en la interfaz (la API y las tablas siguen diciendo "procesos"); cada uno tiene su precio.
+- [ ] "Nueva orden" muestra "Subtotal servicios", "Subtotal ítems" y "Total", que se actualizan al tipear; un precio vacío cuenta 0.
+- [ ] `/ordenes` y el PDF muestran precios por línea y el resumen de subtotales y total de cada orden.
+- [ ] Precios y datos se guardan junto con la orden y el descuento de stock en la misma transacción (todo o nada).
+
+**Reglas relacionadas**: RN-OR-24, RN-OR-25, RN-OR-26
 
 ## Épica 4: Web y despliegue
 

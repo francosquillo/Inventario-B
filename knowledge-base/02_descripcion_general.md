@@ -53,7 +53,7 @@ Todas las rutas (salvo login y la página de login) exigen sesión. El frontend 
 | Auth | `POST /api/login`, `POST /api/logout`, `GET /api/me` |
 | Inventario | `GET /api/inventario` (solo activos), `DELETE /api/productos/{codigo}` (lógico, C-05) |
 | Movimientos | `POST /api/stock/ingreso`, `POST /api/stock/egreso` |
-| Órdenes | `POST /api/ordenes`, `GET /api/ordenes?numero=&desde=&hasta=` (C-04), `DELETE /api/ordenes/{numero}?reintegrar=true|false` (C-05; borrado por número, no por id) |
+| Órdenes | `POST /api/ordenes`, `GET /api/ordenes?numero=&desde=&hasta=` (C-04), `DELETE /api/ordenes/{numero}?reintegrar=true|false` (C-05; borrado por número, no por id); `POST /api/ordenes` acepta datos del cliente y de la embarcación, precios por componente, por servicio adicional y por servicio general, y las respuestas devuelven `subtotal_servicios`, `subtotal_items` y `total` (C-06h) |
 | Categorías | `GET /api/categorias`, `POST /api/categorias`, `PATCH /api/categorias/{clave}` (C-06e), `DELETE /api/categorias/{clave}` (C-06f; 409 si algún producto la usa); administración solo por API |
 | Procesos | `GET /api/procesos`, `POST /api/procesos`, `PATCH /api/procesos/{clave}`, `DELETE /api/procesos/{clave}` (C-06f; catálogo administrado solo por API); `POST /api/ordenes` acepta `procesos` y `procesos_personalizados` |
 | Servicios generales | `GET /api/servicios-generales`, `POST /api/servicios-generales`, `PATCH /api/servicios-generales/{clave}`, `DELETE /api/servicios-generales/{clave}` (C-06g; catálogo administrado desde `/ordenes` y por API); `POST /api/ordenes` acepta `servicio` (clave o `null`) y la orden devuelve `servicio` con sus chequeos |

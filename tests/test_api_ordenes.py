@@ -88,12 +88,17 @@ class AltaTest(OrdenesBase):
         self.assertEqual(
             c["componentes"],
             [
-                {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2},
-                {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 5},
+                {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2, "precio": None},
+                {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 5, "precio": None},
             ],
         )
+        self.assertEqual(set(c), CAMPOS_ORDEN)
         self.assertEqual(
-            set(c), {"id", "numero", "fecha", "usuario", "componentes", "procesos", "servicio"}
+            {k: c[k] for k in ("fecha_ingreso", "fecha_egreso", "cliente", "celular", "casco",
+                               "motor", "trailer", "subtotal_servicios", "subtotal_items", "total")},
+            {"fecha_ingreso": None, "fecha_egreso": None, "cliente": None, "celular": None,
+             "casco": None, "motor": None, "trailer": None, "subtotal_servicios": 0,
+             "subtotal_items": 0, "total": 0},
         )
         self.assertEqual(c["procesos"], [])
         self.assertIsNone(c["servicio"])
@@ -258,13 +263,23 @@ class ListadoTest(OrdenesBase):
                     "id": creada.json()["id"],
                     "numero": "OT-0001",
                     "fecha": "2026-11-20",
+                    "fecha_ingreso": None,
+                    "fecha_egreso": None,
+                    "cliente": None,
+                    "celular": None,
+                    "casco": None,
+                    "motor": None,
+                    "trailer": None,
                     "usuario": "admin",
                     "componentes": [
-                        {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2},
-                        {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 5},
+                        {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2, "precio": None},
+                        {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 5, "precio": None},
                     ],
                     "procesos": [],
                     "servicio": None,
+                    "subtotal_servicios": 0,
+                    "subtotal_items": 0,
+                    "total": 0,
                 }
             ],
         )
@@ -327,8 +342,8 @@ class ListadoTest(OrdenesBase):
         self.assertEqual(
             orden["componentes"],
             [
-                {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 1},
-                {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 1},
+                {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 1, "precio": None},
+                {"codigo": "B-02", "nombre": "Tuerca", "cantidad": 1, "precio": None},
             ],
         )
         codigos = [p["codigo"] for p in self.client.get("/api/inventario").json()]
@@ -447,11 +462,14 @@ class BorrarBase(unittest.TestCase):
         self.assertEqual(login(self.client).status_code, 200)
         r = self.client.post(
             URL,
-            json=cuerpo(
-                componentes=[
-                    {"codigo": "A-01", "cantidad": 2},
-                    {"codigo": "C-99", "cantidad": 4},
-                ]
+            json=dict(
+                cuerpo(
+                    componentes=[
+                        {"codigo": "A-01", "cantidad": 2, "precio": 1000},
+                        {"codigo": "C-99", "cantidad": 4},
+                    ]
+                ),
+                cliente="Juan Pérez",
             ),
         )
         self.assertEqual(r.status_code, 201)
@@ -491,13 +509,23 @@ class BorrarExitoTest(BorrarBase):
                     "id": 1,
                     "numero": "OT-0001",
                     "fecha": "2026-11-20",
+                    "fecha_ingreso": None,
+                    "fecha_egreso": None,
+                    "cliente": "Juan Pérez",
+                    "celular": None,
+                    "casco": None,
+                    "motor": None,
+                    "trailer": None,
                     "usuario": "admin",
                     "componentes": [
-                        {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2},
-                        {"codigo": "C-99", "nombre": "Arandela", "cantidad": 4},
+                        {"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2, "precio": 1000},
+                        {"codigo": "C-99", "nombre": "Arandela", "cantidad": 4, "precio": None},
                     ],
                     "procesos": [],
                     "servicio": None,
+                    "subtotal_servicios": 0,
+                    "subtotal_items": 1000,
+                    "total": 1000,
                 },
                 "reintegrado": True,
                 "reintegros": [
@@ -615,3 +643,176 @@ class BorrarErroresTest(BorrarBase):
             (404, {"detail": "No existe una orden con número 'OT-0001'."}),
         )
         self.assertEqual(self.estado(), despues)
+
+
+CAMPOS_ORDEN = {
+    "id", "numero", "fecha", "fecha_ingreso", "fecha_egreso", "cliente", "celular", "casco",
+    "motor", "trailer", "usuario", "componentes", "procesos", "servicio",
+    "subtotal_servicios", "subtotal_items", "total",
+}
+MSG_PRECIO = "El precio debe ser un entero de centavos entre 0 y 99.999.999.999."
+
+
+class DatosYPreciosApiTest(OrdenesBase):
+    """C-06h: datos del cliente, fechas de ingreso/egreso y precios en el alta y la consulta."""
+
+    def post(self, **extra):
+        cuerpo_base = {
+            "numero": "OT-0043", "fecha": "2026-11-27",
+            "componentes": [{"codigo": "A-01", "cantidad": 2, "precio": 1200000}],
+        }
+        cuerpo_base.update(extra)
+        return self.client.post(URL, json=cuerpo_base)
+
+    def completo(self):
+        return self.post(
+            fecha_ingreso="2026-11-26", fecha_egreso="2026-11-29", cliente="Juan Pérez",
+            celular="11 5555-1234", casco="Bermuda 190", motor="Mercury 90 HP", trailer="",
+            servicio="servicio-20-hs", precio_servicio=4500000,
+            procesos=[{"clave": "limpieza", "precio": 1500000}],
+            procesos_personalizados=[{"nombre": "Pulido"}],
+        )
+
+    def test_alta_con_datos_y_precios_cuerpo_exacto(self):
+        r = self.completo()
+        self.assertEqual(r.status_code, 201, r.text)
+        c = r.json()
+        self.assertEqual(set(c), CAMPOS_ORDEN)
+        self.assertEqual(
+            {k: c[k] for k in (
+                "fecha", "fecha_ingreso", "fecha_egreso", "cliente", "celular", "casco", "motor",
+                "trailer", "subtotal_servicios", "subtotal_items", "total",
+            )},
+            {
+                "fecha": "2026-11-27", "fecha_ingreso": "2026-11-26", "fecha_egreso": "2026-11-29",
+                "cliente": "Juan Pérez", "celular": "11 5555-1234", "casco": "Bermuda 190",
+                "motor": "Mercury 90 HP", "trailer": None,
+                "subtotal_servicios": 6000000, "subtotal_items": 1200000, "total": 7200000,
+            },
+        )
+        self.assertEqual(
+            c["componentes"],
+            [{"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2, "precio": 1200000}],
+        )
+        self.assertEqual(c["servicio"]["precio"], 4500000)
+        self.assertEqual(
+            c["procesos"],
+            [
+                {"nombre": "Limpieza", "personalizado": False, "precio": 1500000},
+                {"nombre": "Pulido", "personalizado": True, "precio": None},
+            ],
+        )
+        self.assertEqual(self.client.get(URL).json()[0], c)
+
+    def test_alta_sin_campos_nuevos_es_compatible(self):
+        r = self.crear(numero="OT-1", componentes=[{"codigo": "A-01", "cantidad": 1}])
+        self.assertEqual(r.status_code, 201)
+        c = r.json()
+        self.assertEqual(c["fecha"], "2026-11-20")
+        for campo in ("fecha_ingreso", "fecha_egreso", "cliente", "celular", "casco", "motor", "trailer"):
+            self.assertIsNone(c[campo], campo)
+        self.assertEqual(c["componentes"][0]["precio"], None)
+        self.assertEqual((c["subtotal_servicios"], c["subtotal_items"], c["total"]), (0, 0, 0))
+
+    def test_datos_vacios_se_guardan_como_null(self):
+        for n, vacio in enumerate(("  ", "", None)):
+            with self.subTest(vacio=vacio):
+                r = self.post(numero=f"OT-{n}", cliente=vacio, celular=vacio, casco=vacio,
+                              fecha_ingreso=vacio, fecha_egreso=vacio,
+                              componentes=[{"codigo": "A-01", "cantidad": 1}])
+                self.assertEqual(r.status_code, 201, r.text)
+                for campo in ("cliente", "celular", "casco", "fecha_ingreso", "fecha_egreso"):
+                    self.assertIsNone(r.json()[campo])
+
+    def test_solo_fecha_de_egreso(self):
+        r = self.post(fecha_egreso="2026-11-20")
+        self.assertEqual((r.status_code, r.json()["fecha_ingreso"], r.json()["fecha_egreso"]),
+                         (201, None, "2026-11-20"))
+
+    def test_422_sin_tocar_el_stock(self):
+        casos = (
+            ({"cliente": "x" * 81}, "El cliente admite hasta 80 caracteres."),
+            ({"fecha_ingreso": "2026-11-27", "fecha_egreso": "2026-11-26"},
+             "La fecha de egreso no puede ser anterior a la de ingreso."),
+            ({"componentes": [{"codigo": "A-01", "cantidad": 1, "precio": 1500.5}]},
+             f"Componente 1: {MSG_PRECIO}"),
+            ({"precio_servicio": 1000}, "No se puede indicar el precio del servicio general sin elegir uno."),
+            ({"celular": "abc"},
+             "El celular admite solo números, espacios, +, - y paréntesis (de 6 a 20 caracteres)."),
+            ({"cliente": 3}, "El campo cliente debe ser texto."),
+            ({"procesos": [{"clave": "limpieza", "precio": -1}]}, f"Proceso 1: {MSG_PRECIO}"),
+        )
+        for extra, mensaje in casos:
+            with self.subTest(extra=extra):
+                r = self.post(**extra)
+                self.assertEqual((r.status_code, r.json()), (422, {"detail": mensaje}))
+        self.assertEqual(self.stocks(), {"A-01": 5, "B-02": 10, "C-99": 2})
+        self.assertEqual(consultar(self.ruta, "SELECT COUNT(*) FROM ordenes"), [(0,)])
+
+    def test_listado_con_subtotales_y_precios_vacios_cuentan_cero(self):
+        self.post(
+            numero="OT-0004", servicio="servicio-20-hs", precio_servicio=4500000,
+            procesos=["limpieza"],
+            componentes=[
+                {"codigo": "A-01", "cantidad": 1, "precio": 1200000},
+                {"codigo": "B-02", "cantidad": 1},
+            ],
+        )
+        o = self.client.get(URL, params={"numero": "OT-0004"}).json()[0]
+        self.assertEqual((o["subtotal_servicios"], o["subtotal_items"], o["total"]),
+                         (4500000, 1200000, 5700000))
+
+    def test_orden_anterior_a_la_migracion_trae_todo_en_null_y_totales_en_cero(self):
+        conn = conectar(self.ruta)
+        try:
+            uid = conn.execute("SELECT id FROM usuarios LIMIT 1").fetchone()[0]
+            oid = conn.execute(
+                "INSERT INTO ordenes (numero, fecha, usuario_id) VALUES ('OT-OLD', '2026-11-01', ?)",
+                (uid,),
+            ).lastrowid
+            conn.execute(
+                "INSERT INTO orden_items (orden_id, producto_id, cantidad) "
+                "SELECT ?, id, 1 FROM productos WHERE codigo = 'A-01'", (oid,),
+            )
+            conn.execute(
+                "INSERT INTO orden_procesos (orden_id, posicion, nombre, personalizado) "
+                "VALUES (?, 1, 'Limpieza', 0)", (oid,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        o = self.client.get(URL, params={"numero": "OT-OLD"}).json()[0]
+        for campo in ("fecha_ingreso", "fecha_egreso", "cliente", "celular", "casco", "motor", "trailer"):
+            self.assertIsNone(o[campo])
+        self.assertIsNone(o["componentes"][0]["precio"])
+        self.assertIsNone(o["procesos"][0]["precio"])
+        self.assertEqual((o["subtotal_servicios"], o["subtotal_items"], o["total"]), (0, 0, 0))
+
+    def test_renombrar_el_proceso_no_cambia_nombre_ni_precio_en_la_orden(self):
+        self.post(procesos=[{"clave": "limpieza", "precio": 1500000}])
+        self.client.patch("/api/procesos/limpieza", json={"nombre": "Limpieza total"})
+        proceso = self.client.get(URL).json()[0]["procesos"][0]
+        self.assertEqual(proceso, {"nombre": "Limpieza", "personalizado": False, "precio": 1500000})
+
+    def test_filtros_de_fecha_son_sobre_la_fecha_de_la_orden(self):
+        self.post(fecha="2026-11-20", fecha_ingreso="2026-11-24", fecha_egreso="2026-11-25")
+        self.assertEqual(self.client.get(URL, params={"desde": "2026-11-24"}).json(), [])
+        self.assertEqual(len(self.client.get(URL, params={"hasta": "2026-11-20"}).json()), 1)
+
+    def test_borrado_devuelve_datos_precios_y_totales(self):
+        creada = self.completo().json()
+        r = self.client.delete(f"{URL}/OT-0043", params={"reintegrar": "false"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["orden"], creada)
+
+    def test_openapi_documenta_los_campos_nuevos_y_sigue_con_21_rutas(self):
+        spec = self.client.get("/openapi.json").json()
+        self.assertEqual(len(spec["paths"]), 21)
+        orden = spec["components"]["schemas"]["OrdenRequest"]["properties"]
+        for campo in ("cliente", "celular", "casco", "motor", "trailer", "fecha_ingreso",
+                      "fecha_egreso", "precio_servicio"):
+            self.assertIn(campo, orden)
+        self.assertIn("centavos", orden["precio_servicio"]["description"])
+        self.assertIn("centavos", spec["components"]["schemas"]["ComponenteRequest"]["properties"]["precio"]["description"])
+        salida = spec["components"]["schemas"]["OrdenOut"]["properties"]
+        self.assertTrue({"subtotal_servicios", "subtotal_items", "total", "fecha_ingreso"} <= set(salida))

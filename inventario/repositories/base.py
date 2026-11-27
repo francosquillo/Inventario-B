@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from inventario.domain.entities import (
     Categoria,
+    DatosOrden,
     Proceso,
     ProcesoOrden,
     ServicioGeneral,
@@ -179,16 +180,17 @@ class OrdenRepository(ABC):
         self,
         numero: str,
         fecha: date,
-        items: "list[tuple[str, int]]",
+        items: "list[tuple[str, int, int | None]]",
         usuario_id: int,
         creada_en: datetime,
         procesos: "tuple[ProcesoOrden, ...]" = (),
         servicio: "ServicioOrden | None" = None,
+        datos: "DatosOrden" = DatosOrden(),
     ) -> Orden:
-        """Crea la orden, sus procesos, su servicio y descuenta el stock; todo o nada.
+        """Crea la orden, sus datos, procesos, servicio y precios y descuenta el stock; todo o nada.
 
-        `items` llega validado y consolidado: (codigo, cantidad_total) en orden de
-        primera aparicion, codigos unicos. No escribe en `movimientos` (RN-ST-06).
+        `items` llega validado y consolidado: (codigo, cantidad_total, precio_centavos|None)
+        en orden de primera aparicion, codigos unicos. No escribe en `movimientos` (RN-ST-06).
         Lanza OrdenDuplicada, ProductosNoEncontrados o StockInsuficienteOrden.
         """
 

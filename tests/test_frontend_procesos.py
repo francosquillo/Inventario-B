@@ -19,15 +19,15 @@ class NuevaOrdenProcesosTest(unittest.TestCase):
 
     def test_bloque_procesos_despues_de_componentes_dentro_del_formulario(self):
         i_comp = self.html.index("<legend class=\"label\">Componentes</legend>")
-        i_proc = self.html.index("<legend class=\"label\">Procesos</legend>")
+        i_proc = self.html.index("<legend class=\"label\">Servicios adicionales</legend>")
         i_foot = self.html.index("modal-foot", i_proc)
         self.assertTrue(i_comp < i_proc < i_foot)
         self.assertLess(self.html.index('id="form-orden"'), i_proc)
 
     def test_contenedor_de_lineas_boton_y_ayuda_del_tope(self):
         self.assertRegex(self.html, r'<ul id="ord-procesos" class="plist"')
-        self.assertRegex(self.html, r'id="ord-proc-agregar"[^>]*>Agregar proceso</button>')
-        self.assertIn("Una orden admite hasta 10 procesos personalizados.", self.html)
+        self.assertRegex(self.html, r'id="ord-proc-agregar"[^>]*>Agregar servicio adicional</button>')
+        self.assertIn("Una orden admite hasta 10 servicios adicionales personalizados.", self.html)
         self.assertIn('id="ord-proc-aviso"', self.html)
 
     def test_index_carga_procesos_js_antes_de_inventario_js(self):
@@ -41,7 +41,7 @@ class NuevaOrdenProcesosTest(unittest.TestCase):
         self.assertRegex(self.js, r"procesos_personalizados\s*[:=]\s*\w+\.procesos_personalizados")
 
     def test_js_maneja_errores_de_la_api(self):
-        self.assertIn("No se pudo cargar la lista de procesos.", self.js)
+        self.assertIn("No se pudo cargar la lista de servicios adicionales.", self.js)
         self.assertRegex(self.js, r"Proceso personalizado")
         self.assertRegex(self.js, r"no existe")
 
@@ -57,8 +57,8 @@ class OrdenesChipsTest(unittest.TestCase):
 
     def test_fila_de_procesos_solo_si_hay_procesos(self):
         self.assertRegex(self.js, r"o\.procesos[^;\n]*length\s*>\s*0")
-        self.assertIn("Procesos:", self.js)
-        self.assertIn("Procesos realizados", self.js)
+        self.assertIn("Servicios adicionales:", self.js)
+        self.assertIn("Servicios adicionales", self.js)
         self.assertIn('"chips"', self.js)
         self.assertIn('"chip"', self.js)
 

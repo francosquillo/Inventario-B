@@ -6,11 +6,14 @@ import unittest
 from datetime import date, datetime
 
 from inventario.domain.entities import (
+    DatosOrden,
     Faltante,
     ItemOrden,
     Orden,
+    ProcesoOrden,
     Reintegro,
     ResultadoBorradoOrden,
+    ServicioOrden,
 )
 from inventario.domain.errors import (
     OrdenDuplicada,
@@ -683,3 +686,89 @@ class BorrarConcurrenciaTest(unittest.TestCase):
                         conn.close()
                     self.assertEqual(sorted(resultados), ["inexistente", "ok"])
                     self.assertEqual((final, ordenes), (5, 0))
+
+
+DATOS = DatosOrden(
+    cliente="Juan Pérez", celular="11 5555-1234", casco="Bermuda 190",
+    fecha_ingreso=date(2026, 11, 26), fecha_egreso=date(2026, 11, 29),
+)
+
+
+class DatosYPreciosTest(RepoBase):
+    """C-06h: datos del cliente y precios guardados y leidos con la orden."""
+
+    def setUp(self):
+        super().setUp()
+        self.sembrar_basico()
+
+    def crear_con_todo(self, numero="OT-0043"):
+        return self.repo.crear(
+            numero, FECHA_ORDEN, [("A-01", 2, 1200000)], self.uid, FECHA_FIJA,
+            procesos=(ProcesoOrden("Limpieza", False, 1500000), ProcesoOrden("Pulido", True)),
+            servicio=ServicioOrden("Servicio 20 hs", ("Motor",), 4500000),
+            datos=DATOS,
+        )
+
+    def test_la_orden_devuelta_trae_datos_y_precios(self):
+        orden = self.crear_con_todo()
+        self.assertEqual(orden.datos, DATOS)
+        self.assertEqual(orden.fecha, FECHA_ORDEN)
+        self.assertEqual([(i.codigo, i.cantidad, i.precio) for i in orden.items], [("A-01", 2, 1200000)])
+        self.assertEqual([(p.nombre, p.precio) for p in orden.procesos], [("Limpieza", 1500000), ("Pulido", None)])
+        self.assertEqual(orden.servicio, ServicioOrden("Servicio 20 hs", ("Motor",), 4500000))
+        self.assertEqual((orden.subtotal_servicios, orden.subtotal_items, orden.total), (6000000, 1200000, 7200000))
+
+    def test_sin_datos_ni_precios_todo_queda_en_none(self):
+        orden = self.crear(items=(("A-01", 1),))
+        self.assertEqual(orden.datos, DatosOrden())
+        self.assertIsNone(orden.items[0].precio)
+        fila = self.conn.execute("SELECT cliente, fecha_ingreso, fecha_egreso FROM ordenes").fetchone()
+        self.assertEqual(tuple(fila), (None, None, None))
+
+    def test_dos_procesos_con_precios_distintos_y_uno_vacio(self):
+        orden = self.repo.crear(
+            "OT-9", FECHA_ORDEN, [("A-01", 1, None)], self.uid, FECHA_FIJA,
+            procesos=(ProcesoOrden("A", False, 100), ProcesoOrden("B", False, 200), ProcesoOrden("C", True)),
+        )
+        self.assertEqual([p.precio for p in orden.procesos], [100, 200, None])
+
+    def test_listar_trae_datos_y_precios_sin_multiplicar_filas(self):
+        self.crear_con_todo("OT-0043")
+        self.repo.crear("OT-0044", date(2026, 11, 21), [("A-01", 1, 50), ("B-02", 1, 70)], self.uid, FECHA_FIJA)
+        ordenes = self.repo.listar(None, None, None)
+        self.assertEqual([o.numero for o in ordenes], ["OT-0044", "OT-0043"])
+        self.assertEqual([(i.codigo, i.precio) for i in ordenes[0].items], [("A-01", 50), ("B-02", 70)])
+        self.assertEqual(ordenes[1].datos, DATOS)
+        self.assertEqual(len(ordenes[1].items), 1)
+        self.assertEqual([p.precio for p in ordenes[1].procesos], [1500000, None])
+
+    def test_filtros_de_fecha_usan_la_fecha_de_la_orden_no_ingreso_ni_egreso(self):
+        self.crear_con_todo()  # fecha 2026-11-20, ingreso 26, egreso 29
+        self.assertEqual(self.repo.listar(None, date(2026, 11, 25), None), [])
+        self.assertEqual(len(self.repo.listar(None, date(2026, 11, 20), date(2026, 11, 20))), 1)
+
+    def test_borrar_devuelve_la_orden_con_datos_y_precios(self):
+        self.crear_con_todo()
+        resultado = self.repo.borrar("OT-0043", False)
+        self.assertEqual(resultado.orden.datos, DATOS)
+        self.assertEqual(resultado.orden.total, 7200000)
+        self.assertEqual(self.cuenta("orden_procesos"), 0)
+
+    def test_acepta_items_de_dos_elementos_sin_precio(self):
+        orden = self.repo.crear("OT-8", FECHA_ORDEN, [("A-01", 1)], self.uid, FECHA_FIJA)
+        self.assertIsNone(orden.items[0].precio)
+
+
+class AtomicidadPreciosTest(RepoBase):
+    def test_falla_al_guardar_el_servicio_con_precio_no_deja_nada(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.repo.crear(
+                "OT-1", FECHA_ORDEN, [("A-01", 2, 1000)], self.uid, FECHA_FIJA,
+                procesos=(ProcesoOrden("Limpieza", False, 100),),
+                servicio=ServicioOrden("Servicio 20 hs", ("Motor",), -5),  # viola el CHECK
+            )
+        for tabla in ("ordenes", "orden_items", "orden_procesos", "orden_servicio"):
+            self.assertEqual(self.cuenta(tabla), 0, tabla)
+        self.assertEqual(self.stocks(), {"A-01": 5})
+        self.assertFalse(self.conn.in_transaction)

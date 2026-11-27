@@ -10,19 +10,26 @@
     return String(texto).toLowerCase();
   }
 
-  // lineas: [{valor: clave del catalogo | "personalizado", texto}]; catalogo: [{clave, nombre}].
-  // Devuelve {procesos, procesos_personalizados, errores}: errores[i] es el mensaje de la linea i o null.
-  // Un proceso del catalogo repetido se cuenta una vez (sin error); un personalizado igual al catalogo,
-  // repetido o fuera del tope es error en su linea. El texto de una linea de catalogo no se envia.
+  // lineas: [{valor: clave del catalogo | "personalizado", texto, precio: centavos|null}]; catalogo: [{clave, nombre}].
+  // Devuelve {procesos: [{clave, precio}], procesos_personalizados: [{nombre, precio}], errores}:
+  // errores[i] es el mensaje de la linea i o null. Un proceso del catalogo repetido es error en su
+  // segunda linea (cada linea lleva su precio: descartar uno en silencio perderia plata); un
+  // personalizado igual al catalogo, repetido o fuera del tope tambien. El texto de una linea de
+  // catalogo no se envia.
   function armar(lineas, catalogo) {
     var nombresCatalogo = {};
     (catalogo || []).forEach(function (p) { nombresCatalogo[minusculas(p.nombre)] = true; });
     var procesos = [];
+    var clavesVistas = {};
     var personalizados = [];
     var vistos = {};
     var errores = lineas.map(function (l) {
+      var precio = l.precio == null ? null : l.precio;
       if (l.valor !== PERSONALIZADO) {
-        if (l.valor && procesos.indexOf(l.valor) === -1) procesos.push(l.valor);
+        if (!l.valor) return null;
+        if (clavesVistas[l.valor]) return "Ya está en otra línea.";
+        clavesVistas[l.valor] = true;
+        procesos.push({ clave: l.valor, precio: precio });
         return null;
       }
       var texto = String(l.texto == null ? "" : l.texto).trim();
@@ -37,7 +44,7 @@
       }
       if (error === null) {
         vistos[clave] = true;
-        personalizados.push(texto);
+        personalizados.push({ nombre: texto, precio: precio });
       }
       return error;
     });

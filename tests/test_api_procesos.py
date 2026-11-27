@@ -117,6 +117,14 @@ class RenombrarTest(Base):
         )
         self.assertEqual(self.catalogo()[2], ("limpieza", "Limpieza"))
 
+    def test_openapi_clave_en_parameters_y_cuerpo_solo_con_nombre(self):
+        doc = self.client.get("/openapi.json").json()
+        op = doc["paths"][URL + "/{clave}"]["patch"]
+        self.assertEqual([p["name"] for p in op["parameters"]], ["clave"])
+        ref = op["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+        esquema = doc["components"]["schemas"][ref.rsplit("/", 1)[1]]
+        self.assertEqual(list(esquema["properties"]), ["nombre"])
+
 
 class BorrarTest(Base):
     def setUp(self):
@@ -142,7 +150,7 @@ class BorrarTest(Base):
         )
         self.assertEqual(self.client.delete(f"{URL}/limpieza").status_code, 200)
         orden = self.client.get("/api/ordenes").json()[0]
-        self.assertEqual(orden["procesos"], [{"nombre": "Limpieza", "personalizado": False}])
+        self.assertEqual(orden["procesos"], [{"nombre": "Limpieza", "personalizado": False, "precio": None}])
 
 
 class CsrfTest(Base):
@@ -196,9 +204,9 @@ class OrdenesConProcesosTest(Base):
         self.assertEqual(
             r.json()["procesos"],
             [
-                {"nombre": "Limpieza", "personalizado": False},
-                {"nombre": "Cambio motor", "personalizado": False},
-                {"nombre": "Pulido", "personalizado": True},
+                {"nombre": "Limpieza", "personalizado": False, "precio": None},
+                {"nombre": "Cambio motor", "personalizado": False, "precio": None},
+                {"nombre": "Pulido", "personalizado": True, "precio": None},
             ],
         )
 
@@ -227,7 +235,7 @@ class OrdenesConProcesosTest(Base):
         self.crear(procesos=["limpieza"])
         self.client.patch(f"{URL}/limpieza", json={"nombre": "Limpieza total"})
         orden = self.client.get("/api/ordenes").json()[0]
-        self.assertEqual(orden["procesos"], [{"nombre": "Limpieza", "personalizado": False}])
+        self.assertEqual(orden["procesos"], [{"nombre": "Limpieza", "personalizado": False, "precio": None}])
 
     def test_borrar_la_orden_devuelve_sus_procesos_y_no_deja_filas(self):
         self.crear(procesos=["limpieza"], procesos_personalizados=["Pulido"])
@@ -236,8 +244,8 @@ class OrdenesConProcesosTest(Base):
         self.assertEqual(
             r.json()["orden"]["procesos"],
             [
-                {"nombre": "Limpieza", "personalizado": False},
-                {"nombre": "Pulido", "personalizado": True},
+                {"nombre": "Limpieza", "personalizado": False, "precio": None},
+                {"nombre": "Pulido", "personalizado": True, "precio": None},
             ],
         )
         self.assertEqual(consultar(self.ruta, "SELECT COUNT(*) FROM orden_procesos"), [(0,)])

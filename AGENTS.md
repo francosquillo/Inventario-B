@@ -74,8 +74,8 @@ Cargá la skill correspondiente al contexto ANTES de escribir código.
 
 El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 
-- **Total**: 17 changes (C-01..C-08 más C-06b..C-06j), estrictamente secuenciales.
-- **Camino crítico** (17): `C-01 paso-1-base-cli (nombre histórico; sin CLI) → C-02 paso-2-movimientos-stock → C-03 paso-3-crear-ordenes → C-04 paso-4-listado-ordenes → C-05 paso-4b-borrado-ordenes-productos → C-06 paso-5-web-local → C-06b paso-5b-fixes-menores → C-06c paso-5c-buscador-pdf → C-06d paso-5d-reporte-ordenes-fechas → C-06e paso-5e-categorias-productos → C-06f paso-5f-procesos-ordenes → C-06g paso-5g-servicios-generales → C-06h paso-5h-precios-datos-orden → C-06i paso-5i-modificar-ordenes-checkeo → C-06j paso-5j-impresion-ordenes → C-07 paso-6-migracion-supabase → C-08 paso-7-despliegue-vercel`.
+- **Total**: 18 changes (C-01..C-08 más C-06b..C-06j y C-06h2), estrictamente secuenciales.
+- **Camino crítico** (18): `C-01 paso-1-base-cli (nombre histórico; sin CLI) → C-02 paso-2-movimientos-stock → C-03 paso-3-crear-ordenes → C-04 paso-4-listado-ordenes → C-05 paso-4b-borrado-ordenes-productos → C-06 paso-5-web-local → C-06b paso-5b-fixes-menores → C-06c paso-5c-buscador-pdf → C-06d paso-5d-reporte-ordenes-fechas → C-06e paso-5e-categorias-productos → C-06f paso-5f-procesos-ordenes → C-06g paso-5g-servicios-generales → C-06h paso-5h-precios-datos-orden → C-06h2 paso-5h2-filtro-categoria-stock → C-06i paso-5i-modificar-ordenes-checkeo → C-06j paso-5j-impresion-ordenes → C-07 paso-6-migracion-supabase → C-08 paso-7-despliegue-vercel`.
 - **Primer change**: `C-01` (`paso-1-base-cli`).
 
 **Antes de cualquier `/opsx:propose`**: leé [CHANGES.md](CHANGES.md), identificá las dependencias del change y los archivos de "Leer antes".

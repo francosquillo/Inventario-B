@@ -200,7 +200,7 @@ class BorrarTest(Base):
         self.assertEqual(self.crear_orden(servicio="servicio-20-hs").status_code, 201)
         self.assertEqual(self.client.delete(f"{URL}/servicio-20-hs").status_code, 200)
         orden = self.client.get("/api/ordenes").json()[0]
-        self.assertEqual(orden["servicio"], {"nombre": "Servicio 20 hs", "chequeos": CHEQUEOS_20})
+        self.assertEqual(orden["servicio"], {"nombre": "Servicio 20 hs", "chequeos": CHEQUEOS_20, "precio": None})
 
 
 class OrdenesConServicioTest(Base):
@@ -212,9 +212,14 @@ class OrdenesConServicioTest(Base):
     def test_alta_con_servicio_201_con_servicio_exacto(self):
         r = self.crear_orden(servicio=" Servicio-20-HS ")
         self.assertEqual(r.status_code, 201)
-        self.assertEqual(r.json()["servicio"], {"nombre": "Servicio 20 hs", "chequeos": CHEQUEOS_20})
+        self.assertEqual(r.json()["servicio"], {"nombre": "Servicio 20 hs", "chequeos": CHEQUEOS_20, "precio": None})
         self.assertEqual(
-            set(r.json()), {"id", "numero", "fecha", "usuario", "componentes", "procesos", "servicio"}
+            set(r.json()),
+            {
+                "id", "numero", "fecha", "fecha_ingreso", "fecha_egreso", "cliente", "celular",
+                "casco", "motor", "trailer", "usuario", "componentes", "procesos", "servicio",
+                "subtotal_servicios", "subtotal_items", "total",
+            },
         )
 
     def test_alta_sin_servicio_null_o_blanco(self):
@@ -242,7 +247,7 @@ class OrdenesConServicioTest(Base):
         self.crear_orden(servicio="servicio-20-hs")
         self.client.patch(f"{URL}/servicio-20-hs", json={"nombre": "Service 20 horas", "chequeos": ["Uno"]})
         orden = self.client.get("/api/ordenes").json()[0]
-        self.assertEqual(orden["servicio"], {"nombre": "Servicio 20 hs", "chequeos": CHEQUEOS_20})
+        self.assertEqual(orden["servicio"], {"nombre": "Servicio 20 hs", "chequeos": CHEQUEOS_20, "precio": None})
         self.assertEqual(self.client.get(URL).json()[0]["nombre"], "Service 20 horas")
 
     def test_borrar_la_orden_devuelve_el_servicio_y_limpia_sus_filas(self):
@@ -250,7 +255,7 @@ class OrdenesConServicioTest(Base):
         r = self.client.delete("/api/ordenes/OT-1", params={"reintegrar": "true"})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(
-            r.json()["orden"]["servicio"], {"nombre": "Servicio 20 hs", "chequeos": CHEQUEOS_20}
+            r.json()["orden"]["servicio"], {"nombre": "Servicio 20 hs", "chequeos": CHEQUEOS_20, "precio": None}
         )
         self.assertEqual(consultar(self.ruta, "SELECT * FROM orden_servicio"), [])
         self.assertEqual(consultar(self.ruta, "SELECT * FROM orden_servicio_chequeos"), [])

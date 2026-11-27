@@ -7,6 +7,7 @@ from itertools import groupby
 
 from inventario.domain.entities import (
     Categoria,
+    DatosOrden,
     Faltante,
     ItemOrden,
     Movimiento,
@@ -365,6 +366,63 @@ def _crear_servicios_generales(conn, loguear=True):
             antes[0],
         )
 
+# Datos del cliente y precios de ordenes (C-06h, D1/D7/D8/D9). Un solo camino para bases nuevas
+# y existentes: `_migrar_datos_precios_orden` agrega solo las columnas que falten.
+PRECIO_MAX_CENTAVOS = 99_999_999_999
+_PRECIO_CHECK = (
+    "CHECK (precio_centavos IS NULL OR (typeof(precio_centavos) = 'integer' "
+    f"AND precio_centavos BETWEEN 0 AND {PRECIO_MAX_CENTAVOS}))"
+)
+_COLUMNAS_NUEVAS = (
+    ("ordenes", "cliente",
+     "TEXT CHECK (cliente IS NULL OR length(trim(cliente)) BETWEEN 1 AND 80)"),
+    ("ordenes", "celular", "TEXT CHECK (celular IS NULL OR length(celular) BETWEEN 6 AND 20)"),
+    ("ordenes", "casco", "TEXT CHECK (casco IS NULL OR length(trim(casco)) BETWEEN 1 AND 60)"),
+    ("ordenes", "motor", "TEXT CHECK (motor IS NULL OR length(trim(motor)) BETWEEN 1 AND 60)"),
+    ("ordenes", "trailer",
+     "TEXT CHECK (trailer IS NULL OR length(trim(trailer)) BETWEEN 1 AND 60)"),
+    ("ordenes", "fecha_ingreso",
+     "TEXT CHECK (fecha_ingreso IS NULL OR "
+     "(date(fecha_ingreso) IS NOT NULL AND fecha_ingreso = date(fecha_ingreso)))"),
+    ("ordenes", "fecha_egreso",
+     "TEXT CHECK (fecha_egreso IS NULL OR "
+     "(date(fecha_egreso) IS NOT NULL AND fecha_egreso = date(fecha_egreso) "
+     "AND (fecha_ingreso IS NULL OR fecha_egreso >= fecha_ingreso)))"),
+    ("orden_items", "precio_centavos", f"INTEGER {_PRECIO_CHECK}"),
+    ("orden_procesos", "precio_centavos", f"INTEGER {_PRECIO_CHECK}"),
+    ("orden_servicio", "precio_centavos", f"INTEGER {_PRECIO_CHECK}"),
+)
+_TABLAS_CONTADAS_PRECIOS = _TABLAS_CONTADAS_SERVICIOS + (
+    "orden_servicio", "orden_servicio_chequeos", "servicios_generales", "servicio_chequeos",
+)
+
+
+def _migrar_datos_precios_orden(conn, loguear=True):
+    """Agrega las columnas de datos del cliente, fechas de ingreso/egreso y precios (C-06h, D9).
+
+    Idempotente: solo agrega las columnas que faltan. Una sola transaccion (el DDL de SQLite es
+    transaccional): ante error se revierte (no queda ninguna columna) y la excepcion sube.
+    Las filas existentes quedan en NULL y `ordenes.fecha` no se toca.
+    """
+    existentes = {}
+    for tabla in {t for t, _, _ in _COLUMNAS_NUEVAS}:
+        existentes[tabla] = {f["name"] for f in conn.execute(f"PRAGMA table_info({tabla})")}
+    faltantes = [(t, c, ddl) for t, c, ddl in _COLUMNAS_NUEVAS if c not in existentes[t]]
+    if not faltantes:
+        return
+    with _transaccion(conn):
+        antes = _contar(conn, _TABLAS_CONTADAS_PRECIOS)
+        for tabla, columna, ddl in faltantes:
+            conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {columna} {ddl}")
+        if _contar(conn, _TABLAS_CONTADAS_PRECIOS) != antes:
+            raise sqlite3.IntegrityError("La migracion de precios cambio la cantidad de filas.")
+    if loguear:  # una base nueva no es una migracion
+        log.info(
+            "Agregados datos del cliente y precios a las órdenes "
+            "(%d orden(es) conservadas, sin datos ni precios).",
+            antes[0],
+        )
+
 
 def inicializar_esquema(conn):
     categorias_existia = _existe_tabla(conn, "categorias")
@@ -374,6 +432,7 @@ def inicializar_esquema(conn):
     _migrar_productos_categoria(conn, sembrar=not categorias_existia)
     _crear_procesos(conn, loguear=base_existia)
     _crear_servicios_generales(conn, loguear=base_existia)
+    _migrar_datos_precios_orden(conn, loguear=base_existia)
     conn.execute(NORMALIZAR_FECHAS_SQL)
     sin_parsear = conn.execute(CONTAR_FECHAS_NO_PARSEABLES_SQL).fetchone()[0]
     if sin_parsear:
@@ -912,11 +971,18 @@ _SQL_ORDEN_EXISTE = "SELECT 1 FROM ordenes WHERE numero = ?"
 _SQL_PRODUCTOS_POR_CODIGOS = (
     "SELECT id, codigo, stock FROM productos WHERE activo = 1 AND codigo IN ({})"
 )
-_SQL_ALTA_ORDEN = "INSERT INTO ordenes (numero, fecha, usuario_id, created_at) VALUES (?, ?, ?, ?)"
-_SQL_ALTA_ITEM = "INSERT INTO orden_items (orden_id, producto_id, cantidad) VALUES (?, ?, ?)"
+_SQL_ALTA_ORDEN = (
+    "INSERT INTO ordenes (numero, fecha, usuario_id, created_at, cliente, celular, casco, motor, "
+    "trailer, fecha_ingreso, fecha_egreso) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+)
+_SQL_ALTA_ITEM = (
+    "INSERT INTO orden_items (orden_id, producto_id, cantidad, precio_centavos) VALUES (?, ?, ?, ?)"
+)
 
 _SQL_LISTAR_ORDENES = (
-    "SELECT o.id, o.numero, o.fecha, u.username, p.codigo, p.nombre, i.cantidad "
+    "SELECT o.id, o.numero, o.fecha, u.username, p.codigo, p.nombre, i.cantidad, "
+    "i.precio_centavos, o.cliente, o.celular, o.casco, o.motor, o.trailer, "
+    "o.fecha_ingreso, o.fecha_egreso "
     "FROM ordenes o "
     "JOIN usuarios u ON u.id = o.usuario_id "
     "LEFT JOIN orden_items i ON i.orden_id = o.id "
@@ -933,21 +999,24 @@ _SQL_LINEAS_ORDEN = (
 _SQL_BORRAR_ITEMS = "DELETE FROM orden_items WHERE orden_id = ?"
 _SQL_BORRAR_PROCESOS = "DELETE FROM orden_procesos WHERE orden_id = ?"
 _SQL_ALTA_PROCESO = (
-    "INSERT INTO orden_procesos (orden_id, posicion, nombre, personalizado) VALUES (?, ?, ?, ?)"
+    "INSERT INTO orden_procesos (orden_id, posicion, nombre, personalizado, precio_centavos) "
+    "VALUES (?, ?, ?, ?, ?)"
 )
 _SQL_PROCESOS_DE_ORDENES = (
-    "SELECT orden_id, nombre, personalizado FROM orden_procesos "
+    "SELECT orden_id, nombre, personalizado, precio_centavos FROM orden_procesos "
     "WHERE orden_id IN ({}) ORDER BY orden_id, posicion"
 )
 _SQL_BORRAR_ORDEN = "DELETE FROM ordenes WHERE id = ?"
 _SQL_BORRAR_SERVICIO_CHEQUEOS = "DELETE FROM orden_servicio_chequeos WHERE orden_id = ?"
 _SQL_BORRAR_SERVICIO = "DELETE FROM orden_servicio WHERE orden_id = ?"
-_SQL_ALTA_SERVICIO = "INSERT INTO orden_servicio (orden_id, nombre) VALUES (?, ?)"
+_SQL_ALTA_SERVICIO = (
+    "INSERT INTO orden_servicio (orden_id, nombre, precio_centavos) VALUES (?, ?, ?)"
+)
 _SQL_ALTA_SERVICIO_CHEQUEO = (
     "INSERT INTO orden_servicio_chequeos (orden_id, posicion, nombre) VALUES (?, ?, ?)"
 )
 _SQL_SERVICIOS_DE_ORDENES = (
-    "SELECT s.orden_id, s.nombre AS servicio, c.nombre AS chequeo "
+    "SELECT s.orden_id, s.nombre AS servicio, s.precio_centavos, c.nombre AS chequeo "
     "FROM orden_servicio s "
     "LEFT JOIN orden_servicio_chequeos c ON c.orden_id = s.orden_id "
     "WHERE s.orden_id IN ({}) ORDER BY s.orden_id, c.posicion"
@@ -965,7 +1034,7 @@ def _leer_procesos(conn, orden_ids):
     por_orden = {}
     for f in conn.execute(sql, list(orden_ids)).fetchall():
         por_orden.setdefault(f["orden_id"], []).append(
-            ProcesoOrden(f["nombre"], bool(f["personalizado"]))
+            ProcesoOrden(f["nombre"], bool(f["personalizado"]), f["precio_centavos"])
         )
     return {orden_id: tuple(lista) for orden_id, lista in por_orden.items()}
 
@@ -975,13 +1044,24 @@ def _leer_servicios(conn, orden_ids):
     if not orden_ids:
         return {}
     sql = _SQL_SERVICIOS_DE_ORDENES.format(", ".join("?" * len(orden_ids)))
-    nombres, chequeos = {}, {}
+    nombres, precios, chequeos = {}, {}, {}
     for f in conn.execute(sql, list(orden_ids)).fetchall():
         nombres[f["orden_id"]] = f["servicio"]
+        precios[f["orden_id"]] = f["precio_centavos"]
         lista = chequeos.setdefault(f["orden_id"], [])
         if f["chequeo"] is not None:
             lista.append(f["chequeo"])
-    return {i: ServicioOrden(nombre, tuple(chequeos[i])) for i, nombre in nombres.items()}
+    return {
+        i: ServicioOrden(nombre, tuple(chequeos[i]), precios[i]) for i, nombre in nombres.items()
+    }
+
+
+def _fecha_a_iso(fecha):
+    return fecha.isoformat() if fecha is not None else None
+
+
+def _fecha_o_none(texto):
+    return date.fromisoformat(texto) if texto is not None else None
 
 
 def _a_ordenes(filas, procesos=None, servicios=None):
@@ -999,12 +1079,21 @@ def _a_ordenes(filas, procesos=None, servicios=None):
                 fecha=date.fromisoformat(cabecera["fecha"]),
                 usuario=cabecera["username"],
                 items=tuple(
-                    ItemOrden(f["codigo"], f["nombre"], f["cantidad"])
+                    ItemOrden(f["codigo"], f["nombre"], f["cantidad"], f["precio_centavos"])
                     for f in lineas
                     if f["codigo"] is not None
                 ),
                 procesos=procesos.get(cabecera["id"], ()),
                 servicio=servicios.get(cabecera["id"]),
+                datos=DatosOrden(
+                    cliente=cabecera["cliente"],
+                    celular=cabecera["celular"],
+                    casco=cabecera["casco"],
+                    motor=cabecera["motor"],
+                    trailer=cabecera["trailer"],
+                    fecha_ingreso=_fecha_o_none(cabecera["fecha_ingreso"]),
+                    fecha_egreso=_fecha_o_none(cabecera["fecha_egreso"]),
+                ),
             )
         )
     return ordenes
@@ -1032,17 +1121,23 @@ class SqliteOrdenRepository(OrdenRepository):
     def __init__(self, conn):
         self._conn = conn
 
-    def crear(self, numero, fecha, items, usuario_id, creada_en, procesos=(), servicio=None):
+    def crear(
+        self, numero, fecha, items, usuario_id, creada_en, procesos=(), servicio=None,
+        datos=DatosOrden(),
+    ):
         texto_creada = _fecha_a_texto(creada_en)
+        # `items`: (codigo, cantidad, precio); (codigo, cantidad) se toma como sin precio.
+        items = [(i[0], i[1], i[2] if len(i) > 2 else None) for i in items]
         try:
             with _transaccion(self._conn):
                 orden_id = self._crear_en_transaccion(
-                    numero, fecha, items, usuario_id, texto_creada
+                    numero, fecha, items, usuario_id, texto_creada, datos
                 )
                 for posicion, proceso in enumerate(procesos, start=1):
                     self._conn.execute(
                         _SQL_ALTA_PROCESO,
-                        (orden_id, posicion, proceso.nombre, int(proceso.personalizado)),
+                        (orden_id, posicion, proceso.nombre, int(proceso.personalizado),
+                         proceso.precio),
                     )
                 if servicio is not None:
                     self._guardar_servicio(orden_id, servicio)
@@ -1054,17 +1149,17 @@ class SqliteOrdenRepository(OrdenRepository):
             raise
 
     def _guardar_servicio(self, orden_id, servicio):
-        self._conn.execute(_SQL_ALTA_SERVICIO, (orden_id, servicio.nombre))
+        self._conn.execute(_SQL_ALTA_SERVICIO, (orden_id, servicio.nombre, servicio.precio))
         self._conn.executemany(
             _SQL_ALTA_SERVICIO_CHEQUEO,
             [(orden_id, pos, texto) for pos, texto in enumerate(servicio.chequeos, start=1)],
         )
 
-    def _crear_en_transaccion(self, numero, fecha, items, usuario_id, texto_creada):
+    def _crear_en_transaccion(self, numero, fecha, items, usuario_id, texto_creada, datos):
         conn = self._conn
         if conn.execute(_SQL_ORDEN_EXISTE, (numero,)).fetchone() is not None:
             raise OrdenDuplicada(numero)
-        codigos = [codigo for codigo, _ in items]
+        codigos = [codigo for codigo, _, _ in items]
         # Solo placeholders "?": los codigos viajan como parametros, nunca en el SQL.
         sql = _SQL_PRODUCTOS_POR_CODIGOS.format(", ".join("?" * len(codigos)))
         productos = {f["codigo"]: f for f in conn.execute(sql, codigos).fetchall()}
@@ -1073,17 +1168,22 @@ class SqliteOrdenRepository(OrdenRepository):
             raise ProductosNoEncontrados(ausentes)
         faltantes = [
             Faltante(codigo, productos[codigo]["stock"], cantidad)
-            for codigo, cantidad in items
+            for codigo, cantidad, _ in items
             if productos[codigo]["stock"] < cantidad
         ]
         if faltantes:
             raise StockInsuficienteOrden(faltantes)
         orden_id = conn.execute(
-            _SQL_ALTA_ORDEN, (numero, fecha.isoformat(), usuario_id, texto_creada)
+            _SQL_ALTA_ORDEN,
+            (
+                numero, fecha.isoformat(), usuario_id, texto_creada,
+                datos.cliente, datos.celular, datos.casco, datos.motor, datos.trailer,
+                _fecha_a_iso(datos.fecha_ingreso), _fecha_a_iso(datos.fecha_egreso),
+            ),
         ).lastrowid
-        for codigo, cantidad in items:
+        for codigo, cantidad, precio in items:
             producto_id = productos[codigo]["id"]
-            conn.execute(_SQL_ALTA_ITEM, (orden_id, producto_id, cantidad))
+            conn.execute(_SQL_ALTA_ITEM, (orden_id, producto_id, cantidad, precio))
             cur = conn.execute(_SQL_RESTAR, (cantidad, producto_id, cantidad))
             if cur.rowcount != 1:  # defensa en profundidad; BEGIN IMMEDIATE lo evita
                 raise StockInsuficienteOrden(

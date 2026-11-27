@@ -587,3 +587,98 @@ class EsquemaServiciosGeneralesTest(unittest.TestCase):
         self.conn.execute("DELETE FROM servicios_generales")
         self.assertEqual(self.contar("orden_servicio"), 1)
         self.assertEqual(self.contar("orden_servicio_chequeos"), 1)
+
+
+class DatosYPreciosDeOrdenTest(unittest.TestCase):
+    """C-06h: restricciones de las columnas de cliente, fechas y precios (design D1/D7/D8)."""
+
+    def setUp(self):
+        self.conn = conexion_inicializada()
+        self.addCleanup(self.conn.close)
+        uid = insertar_usuario(self.conn)
+        self.pid = insertar_producto(self.conn, "A-01", "Tornillo", stock=5)
+        self.oid = self.conn.execute(
+            "INSERT INTO ordenes (numero, fecha, usuario_id) VALUES ('OT-1', '2026-11-27', ?)",
+            (uid,),
+        ).lastrowid
+        self.conn.execute(
+            "INSERT INTO orden_procesos (orden_id, posicion, nombre, personalizado) "
+            "VALUES (?, 1, 'Limpieza', 0)",
+            (self.oid,),
+        )
+        self.conn.execute(
+            "INSERT INTO orden_servicio (orden_id, nombre) VALUES (?, 'Servicio 20 hs')",
+            (self.oid,),
+        )
+        self.conn.execute(
+            "INSERT INTO orden_items (orden_id, producto_id, cantidad) VALUES (?, ?, 1)",
+            (self.oid, self.pid),
+        )
+
+    def precio(self, tabla, valor):
+        clave = "producto_id" if tabla == "orden_items" else "orden_id"
+        referencia = self.pid if tabla == "orden_items" else self.oid
+        self.conn.execute(
+            f"UPDATE {tabla} SET precio_centavos = ? WHERE orden_id = ?"
+            + (" AND producto_id = ?" if clave == "producto_id" else ""),
+            (valor, self.oid) + ((referencia,) if clave == "producto_id" else ()),
+        )
+
+    def columna(self, nombre, valor):
+        self.conn.execute(f"UPDATE ordenes SET {nombre} = ? WHERE id = ?", (valor, self.oid))
+
+    def test_precio_acepta_null_cero_y_el_maximo(self):
+        for tabla in ("orden_items", "orden_procesos", "orden_servicio"):
+            for valor in (None, 0, 99999999999):
+                with self.subTest(tabla=tabla, valor=valor):
+                    self.precio(tabla, valor)
+
+    def test_precio_rechaza_negativo_decimal_texto_y_sobre_el_maximo(self):
+        for tabla in ("orden_items", "orden_procesos", "orden_servicio"):
+            # '10' no se prueba: la afinidad INTEGER de SQLite lo convierte a 10 (valido).
+            for valor in (-1, 1.5, "diez", 100000000000):
+                with self.subTest(tabla=tabla, valor=valor):
+                    with self.assertRaises(sqlite3.IntegrityError):
+                        self.precio(tabla, valor)
+
+    def test_cliente_de_1_a_80_caracteres_con_texto(self):
+        self.columna("cliente", "x" * 80)
+        for valor in ("  ", "", "x" * 81):
+            with self.subTest(largo=len(valor)):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.columna("cliente", valor)
+
+    def test_casco_motor_y_trailer_de_1_a_60(self):
+        for nombre in ("casco", "motor", "trailer"):
+            self.columna(nombre, "x" * 60)
+            with self.subTest(columna=nombre):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.columna(nombre, "x" * 61)
+
+    def test_celular_de_6_a_20_caracteres(self):
+        self.columna("celular", "1" * 6)
+        self.columna("celular", "1" * 20)
+        for valor in ("12345", "1" * 21):
+            with self.subTest(largo=len(valor)):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.columna("celular", valor)
+
+    def test_fechas_de_ingreso_y_egreso_deben_ser_reales(self):
+        for nombre in ("fecha_ingreso", "fecha_egreso"):
+            self.columna(nombre, "2026-02-28")
+            with self.subTest(columna=nombre):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.columna(nombre, "2026-02-30")
+
+    def test_egreso_anterior_al_ingreso_se_rechaza(self):
+        self.columna("fecha_ingreso", "2026-11-27")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.columna("fecha_egreso", "2026-11-26")
+        self.columna("fecha_egreso", "2026-11-27")  # el mismo dia vale
+
+    def test_egreso_sin_ingreso_y_sin_relacion_con_la_fecha_de_la_orden(self):
+        self.columna("fecha_egreso", "2026-11-20")  # anterior a `fecha`, sin ingreso
+        self.columna("fecha_ingreso", "2026-11-19")
+        self.columna("fecha_egreso", None)
+        self.columna("fecha_ingreso", "2026-12-30")  # posterior a `fecha`
+        self.columna("fecha_egreso", "2026-12-31")

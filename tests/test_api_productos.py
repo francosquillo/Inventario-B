@@ -81,7 +81,7 @@ class BajaEfectosCruzadosTest(BajaBase):
         self.assertEqual(self.client.delete(f"{URL}/A-01").status_code, 200)
         (listada,) = self.client.get("/api/ordenes").json()
         self.assertEqual(
-            listada["componentes"], [{"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2}]
+            listada["componentes"], [{"codigo": "A-01", "nombre": "Tornillo", "cantidad": 2, "precio": None}]
         )
         egreso = self.client.post("/api/stock/egreso", json={"codigo": "A-01", "cantidad": 1})
         self.assertEqual((egreso.status_code, egreso.json()), (404, {"detail": MSG_A01}))

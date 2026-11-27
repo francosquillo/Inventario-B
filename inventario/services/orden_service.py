@@ -1,13 +1,17 @@
 """Alta de ordenes de trabajo: validacion, normalizacion y consolidacion de componentes."""
-from inventario.domain.entities import ProcesoOrden, ServicioOrden
+from inventario.domain.entities import DatosOrden, ProcesoOrden, ServicioOrden
 from inventario.domain.errors import DatosInvalidos, OrdenNoEncontrada
 from inventario.domain.tiempo import ahora_argentina
 from inventario.services.fechas import parsear_fecha, parsear_filtro_fecha, validar_rango
 from inventario.services.normalizacion import (
     MENSAJE_NOMBRE_PROCESO_LARGO,
+    MENSAJE_PRECIO,
     PROCESO_NOMBRE_MAX,
     normalizar_codigo,
+    normalizar_texto_opcional,
     validar_cantidad,
+    validar_celular,
+    validar_precio,
 )
 
 NUMERO_MAX = 30
@@ -25,6 +29,16 @@ MENSAJE_DEMASIADOS = f"La orden admite hasta {COMPONENTES_MAX} componentes."
 MENSAJE_REINTEGRAR_OBLIGATORIO = "El campo reintegrar es obligatorio."
 MENSAJE_REINTEGRAR_VALOR = "El campo reintegrar debe ser true o false."
 MENSAJE_LINEA_TIPO = "debe ser un objeto con codigo y cantidad."
+CLIENTE_MAX = 80
+EMBARCACION_MAX = 60
+MENSAJE_CLIENTE_LARGO = f"El cliente admite hasta {CLIENTE_MAX} caracteres."
+MENSAJE_PRECIO_SERVICIO = (
+    "El precio del servicio general" + MENSAJE_PRECIO.removeprefix("El precio")
+)
+MENSAJE_PRECIO_SIN_SERVICIO = (
+    "No se puede indicar el precio del servicio general sin elegir uno."
+)
+MENSAJE_FECHA_EGRESO_ANTERIOR = "La fecha de egreso no puede ser anterior a la de ingreso."
 PERSONALIZADOS_MAX = 10
 CLAVE_ERROR_MAX = 30
 MENSAJE_PROCESOS_TIPO = "El campo procesos debe ser una lista de textos."
@@ -72,13 +86,48 @@ def _parsear_fecha(fecha):
     return parsear_fecha(fecha, MENSAJE_FECHA_FORMATO, MENSAJE_FECHA_INVALIDA)
 
 
+def _parsear_fecha_opcional(valor, etiqueta):
+    """Fecha de ingreso/egreso: None o blanco = None; si no, AAAA-MM-DD real."""
+    if valor is None or (isinstance(valor, str) and not valor.strip()):
+        return None
+    return parsear_fecha(
+        valor,
+        f"La fecha de {etiqueta} debe tener formato AAAA-MM-DD.",
+        f"La fecha de {etiqueta} ({{valor}}) no es una fecha válida.",
+    )
+
+
+def _validar_datos(datos):
+    """`datos` (dict o None) -> DatosOrden; prioridad: ingreso, egreso, cliente, celular, casco..."""
+    datos = datos or {}
+    ingreso = _parsear_fecha_opcional(datos.get("fecha_ingreso"), "ingreso")
+    egreso = _parsear_fecha_opcional(datos.get("fecha_egreso"), "egreso")
+    if ingreso is not None and egreso is not None and egreso < ingreso:
+        raise DatosInvalidos(MENSAJE_FECHA_EGRESO_ANTERIOR)
+    cliente = normalizar_texto_opcional(
+        datos.get("cliente"), "cliente", CLIENTE_MAX, MENSAJE_CLIENTE_LARGO
+    )
+    celular = validar_celular(datos.get("celular"))
+    embarcacion = {
+        campo: normalizar_texto_opcional(
+            datos.get(campo), campo, EMBARCACION_MAX,
+            f"El campo {campo} admite hasta {EMBARCACION_MAX} caracteres.",
+        )
+        for campo in ("casco", "motor", "trailer")
+    }
+    return DatosOrden(
+        cliente=cliente, celular=celular, fecha_ingreso=ingreso, fecha_egreso=egreso, **embarcacion
+    )
+
+
 def _validar_linea(posicion, linea):
-    """Devuelve (codigo, cantidad) validados; el error lleva el numero de linea (desde 1)."""
+    """Devuelve (codigo, cantidad, precio) validados; el error lleva el numero de linea (desde 1)."""
     try:
-        if not isinstance(linea, (tuple, list)) or len(linea) != 2:
+        if not isinstance(linea, (tuple, list)) or len(linea) not in (2, 3):
             raise DatosInvalidos(MENSAJE_LINEA_TIPO)
-        codigo, cantidad = linea
-        return normalizar_codigo(codigo), validar_cantidad(cantidad)
+        codigo, cantidad = linea[0], linea[1]
+        precio = linea[2] if len(linea) == 3 else None
+        return normalizar_codigo(codigo), validar_cantidad(cantidad), validar_precio(precio)
     except DatosInvalidos as exc:
         raise DatosInvalidos(f"Componente {posicion}: {exc}") from None
 
@@ -98,9 +147,12 @@ def _consolidar(componentes):
         raise DatosInvalidos(MENSAJE_DEMASIADOS)
     totales = {}
     for posicion, linea in enumerate(componentes, start=1):
-        codigo, cantidad = _validar_linea(posicion, linea)
-        totales[codigo] = totales.get(codigo, 0) + cantidad
-    return list(totales.items())
+        codigo, cantidad, precio = _validar_linea(posicion, linea)
+        anterior, importe = totales.get(codigo, (0, None))
+        if precio is not None:  # el importe consolidado suma solo los indicados
+            importe = (importe or 0) + precio
+        totales[codigo] = (anterior + cantidad, importe)
+    return [(codigo, cantidad, importe) for codigo, (cantidad, importe) in totales.items()]
 
 
 def _lista_de_textos(valor, mensaje):
@@ -116,42 +168,79 @@ def _recortar(clave):
     return clave if len(clave) <= CLAVE_ERROR_MAX else clave[:CLAVE_ERROR_MAX] + "…"
 
 
-def _resolver_servicio(servicio, repo):
-    """Clave del catalogo -> ServicioOrden (snapshot de nombre y chequeos); vacio/None = sin servicio."""
-    if servicio is None:
-        return None
-    if not isinstance(servicio, str):
+def _resolver_servicio(servicio, precio, repo):
+    """Clave del catalogo -> ServicioOrden (snapshot de nombre, chequeos y precio); vacio/None = sin servicio."""
+    sin_servicio = servicio is None or (isinstance(servicio, str) and not servicio.strip())
+    if servicio is not None and not isinstance(servicio, str):
         raise DatosInvalidos(MENSAJE_SERVICIO_TIPO)
-    clave = servicio.strip().lower()
-    if not clave:
+    if sin_servicio:
+        # El precio solo tiene sentido con servicio; un precio malformado igual se informa como precio.
+        validar_precio(precio, MENSAJE_PRECIO_SERVICIO)
+        if precio is not None:
+            raise DatosInvalidos(MENSAJE_PRECIO_SIN_SERVICIO)
         return None
+    clave = servicio.strip().lower()
     encontrado = repo.obtener(clave)
     if encontrado is None:
         raise DatosInvalidos(f"El servicio general '{_recortar(clave)}' no existe.")
-    return ServicioOrden(encontrado.nombre, tuple(encontrado.chequeos))
+    return ServicioOrden(
+        encontrado.nombre, tuple(encontrado.chequeos), validar_precio(precio, MENSAJE_PRECIO_SERVICIO)
+    )
+
+
+def _elementos(valor, mensaje, campo_nombre):
+    """None -> []; lista de textos u objetos {campo_nombre, precio?} -> [(texto, precio_crudo)]."""
+    if valor is None:
+        return []
+    if not isinstance(valor, (list, tuple)):
+        raise DatosInvalidos(mensaje)
+    elementos = []
+    for v in valor:
+        if isinstance(v, str):
+            elementos.append((v, None))
+        elif (
+            isinstance(v, dict)
+            and isinstance(v.get(campo_nombre), str)
+            and set(v) <= {campo_nombre, "precio"}
+        ):
+            elementos.append((v[campo_nombre], v.get("precio")))
+        else:
+            raise DatosInvalidos(mensaje)
+    return elementos
+
+
+def _precio_de(prefijo, posicion, precio):
+    try:
+        return validar_precio(precio)
+    except DatosInvalidos as exc:
+        raise DatosInvalidos(f"{prefijo} {posicion}: {exc}") from None
 
 
 def _resolver_procesos(procesos, catalogo):
-    """Claves del catalogo -> ProcesoOrden (sin repetir, primera aparicion), en el orden recibido."""
-    claves = [c.strip().lower() for c in _lista_de_textos(procesos, MENSAJE_PROCESOS_TIPO)]
+    """Claves del catalogo -> ProcesoOrden (sin repetir, primera aparicion con su precio)."""
+    elementos = _elementos(procesos, MENSAJE_PROCESOS_TIPO, "clave")
     por_clave = {p.clave: p.nombre for p in catalogo}
-    resueltos = []
-    for clave in dict.fromkeys(claves):
+    resueltos = {}
+    for posicion, (texto, precio) in enumerate(elementos, start=1):
+        clave = texto.strip().lower()
+        precio = _precio_de("Proceso", posicion, precio)
+        if clave not in resueltos:
+            resueltos[clave] = precio
+    for clave in resueltos:
         if clave not in por_clave:
             raise DatosInvalidos(f"El proceso '{_recortar(clave)}' no existe.")
-        resueltos.append(ProcesoOrden(por_clave[clave], False))
-    return resueltos
+    return [ProcesoOrden(por_clave[clave], False, precio) for clave, precio in resueltos.items()]
 
 
 def _validar_personalizados(personalizados, catalogo):
     """Textos libres: recortados, 1-60 caracteres, sin repetir ni coincidir con el catalogo."""
-    textos = _lista_de_textos(personalizados, MENSAJE_PERSONALIZADOS_TIPO)
+    textos = _elementos(personalizados, MENSAJE_PERSONALIZADOS_TIPO, "nombre")
     if len(textos) > PERSONALIZADOS_MAX:
         raise DatosInvalidos(MENSAJE_PERSONALIZADOS_DEMASIADOS)
     del_catalogo = {p.nombre.casefold() for p in catalogo}
     vistos = set()
     validos = []
-    for posicion, texto in enumerate(textos, start=1):
+    for posicion, (texto, precio) in enumerate(textos, start=1):
         nombre = texto.strip()
         if not nombre:
             raise DatosInvalidos(f"Proceso personalizado {posicion}: El nombre es obligatorio.")
@@ -166,7 +255,9 @@ def _validar_personalizados(personalizados, catalogo):
         if clave in vistos:
             raise DatosInvalidos(f"Proceso personalizado {posicion}: '{nombre}' está repetido.")
         vistos.add(clave)
-        validos.append(ProcesoOrden(nombre, True))
+        validos.append(
+            ProcesoOrden(nombre, True, _precio_de("Proceso personalizado", posicion, precio))
+        )
     return validos
 
 
@@ -186,11 +277,14 @@ class OrdenService:
         procesos=None,
         procesos_personalizados=None,
         servicio=None,
+        datos=None,
+        precio_servicio=None,
     ):
         numero = _normalizar_numero(numero)
         f_orden = _parsear_fecha(fecha)
+        datos_orden = _validar_datos(datos)
         items = _consolidar(componentes)
-        servicio_orden = _resolver_servicio(servicio, self._servicios)
+        servicio_orden = _resolver_servicio(servicio, precio_servicio, self._servicios)
         catalogo = self._procesos.listar()
         todos = _resolver_procesos(procesos, catalogo) + _validar_personalizados(
             procesos_personalizados, catalogo
@@ -203,6 +297,7 @@ class OrdenService:
             self._ahora(),
             procesos=tuple(todos),
             servicio=servicio_orden,
+            datos=datos_orden,
         )
 
     def listar(self, numero=None, desde=None, hasta=None):

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nueva orden — maqueta C-06h</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<link rel="stylesheet" href="assets/mockup-5c.css">
+<link rel="stylesheet" href="assets/mockup-5f.css">
+<link rel="stylesheet" href="assets/mockup-5g.css">
+<link rel="stylesheet" href="assets/mockup-5h.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Nueva orden — paso-5h-precios-datos-orden">
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta"><div class="mk-bar-in">
+<span class="mk-tag">Maqueta</span><label class="sr-only" for="mk-state">Estado</label>
+<select id="mk-state">
+<option value="N1" data-desc="Fecha sin cambios junto al número; Cliente y embarcación (todo opcional, sin marcas de obligatorio) con Fecha de ingreso y Fecha de egreso; precio del servicio general; Importe por componente (uno vacío); Servicios adicionales (antes Procesos) con un importe por línea (Pulido vacío); resumen en vivo: Subtotal servicios, Subtotal ítems y Total (vacío = 0). ?largo muestra el modal entero.">N1 · orden con datos y precios</option>
+</select>
+<a href="ordenes.html#L1">Órdenes →</a><span>C-06h</span><p class="mk-desc" id="mk-desc"></p>
+</div></div>
+<main class="mx-auto max-w-5xl px-4 py-6"><p class="text-muted text-sm">Inventario (fondo del modal)</p></main>
+<div class="overlay" data-show="N1" hidden>
+<div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="n1-t">
+<div class="modal-head"><h2 id="n1-t">Nueva orden</h2><button class="icon-btn" type="button" aria-label="Cerrar">&times;</button></div>
+<form class="modal-form" novalidate onsubmit="return false"><div class="modal-body space-y-4">
+
+<div class="grid gap-4 sm:grid-cols-2">
+<div><label class="label" for="n1-num">Número de orden</label><input class="field num" id="n1-num" maxlength="30" value="OT-0043"></div>
+<div><label class="label" for="n1-fec">Fecha (AAAA-MM-DD)</label><input class="field num" id="n1-fec" type="date" value="2026-11-27" aria-describedby="n1-fec-h"><p class="help" id="n1-fec-h">Hoy; se puede cambiar.</p></div>
+</div>
+
+<fieldset><legend class="label">Cliente y embarcación <span class="opt">(todos opcionales)</span></legend>
+<div class="grid-3 mob-2">
+<div class="span-2 mob-full"><label class="label" for="n1-cli">Cliente</label><input class="field" id="n1-cli" maxlength="80" autocomplete="off" value="Juan Pérez"></div>
+<div class="mob-full"><label class="label" for="n1-cel">Celular</label><input class="field num" id="n1-cel" type="tel" inputmode="tel" maxlength="20" value="11 5555-1234"></div>
+<div class="mob-full"><label class="label" for="n1-cas">Casco</label><input class="field" id="n1-cas" maxlength="60" value="Bermuda 190"></div>
+<div><label class="label" for="n1-mot">Motor</label><input class="field" id="n1-mot" maxlength="60" value="Mercury 90 HP"></div>
+<div><label class="label" for="n1-tra">Trailer</label><input class="field" id="n1-tra" maxlength="60" value="AB 123 CD"></div>
+<div><label class="label" for="n1-ing">Fecha de ingreso</label><input class="field num" id="n1-ing" type="date" value="2026-11-26"></div>
+<div><label class="label" for="n1-egr">Fecha de egreso</label><input class="field num" id="n1-egr" type="date" value="2026-11-29"></div>
+</div></fieldset>
+
+<fieldset><legend class="label">Servicio general</legend>
+<div class="srv-row">
+<div><label class="sr-only" for="n1-srv">Servicio general de la orden</label>
+<select class="field" id="n1-srv" aria-describedby="n1-inc"><option value="">Sin servicio general</option><option>Servicio 100 hs</option><option selected>Servicio 20 hs</option></select></div>
+<div class="money"><input class="field" id="n1-srvp" inputmode="decimal" placeholder="0,00" value="45.000" aria-label="Precio del servicio general"></div>
+</div>
+<div class="srv-incluye" id="n1-inc" aria-live="polite"><span class="lbl">Incluye:</span><ul aria-label="Chequeos de Servicio 20 hs"><li class="chip">Chequeo de motor</li><li class="chip">Chequeo de combustible</li><li class="chip">Chequeo eléctrico</li></ul></div>
+</fieldset>
+
+<fieldset><legend class="label">Componentes</legend>
+<div class="cols-head" aria-hidden="true"><span></span><span>Producto</span><span class="r">Cant.</span><span class="r">Importe</span><span></span></div>
+<ol class="space-y-2">
+<li data-row><div class="line line-p"><span class="line-n" aria-hidden="true">1</span><select class="field" aria-label="Producto de la línea 1"><option>ACE-01 · Aceite 10W40</option></select><input class="field num" inputmode="numeric" value="2" aria-label="Cantidad de la línea 1"><div class="money"><input class="field" inputmode="decimal" placeholder="0,00" value="12.000" aria-label="Importe de la línea 1"></div><button class="btn btn-secondary" type="button">Quitar</button></div></li>
+<li data-row><div class="line line-p"><span class="line-n" aria-hidden="true">2</span><select class="field" aria-label="Producto de la línea 2"><option>FIL-01 · Filtro de aceite</option></select><input class="field num" inputmode="numeric" value="1" aria-label="Cantidad de la línea 2"><div class="money"><input class="field" inputmode="decimal" placeholder="0,00" value="" aria-label="Importe de la línea 2"></div><button class="btn btn-secondary" type="button">Quitar</button></div></li>
+</ol>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar componente</button><span class="text-xs text-muted">2 de 100 líneas · el importe es el de la línea completa</span></div></fieldset>
+
+<fieldset><legend class="label">Servicios adicionales</legend>
+<ul class="plist">
+<li><div class="pline pline-p"><select class="field" aria-label="Servicio adicional de la línea 1"><option>Cambio filtro</option><option>Cambio motor</option><option selected>Limpieza</option><option>Personalizado</option></select><div class="money"><input class="field" inputmode="decimal" placeholder="0,00" value="15.000" aria-label="Precio del servicio adicional 1"></div><button class="btn btn-secondary" type="button">Quitar</button></div></li>
+<li><div class="pline pline-p"><select class="field" aria-label="Servicio adicional de la línea 2"><option>Cambio filtro</option><option>Cambio motor</option><option>Limpieza</option><option selected>Personalizado</option></select><div class="money"><input class="field" inputmode="decimal" placeholder="0,00" value="" aria-label="Precio del servicio adicional 2"></div><button class="btn btn-secondary" type="button">Quitar</button>
+<div class="pline-txt"><label class="sr-only" for="n1-pers2">Servicio adicional personalizado</label><input class="field" id="n1-pers2" maxlength="60" value="Pulido" placeholder="Servicio adicional personalizado"></div></div></li>
+</ul>
+<div class="flex flex-wrap items-center justify-between gap-2 mt-3"><button class="btn btn-secondary" type="button">Agregar servicio adicional</button><span class="text-xs text-muted">1 personalizado de 10</span></div></fieldset>
+
+<div class="resumen" aria-live="polite" aria-label="Resumen de precios"><dl>
+<dt>Subtotal servicios</dt><dd>$ 60.000,00</dd>
+<dt>Subtotal ítems</dt><dd>$ 12.000,00</dd>
+<dt class="tot">Total</dt><dd class="tot">$ 72.000,00</dd>
+</dl><p class="help" style="margin-top:.375rem">Importes vacíos cuentan como $ 0.</p></div>
+
+</div>
+<div class="modal-foot"><button class="btn btn-secondary" type="button">Cancelar</button><button class="btn btn-primary" type="submit">Crear orden</button></div>
+</form></div></div>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Órdenes — maqueta C-06h</title>
+<link rel="stylesheet" href="../../../../design-system/tokens.css">
+<link rel="stylesheet" href="../../../../design-system/ui.css">
+<link rel="stylesheet" href="assets/mockup.css">
+<link rel="stylesheet" href="assets/mockup-5c.css">
+<link rel="stylesheet" href="assets/mockup-5f.css">
+<link rel="stylesheet" href="assets/mockup-5g.css">
+<link rel="stylesheet" href="assets/mockup-5h.css">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script src="assets/tailwind-config.js"></script>
+</head>
+<body data-screen="Órdenes (/ordenes) — paso-5h-precios-datos-orden">
+<div class="mk-bar" role="region" aria-label="Controles de la maqueta"><div class="mk-bar-in">
+<span class="mk-tag">Maqueta</span><label class="sr-only" for="mk-state">Estado</label>
+<select id="mk-state">
+<option value="L1" data-desc="OT-0043 con la fecha como hoy en la cabecera y fila de datos del cliente con Ingreso/Egreso, servicio general con precio, Servicios adicionales (antes Procesos) con su precio cada uno (Pulido vacío = —), columna Importe y resumen Subtotal servicios / Subtotal ítems / Total. OT-0041 anterior a los precios: sin datos, importes —, resumen en $ 0,00.">L1 · lista con datos y precios</option>
+<option value="P1" data-desc="Hoja impresa de OT-0043 (Exportar PDF): encabezado Fecha: sin cambios, datos del cliente con Ingreso/Egreso, Servicio general con precio primero, tabla con Importe, Servicios adicionales con precio y resumen al final. Lo vacío no se imprime (sin Trailer si no tiene).">P1 · PDF de una orden</option>
+</select>
+<a href="nueva-orden.html#N1">← Nueva orden</a><span>C-06h</span><p class="mk-desc" id="mk-desc"></p>
+</div></div>
+
+<div data-show="L1">
+<header class="bg-surface border-b border-line"><div class="mx-auto max-w-5xl px-4 flex flex-wrap items-center gap-x-6">
+<p class="h-14 flex items-center text-lg font-bold">Inventario</p>
+<nav aria-label="Secciones" class="order-last w-full flex gap-1 border-t border-line py-1 sm:order-none sm:w-auto sm:border-0 sm:py-0"><a class="navlink" href="nueva-orden.html">Inventario</a><a class="navlink" href="ordenes.html" aria-current="page">Órdenes</a><a class="navlink" href="#">Reportes</a></nav>
+<div class="ml-auto flex items-center gap-3 text-sm"><span class="hidden sm:inline text-muted">Usuario: <strong class="text-ink font-semibold">franco</strong></span><button class="btn btn-secondary" type="button">Cerrar sesión</button></div></div></header>
+<main class="mx-auto max-w-5xl px-4 py-6 space-y-4">
+<div class="page-head"><div><a href="nueva-orden.html" class="text-sm font-semibold text-accent-text underline">&larr; Inventario</a><h1 class="text-2xl font-bold mt-1">Órdenes</h1></div>
+<button class="btn btn-secondary" type="button" aria-haspopup="dialog">Servicios generales</button></div>
+<section class="bg-surface border border-line rounded-lg" aria-labelledby="t-ord"><h2 id="t-ord" class="sr-only">Lista de órdenes</h2>
+<p class="px-3 pt-3 text-sm text-muted">2 órdenes</p><div class="pt-2">
+
+<article class="ord" aria-labelledby="t-OT-0043"><div class="ord-head"><h3 id="t-OT-0043" class="num font-bold">OT-0043</h3><span class="num text-sm text-muted">2026-11-27</span><span class="text-sm text-muted">2 componentes</span>
+<div class="ord-actions"><button class="btn btn-secondary btn-sm" type="button" aria-label="Exportar PDF de la orden OT-0043">Exportar PDF</button><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar orden OT-0043">Eliminar</button></div></div>
+<dl class="ord-datos" aria-label="Datos del cliente de OT-0043"><div><dt>Cliente:</dt><dd>Juan Pérez</dd></div><div><dt>Cel.:</dt><dd class="num">11 5555-1234</dd></div><div><dt>Casco:</dt><dd>Bermuda 190</dd></div><div><dt>Motor:</dt><dd>Mercury 90 HP</dd></div><div><dt>Trailer:</dt><dd>AB 123 CD</dd></div><div><dt>Ingreso:</dt><dd class="num">2026-11-26</dd></div><div><dt>Egreso:</dt><dd class="num">2026-11-29</dd></div></dl>
+<div class="chips"><span class="lbl">Servicio general:</span><span class="srv-nombre">Servicio 20 hs</span><span class="precio">$ 45.000,00</span><ul aria-label="Chequeos del servicio de OT-0043"><li class="chip">Chequeo de motor</li><li class="chip">Chequeo de combustible</li><li class="chip">Chequeo eléctrico</li></ul></div>
+<div class="chips"><span class="lbl">Servicios adicionales:</span><ul aria-label="Servicios adicionales de OT-0043"><li class="chip">Limpieza<span class="precio">· $ 15.000,00</span></li><li class="chip">Pulido<span class="precio sin">· —</span></li></ul></div>
+<div class="overflow-x-auto" tabindex="0" role="region" aria-label="Componentes de OT-0043"><table class="tbl tbl-fit tbl-comp"><thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cant.</th><th scope="col" class="r">Importe</th></tr></thead><tbody><tr><td class="num">ACE-01</td><td>Aceite 10W40</td><td class="num r">2</td><td class="num r">$ 12.000,00</td></tr><tr><td class="num">FIL-01</td><td>Filtro de aceite</td><td class="num r">1</td><td class="num r text-muted">—</td></tr></tbody></table></div>
+<div class="ord-foot"><div class="resumen" aria-label="Resumen de precios de OT-0043"><dl><dt>Subtotal servicios</dt><dd>$ 60.000,00</dd><dt>Subtotal ítems</dt><dd>$ 12.000,00</dd><dt class="tot">Total</dt><dd class="tot">$ 72.000,00</dd></dl></div></div></article>
+
+<article class="ord" aria-labelledby="t-OT-0041"><div class="ord-head"><h3 id="t-OT-0041" class="num font-bold">OT-0041</h3><span class="num text-sm text-muted">2026-11-22</span><span class="text-sm text-muted">1 componente</span>
+<div class="ord-actions"><button class="btn btn-secondary btn-sm" type="button" aria-label="Exportar PDF de la orden OT-0041">Exportar PDF</button><button class="btn btn-secondary btn-sm" type="button" aria-label="Eliminar orden OT-0041">Eliminar</button></div></div>
+<div class="chips"><span class="lbl">Servicios adicionales:</span><ul aria-label="Servicios adicionales de OT-0041"><li class="chip">Cambio motor<span class="precio sin">· —</span></li></ul></div>
+<div class="overflow-x-auto" tabindex="0" role="region" aria-label="Componentes de OT-0041"><table class="tbl tbl-fit tbl-comp"><thead><tr><th scope="col">Código</th><th scope="col">Nombre</th><th scope="col" class="r">Cant.</th><th scope="col" class="r">Importe</th></tr></thead><tbody><tr><td class="num">JUN-12</td><td>Junta industrial 12"</td><td class="num r">6</td><td class="num r text-muted">—</td></tr></tbody></table></div>
+<div class="ord-foot"><div class="resumen" aria-label="Resumen de precios de OT-0041"><dl><dt>Subtotal servicios</dt><dd>$ 0,00</dd><dt>Subtotal ítems</dt><dd>$ 0,00</dd><dt class="tot">Total</dt><dd class="tot">$ 0,00</dd></dl></div></div></article>
+</div></section></main></div>
+
+<!-- P1: hoja impresa de OT-0043 (lo que sale en el PDF) -->
+<article class="sheet" data-show="P1" hidden aria-label="Hoja de impresión de la orden OT-0043">
+<header class="sheet-head"><h1>Orden OT-0043</h1><p class="sheet-meta"><span>Fecha: 2026-11-27</span><span>2 componentes</span></p></header>
+<dl class="sheet-datos"><div><dt>Cliente:</dt><dd>Juan Pérez</dd></div><div><dt>Celular:</dt><dd>11 5555-1234</dd></div><div><dt>Ingreso:</dt><dd>2026-11-26</dd></div><div><dt>Egreso:</dt><dd>2026-11-29</dd></div><div><dt>Casco:</dt><dd>Bermuda 190</dd></div><div><dt>Motor:</dt><dd>Mercury 90 HP</dd></div><div><dt>Trailer:</dt><dd>AB 123 CD</dd></div></dl>
+<section class="sheet-proc" aria-label="Servicio general"><h2>Servicio general</h2><p class="sheet-srv-nombre"><span>Servicio 20 hs</span><span class="num">$ 45.000,00</span></p><ul class="chq"><li>Chequeo de motor</li><li>Chequeo de combustible</li><li>Chequeo eléctrico</li></ul></section>
+<table style="margin-top:1rem"><thead><tr><th>Código</th><th>Nombre</th><th class="r">Cant.</th><th class="r">Importe</th></tr></thead><tbody><tr><td class="num">ACE-01</td><td>Aceite 10W40</td><td class="num r">2</td><td class="num r">$ 12.000,00</td></tr><tr><td class="num">FIL-01</td><td>Filtro de aceite</td><td class="num r">1</td><td class="num r sin">—</td></tr></tbody></table>
+<section class="sheet-proc" aria-label="Servicios adicionales"><h2>Servicios adicionales</h2><ul><li><span>Limpieza</span><span class="num">$ 15.000,00</span></li><li><span>Pulido</span><span class="num sin">—</span></li></ul></section>
+<div class="sheet-resumen"><div><span>Subtotal servicios</span><span class="num">$ 60.000,00</span></div><div><span>Subtotal ítems</span><span class="num">$ 12.000,00</span></div><div class="tot"><span>Total</span><span class="num">$ 72.000,00</span></div></div>
+</article>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

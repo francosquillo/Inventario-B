@@ -37,6 +37,7 @@ class ProcesoOrden:
 
     nombre: str
     personalizado: bool
+    precio: "int | None" = None  # centavos; None = sin precio
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,7 @@ class ServicioOrden:
 
     nombre: str
     chequeos: "tuple[str, ...]"
+    precio: "int | None" = None  # centavos; None = sin precio
 
 
 @dataclass(frozen=True)
@@ -123,6 +125,20 @@ class ItemOrden:
     codigo: str
     nombre: str
     cantidad: int
+    precio: "int | None" = None  # importe de la linea en centavos; None = sin precio
+
+
+@dataclass(frozen=True)
+class DatosOrden:
+    """Datos opcionales del cliente y la embarcacion (C-06h); None = sin dato."""
+
+    cliente: "str | None" = None
+    celular: "str | None" = None
+    casco: "str | None" = None
+    motor: "str | None" = None
+    trailer: "str | None" = None
+    fecha_ingreso: "date | None" = None
+    fecha_egreso: "date | None" = None
 
 
 @dataclass(frozen=True)
@@ -134,6 +150,21 @@ class Orden:
     items: "tuple[ItemOrden, ...]"
     procesos: "tuple[ProcesoOrden, ...]" = ()
     servicio: "ServicioOrden | None" = None
+    datos: DatosOrden = DatosOrden()
+
+    @property
+    def subtotal_servicios(self):
+        """Servicio general + servicios adicionales, en centavos; sin precio cuenta 0."""
+        servicio = (self.servicio.precio or 0) if self.servicio else 0
+        return servicio + sum(p.precio or 0 for p in self.procesos)
+
+    @property
+    def subtotal_items(self):
+        return sum(i.precio or 0 for i in self.items)
+
+    @property
+    def total(self):
+        return self.subtotal_servicios + self.subtotal_items
 
 
 @dataclass(frozen=True)

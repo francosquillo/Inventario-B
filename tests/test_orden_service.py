@@ -499,3 +499,263 @@ class PrioridadDelServicioTest(OrdenConServicioBase):
 
     def test_servicio_valido_y_proceso_inexistente_informa_el_proceso(self):
         self.assertInvalido("El proceso 'pintura' no existe.", servicio="servicio-20-hs", procesos=["pintura"])
+
+
+MSG_PRECIO = "El precio debe ser un entero de centavos entre 0 y 99.999.999.999."
+MSG_PRECIO_SERVICIO = (
+    "El precio del servicio general debe ser un entero de centavos entre 0 y 99.999.999.999."
+)
+MSG_CELULAR = (
+    "El celular admite solo números, espacios, +, - y paréntesis (de 6 a 20 caracteres)."
+)
+
+
+class DatosYPreciosBase(OrdenConServicioBase):
+    def setUp(self):
+        super().setUp()
+        self.conn.execute("UPDATE productos SET stock = 50 WHERE codigo = 'A-01'")
+        self.conn.commit()
+
+    def crear(self, numero="OT-1", componentes=(("A-01", 1),), fecha="2026-11-20", **kwargs):
+        return self.service.crear(numero, fecha, componentes, self.uid, **kwargs)
+
+    def assertInvalido(self, mensaje, numero="OT-1", componentes=(("A-01", 1),), fecha="2026-11-20", **kwargs):
+        antes = self.stock()
+        with self.assertRaises(DatosInvalidos) as cm:
+            self.crear(numero, componentes, fecha, **kwargs)
+        self.assertEqual(str(cm.exception), mensaje)
+        self.assertEqual(self.stock(), antes)
+
+
+class DatosDelClienteTest(DatosYPreciosBase):
+    def test_cliente_recortado_con_espacios_internos_y_precio_de_linea(self):
+        orden = self.crear(componentes=[("A-01", 2, 1200000)], datos={"cliente": "  Juan  Pérez "})
+        self.assertEqual(orden.datos.cliente, "Juan  Pérez")
+        self.assertEqual(orden.items[0].precio, 1200000)
+
+    def test_todo_ausente_none_o_blanco_crea_la_orden_sin_datos(self):
+        campos = ("cliente", "celular", "casco", "motor", "trailer", "fecha_ingreso", "fecha_egreso")
+        variantes = (None, {}, {c: None for c in campos}, {c: "   " for c in campos}, {c: "" for c in campos})
+        for n, datos in enumerate(variantes):
+            with self.subTest(datos=datos):
+                orden = self.crear(f"OT-{n}", datos=datos)
+                self.assertEqual(
+                    (orden.datos.cliente, orden.datos.celular, orden.datos.casco, orden.datos.motor,
+                     orden.datos.trailer, orden.datos.fecha_ingreso, orden.datos.fecha_egreso),
+                    (None,) * 7,
+                )
+
+    def test_cliente_largo_y_no_texto(self):
+        self.assertInvalido("El cliente admite hasta 80 caracteres.", datos={"cliente": "x" * 81})
+        self.assertEqual(self.crear("OT-2", datos={"cliente": "x" * 80}).datos.cliente, "x" * 80)
+        self.assertInvalido("El campo cliente debe ser texto.", datos={"cliente": 3})
+
+    def test_casco_motor_y_trailer(self):
+        for campo in ("casco", "motor", "trailer"):
+            with self.subTest(campo=campo):
+                self.assertInvalido(f"El campo {campo} admite hasta 60 caracteres.", datos={campo: "x" * 61})
+                self.assertInvalido(f"El campo {campo} debe ser texto.", datos={campo: ["a"]})
+        orden = self.crear(datos={"casco": "Bermuda 190", "motor": "Mercury 90 HP", "trailer": "AB 123 CD"})
+        self.assertEqual(
+            (orden.datos.casco, orden.datos.motor, orden.datos.trailer),
+            ("Bermuda 190", "Mercury 90 HP", "AB 123 CD"),
+        )
+
+    def test_celulares_validos_se_guardan_recortados_sin_normalizar(self):
+        casos = (
+            ("11 5555-1234", "11 5555-1234"),
+            (" +54 9 11 5555-1234 ", "+54 9 11 5555-1234"),
+            ("(011) 4555-1234", "(011) 4555-1234"),
+        )
+        for n, (entrada, guardado) in enumerate(casos):
+            with self.subTest(celular=entrada):
+                self.assertEqual(self.crear(f"OT-{n}", datos={"celular": entrada}).datos.celular, guardado)
+
+    def test_celulares_invalidos(self):
+        for valor in ("11-abc", "12345", "11+5555 1234", "1" * 21, "(((---)))"):
+            with self.subTest(celular=valor):
+                self.assertInvalido(MSG_CELULAR, datos={"celular": valor})
+        self.assertInvalido("El campo celular debe ser texto.", datos={"celular": 1155551234})
+
+    def test_solo_fecha_de_la_orden(self):
+        orden = self.crear()
+        self.assertEqual(
+            (orden.fecha, orden.datos.fecha_ingreso, orden.datos.fecha_egreso),
+            (date(2026, 11, 20), None, None),
+        )
+
+    def test_ingreso_y_egreso_iguales_o_posteriores_y_sin_relacion_con_la_fecha(self):
+        casos = (
+            ("2026-11-26", "2026-11-29"),
+            ("2026-11-27", "2026-11-27"),
+            (None, "2026-11-20"),
+            ("2026-11-26", None),
+            ("2026-11-30", "2026-12-02"),  # posteriores a la fecha de la orden
+            ("2026-01-01", "2026-01-02"),  # anteriores a la fecha de la orden
+        )
+        for n, (ingreso, egreso) in enumerate(casos):
+            with self.subTest(ingreso=ingreso, egreso=egreso):
+                orden = self.crear(f"OT-{n}", datos={"fecha_ingreso": ingreso, "fecha_egreso": egreso})
+                self.assertEqual(
+                    (orden.datos.fecha_ingreso, orden.datos.fecha_egreso),
+                    (date.fromisoformat(ingreso) if ingreso else None,
+                     date.fromisoformat(egreso) if egreso else None),
+                )
+
+    def test_fechas_invalidas(self):
+        self.assertInvalido(
+            "La fecha de egreso no puede ser anterior a la de ingreso.",
+            datos={"fecha_ingreso": "2026-11-27", "fecha_egreso": "2026-11-26"},
+        )
+        self.assertInvalido(
+            "La fecha de egreso (2026-02-30) no es una fecha válida.",
+            datos={"fecha_egreso": "2026-02-30"},
+        )
+        self.assertInvalido(
+            "La fecha de ingreso debe tener formato AAAA-MM-DD.", datos={"fecha_ingreso": "30/11/2026"}
+        )
+        self.assertInvalido(
+            "La fecha de ingreso (2026-02-30) no es una fecha válida.",
+            datos={"fecha_ingreso": "2026-02-30"},
+        )
+        self.assertInvalido(
+            "La fecha de egreso debe tener formato AAAA-MM-DD.", datos={"fecha_egreso": "mañana"}
+        )
+
+    def test_rechazo_por_stock_no_guarda_los_datos(self):
+        with self.assertRaises(StockInsuficienteOrden):
+            self.crear(componentes=[("A-01", 51)], datos={"cliente": "Juan"})
+        self.assertEqual(self.ordenes(), 0)
+        self.assertEqual(self.stock(), 50)
+
+
+class PreciosTest(DatosYPreciosBase):
+    def test_precio_cero_y_ausente(self):
+        orden = self.crear(componentes=[("A-01", 1, 0)])
+        self.assertEqual(orden.items[0].precio, 0)
+        self.assertIsNone(self.crear("OT-2", componentes=[("A-01", 1)]).items[0].precio)
+        self.assertIsNone(self.crear("OT-3", componentes=[("A-01", 1, None)]).items[0].precio)
+
+    def test_precio_invalido_de_componente_informa_la_posicion(self):
+        for valor in (-1, 10.5, "1500", True, 100000000000):
+            with self.subTest(valor=valor):
+                self.assertInvalido(
+                    f"Componente 2: {MSG_PRECIO}", componentes=[("A-01", 1), ("A-02", 1, valor)]
+                )
+        self.assertInvalido(f"Componente 1: {MSG_PRECIO}", componentes=[("A-01", 1, 100000000000)])
+        self.assertEqual(self.crear("OT-9", componentes=[("A-01", 1, 99999999999)]).items[0].precio, 99999999999)
+
+    def test_repetidos_suman_los_importes_indicados(self):
+        orden = self.crear(componentes=[("A-01", 2, 1000), ("a-01", 1), ("A-01", 1, 500)])
+        self.assertEqual([(i.codigo, i.cantidad, i.precio) for i in orden.items], [("A-01", 4, 1500)])
+
+    def test_repetidos_sin_ningun_precio_quedan_sin_precio(self):
+        orden = self.crear(componentes=[("A-01", 2), ("A-01", 1)])
+        self.assertEqual([(i.cantidad, i.precio) for i in orden.items], [(3, None)])
+
+    def test_precio_del_servicio(self):
+        self.assertEqual(
+            self.crear(servicio="servicio-20-hs", precio_servicio=4500000).servicio.precio, 4500000
+        )
+        self.assertIsNone(self.crear("OT-2", servicio="servicio-20-hs").servicio.precio)
+        self.assertEqual(self.crear("OT-3", servicio="servicio-20-hs", precio_servicio=0).servicio.precio, 0)
+
+    def test_precio_del_servicio_sin_servicio_o_invalido(self):
+        self.assertInvalido(
+            "No se puede indicar el precio del servicio general sin elegir uno.", precio_servicio=1000
+        )
+        self.assertInvalido(
+            "No se puede indicar el precio del servicio general sin elegir uno.",
+            servicio="  ", precio_servicio=1000,
+        )
+        for valor in (-5, 1.5, "10", True):
+            with self.subTest(valor=valor):
+                self.assertInvalido(MSG_PRECIO_SERVICIO, servicio="servicio-20-hs", precio_servicio=valor)
+
+    def test_procesos_con_y_sin_precio_en_orden(self):
+        orden = self.crear(
+            procesos=[{"clave": "limpieza", "precio": 1500000}, "cambio-filtro"],
+            procesos_personalizados=[{"nombre": "Pulido", "precio": 800000}],
+        )
+        self.assertEqual(
+            [(p.nombre, p.personalizado, p.precio) for p in orden.procesos],
+            [("Limpieza", False, 1500000), ("Cambio filtro", False, None), ("Pulido", True, 800000)],
+        )
+
+    def test_clave_repetida_cuenta_la_primera_con_su_precio(self):
+        orden = self.crear(procesos=[{"clave": "limpieza", "precio": 1000}, {"clave": "limpieza", "precio": 2000}])
+        self.assertEqual([(p.nombre, p.precio) for p in orden.procesos], [("Limpieza", 1000)])
+
+    def test_precio_invalido_de_proceso_y_de_personalizado(self):
+        self.assertInvalido(
+            f"Proceso 2: {MSG_PRECIO}", procesos=["limpieza", {"clave": "cambio-motor", "precio": -1}]
+        )
+        self.assertInvalido(
+            f"Proceso personalizado 1: {MSG_PRECIO}",
+            procesos_personalizados=[{"nombre": "Pulido", "precio": "mil"}],
+        )
+        self.assertInvalido(
+            f"Proceso personalizado 2: {MSG_PRECIO}",
+            procesos_personalizados=["Uno", {"nombre": "Dos", "precio": 1.5}],
+        )
+
+    def test_objetos_malformados_usan_el_mensaje_de_tipo_existente(self):
+        for valor in ({"precio": 100}, {"clave": 5}, {"clave": "limpieza", "otra": 1}, 7):
+            with self.subTest(valor=valor):
+                self.assertInvalido("El campo procesos debe ser una lista de textos.", procesos=[valor])
+        for valor in ({"precio": 100}, {"nombre": None}, {"nombre": "x", "otra": 1}):
+            with self.subTest(valor=valor):
+                self.assertInvalido(
+                    "El campo procesos_personalizados debe ser una lista de textos.",
+                    procesos_personalizados=[valor],
+                )
+
+    def test_precios_no_tocan_stock_movimientos_ni_catalogos(self):
+        self.crear(componentes=[("A-01", 2, 1000)], procesos=[{"clave": "limpieza", "precio": 5}])
+        self.assertEqual(self.stock(), 48)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM movimientos").fetchone()[0], 0)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM procesos").fetchone()[0], 3)
+
+
+class PrioridadDeDatosYPreciosTest(DatosYPreciosBase):
+    def test_fecha_invalida_gana_a_ingreso_invalido(self):
+        self.assertInvalido(
+            "La fecha (2026-02-30) no es una fecha válida.",
+            fecha="2026-02-30", datos={"fecha_ingreso": "30/11/2026"},
+        )
+
+    def test_cliente_largo_gana_a_componentes_vacios(self):
+        self.assertInvalido(
+            "El cliente admite hasta 80 caracteres.", componentes=[], datos={"cliente": "x" * 81}
+        )
+
+    def test_egreso_anterior_gana_al_cliente_largo(self):
+        self.assertInvalido(
+            "La fecha de egreso no puede ser anterior a la de ingreso.",
+            datos={"fecha_ingreso": "2026-11-27", "fecha_egreso": "2026-11-20", "cliente": "x" * 81},
+        )
+
+    def test_cliente_gana_al_celular_y_este_al_casco(self):
+        self.assertInvalido(
+            "El cliente admite hasta 80 caracteres.", datos={"cliente": "x" * 81, "celular": "1"}
+        )
+        self.assertInvalido(MSG_CELULAR, datos={"celular": "1", "casco": "x" * 61})
+        self.assertInvalido(
+            "El campo casco admite hasta 60 caracteres.", datos={"casco": "x" * 61, "motor": "x" * 61}
+        )
+
+    def test_precio_de_componente_gana_a_servicio_inexistente(self):
+        self.assertInvalido(
+            f"Componente 1: {MSG_PRECIO}", componentes=[("A-01", 1, -1)], servicio="servicio-500-hs"
+        )
+
+    def test_precio_de_servicio_gana_a_proceso_inexistente(self):
+        self.assertInvalido(
+            MSG_PRECIO_SERVICIO, servicio="servicio-20-hs", precio_servicio=-1, procesos=["pintura"]
+        )
+
+    def test_precio_de_proceso_invalido_gana_al_numero_duplicado(self):
+        self.crear("OT-1")
+        with self.assertRaises(DatosInvalidos) as cm:
+            self.crear("OT-1", procesos=[{"clave": "limpieza", "precio": -1}])
+        self.assertEqual(str(cm.exception), f"Proceso 1: {MSG_PRECIO}")

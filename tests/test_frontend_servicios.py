@@ -66,7 +66,7 @@ class OrdenesServicioTest(unittest.TestCase):
         self.assertRegex(self.js, r"if\s*\(\s*o\.servicio\s*\)")
         self.assertIn("Servicio general:", self.js)
         self.assertIn('"srv-nombre"', self.js)
-        self.assertLess(self.js.index("o.servicio"), self.js.index("Procesos:"))
+        self.assertLess(self.js.index("o.servicio"), self.js.index("Servicios adicionales:"))
 
     def test_sin_innerhtml(self):
         self.assertNotIn("innerHTML", self.js)
