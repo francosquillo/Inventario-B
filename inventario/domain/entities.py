@@ -59,6 +59,15 @@ class ServicioOrden:
 
 
 @dataclass(frozen=True)
+class ChequeoFinal:
+    """Item marcado del chequeo final de una orden (C-06i); el nombre sale de la lista fija."""
+
+    clave: str
+    nombre: str
+    precio: "int | None" = None  # centavos; None = sin precio
+
+
+@dataclass(frozen=True)
 class Producto:
     id: int
     codigo: str
@@ -151,12 +160,17 @@ class Orden:
     procesos: "tuple[ProcesoOrden, ...]" = ()
     servicio: "ServicioOrden | None" = None
     datos: DatosOrden = DatosOrden()
+    chequeo_final: "tuple[ChequeoFinal, ...]" = ()
 
     @property
     def subtotal_servicios(self):
-        """Servicio general + servicios adicionales, en centavos; sin precio cuenta 0."""
+        """Servicio general + servicios adicionales + chequeo final, en centavos; sin precio cuenta 0."""
         servicio = (self.servicio.precio or 0) if self.servicio else 0
-        return servicio + sum(p.precio or 0 for p in self.procesos)
+        return (
+            servicio
+            + sum(p.precio or 0 for p in self.procesos)
+            + sum(c.precio or 0 for c in self.chequeo_final)
+        )
 
     @property
     def subtotal_items(self):
@@ -188,6 +202,24 @@ class ResultadoBorradoOrden:
     orden: Orden
     reintegrado: bool
     reintegros: "tuple[Reintegro, ...]"
+
+
+@dataclass(frozen=True)
+class AjusteStock:
+    """Cambio de stock de un producto por la edicion de una orden (C-06i)."""
+
+    codigo: str
+    nombre: str
+    cantidad_anterior: int
+    cantidad_nueva: int
+    stock: int
+    reactivado: bool
+
+
+@dataclass(frozen=True)
+class ResultadoEdicionOrden:
+    orden: Orden
+    ajustes: "tuple[AjusteStock, ...]"
 
 
 @dataclass(frozen=True)

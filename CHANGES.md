@@ -358,7 +358,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
 
 ### [C-06i] `paso-5i-modificar-ordenes-checkeo`
 > Change intermedio agregado el 2026-11-26 (pedido del usuario). El más complejo: edición de órdenes con ajuste atómico de stock.
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado (2026-11-27)
 - **Scope**:
   - **Cambio visual**: política `system-and-mockups`. Mockups aprobados ANTES de `apply`
   - **Modificar órdenes existentes**: servicio general asignado, ítems que la componen (con sus precios), servicios adicionales (con sus precios) y los datos de C-06h
@@ -381,6 +381,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06 → C-06b → C-06c → C-06d 
   - **Cambio visual**: política `system-and-mockups`. **Insumo obligatorio**: foto de referencia de cómo debe verse la orden impresa, que pasa el usuario antes del propose. Mockup aprobado ANTES de `apply`
   - Formato de impresión de **una orden** (vista imprimible / `@media print`, o PDF por orden: decidir en propose) con servicio general, ítems, servicios adicionales, precios, total, datos del cliente y la embarcación, fechas y checkeo final
   - Botón "Imprimir" desde el detalle de la orden
+  - El formato impreso debe listar todos los ítems del chequeo final (seis, fijos), marcando los hechos ("[✓] … Hecho") y los no hechos ("[ ] … No se hizo") de forma legible en blanco y negro (regla establecida en C-06i)
   - Al archivar: actualizar KB 06 y 07
 - **Test runner**: `unittest` + `TestClient` (Strict TDD)
 - **Dependencias**: `C-06i`

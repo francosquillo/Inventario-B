@@ -5,6 +5,8 @@ from typing import Annotated, Any, List, Literal, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from pydantic.json_schema import SkipJsonSchema
 
+from inventario.domain.chequeo_final import CLAVES_CHEQUEO_FINAL
+
 
 class LoginRequest(BaseModel):
     model_config = ConfigDict(strict=True)
@@ -290,10 +292,11 @@ class ComponenteRequest(BaseModel):
     )
 
 
-class OrdenRequest(BaseModel):
+class ContenidoOrdenRequest(BaseModel):
+    """Campos que comparten el alta y la edicion de una orden (todos menos el numero)."""
+
     model_config = ConfigDict(strict=True)
 
-    numero: TextoRecortado = Field(min_length=1, max_length=30)
     fecha: str = Field(min_length=1)
     componentes: List[ComponenteRequest] = Field(min_length=1, max_length=100)
     # Tipos laxos: los valida el service con mensajes de dominio en espanol.
@@ -327,6 +330,33 @@ class OrdenRequest(BaseModel):
         default=None,
         description="Opcional, AAAA-MM-DD: egreso; no puede ser anterior al ingreso.",
     )
+    chequeo_final: Optional[Any] = Field(
+        default=None,
+        description=(
+            "Opcional: items marcados del chequeo final, por clave (texto) u objeto "
+            "{clave, precio}; el precio es opcional (centavos o null). Claves: "
+            + ", ".join(CLAVES_CHEQUEO_FINAL) + "."
+        ),
+    )
+
+
+class OrdenRequest(ContenidoOrdenRequest):
+    numero: TextoRecortado = Field(min_length=1, max_length=30)
+
+
+class OrdenEdicionRequest(ContenidoOrdenRequest):
+    """Reemplazo completo de la orden de la URL; lo que no se envia queda vacio."""
+
+    numero: Optional[Any] = Field(
+        default=None, description="No se puede cambiar: si se envia, la API responde 422."
+    )
+    conservar_servicio: Optional[Any] = Field(
+        default=None,
+        description=(
+            "true: conserva el servicio general guardado (nombre y chequeos) y actualiza solo "
+            "`precio_servicio`; no se combina con `servicio`. false por defecto."
+        ),
+    )
 
 
 class ComponenteOut(BaseModel):
@@ -348,6 +378,12 @@ class ServicioOrdenOut(BaseModel):
     precio: Optional[int] = None
 
 
+class ChequeoFinalOut(BaseModel):
+    clave: str
+    nombre: str
+    precio: Optional[int] = None
+
+
 class OrdenOut(BaseModel):
     id: int
     numero: str
@@ -363,7 +399,10 @@ class OrdenOut(BaseModel):
     componentes: List[ComponenteOut]
     procesos: List[ProcesoOrdenOut] = []
     servicio: Optional[ServicioOrdenOut] = None
-    subtotal_servicios: int = Field(description="Centavos; un precio vacio cuenta 0.")
+    chequeo_final: List[ChequeoFinalOut] = []
+    subtotal_servicios: int = Field(
+        description="Centavos; un precio vacio cuenta 0. Incluye el chequeo final."
+    )
     subtotal_items: int = Field(description="Centavos; un precio vacio cuenta 0.")
     total: int = Field(description="Centavos: subtotal_servicios + subtotal_items.")
 
@@ -409,6 +448,10 @@ def orden_out(orden):
             if orden.servicio
             else None
         ),
+        chequeo_final=[
+            ChequeoFinalOut(clave=c.clave, nombre=c.nombre, precio=c.precio)
+            for c in orden.chequeo_final
+        ],
         subtotal_servicios=orden.subtotal_servicios,
         subtotal_items=orden.subtotal_items,
         total=orden.total,
@@ -442,5 +485,36 @@ def borrado_orden_out(resultado):
                 reactivado=r.reactivado,
             )
             for r in resultado.reintegros
+        ],
+    )
+
+
+class AjusteOut(BaseModel):
+    codigo: str
+    nombre: str
+    cantidad_anterior: int
+    cantidad_nueva: int
+    stock: int
+    reactivado: bool
+
+
+class EdicionOrdenOut(BaseModel):
+    orden: OrdenOut
+    ajustes: List[AjusteOut]
+
+
+def edicion_orden_out(resultado):
+    return EdicionOrdenOut(
+        orden=orden_out(resultado.orden),
+        ajustes=[
+            AjusteOut(
+                codigo=a.codigo,
+                nombre=a.nombre,
+                cantidad_anterior=a.cantidad_anterior,
+                cantidad_nueva=a.cantidad_nueva,
+                stock=a.stock,
+                reactivado=a.reactivado,
+            )
+            for a in resultado.ajustes
         ],
     )

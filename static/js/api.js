@@ -61,6 +61,7 @@
     pedir: pedir,
     get: function (url) { return pedir("GET", url); },
     post: function (url, cuerpo) { return pedir("POST", url, cuerpo); },
+    put: function (url, cuerpo) { return pedir("PUT", url, cuerpo); },
     borrar: function (url) { return pedir("DELETE", url); }
   };
 })();

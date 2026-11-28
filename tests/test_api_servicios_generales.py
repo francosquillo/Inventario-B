@@ -218,7 +218,7 @@ class OrdenesConServicioTest(Base):
             {
                 "id", "numero", "fecha", "fecha_ingreso", "fecha_egreso", "cliente", "celular",
                 "casco", "motor", "trailer", "usuario", "componentes", "procesos", "servicio",
-                "subtotal_servicios", "subtotal_items", "total",
+                "subtotal_servicios", "subtotal_items", "total", "chequeo_final",
             },
         )
 

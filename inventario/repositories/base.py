@@ -4,6 +4,7 @@ from datetime import date, datetime
 
 from inventario.domain.entities import (
     Categoria,
+    ChequeoFinal,
     DatosOrden,
     Proceso,
     ProcesoOrden,
@@ -16,6 +17,7 @@ from inventario.domain.entities import (
     ProductoEnOrdenes,
     ProductoUsado,
     ResultadoBorradoOrden,
+    ResultadoEdicionOrden,
     ResultadoIngreso,
     ResultadoModificacion,
     Usuario,
@@ -186,8 +188,9 @@ class OrdenRepository(ABC):
         procesos: "tuple[ProcesoOrden, ...]" = (),
         servicio: "ServicioOrden | None" = None,
         datos: "DatosOrden" = DatosOrden(),
+        chequeo_final: "tuple[ChequeoFinal, ...]" = (),
     ) -> Orden:
-        """Crea la orden, sus datos, procesos, servicio y precios y descuenta el stock; todo o nada.
+        """Crea la orden, sus datos, procesos, servicio, chequeo final y precios y descuenta el stock; todo o nada.
 
         `items` llega validado y consolidado: (codigo, cantidad_total, precio_centavos|None)
         en orden de primera aparicion, codigos unicos. No escribe en `movimientos` (RN-ST-06).
@@ -229,6 +232,27 @@ class OrdenRepository(ABC):
     @abstractmethod
     def existe_numero(self, numero: str) -> bool:
         """True si hay una orden con ese numero exacto (ya normalizado), sin importar la fecha."""
+
+    @abstractmethod
+    def editar(
+        self,
+        numero: str,
+        fecha: date,
+        items: "list[tuple[str, int, int | None]]",
+        procesos: "tuple[ProcesoOrden, ...]",
+        servicio: "ServicioOrden | None",
+        datos: "DatosOrden",
+        chequeo_final: "tuple[ChequeoFinal, ...]",
+        conservar_servicio: bool,
+    ) -> ResultadoEdicionOrden:
+        """Reemplaza el contenido de la orden y ajusta el stock por diferencia; todo o nada.
+
+        `items` llega validado y consolidado como en `crear`. Con `conservar_servicio` se
+        reutiliza el servicio guardado y de `servicio` solo se toma `precio` (en Postgres sera la
+        funcion RPC `editar_orden` con `SELECT ... FOR UPDATE`). No escribe en `movimientos`.
+        Lanza OrdenNoEncontrada, DatosInvalidos (conservar sin servicio), ProductosNoEncontrados
+        o StockInsuficienteOrden (`solicitado` = cantidad adicional).
+        """
 
     @abstractmethod
     def borrar(self, numero: str, reintegrar: bool) -> ResultadoBorradoOrden:

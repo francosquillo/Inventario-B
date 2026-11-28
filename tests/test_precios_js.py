@@ -9,7 +9,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
-from tests.test_orden_totales import CASOS
+from tests.test_orden_totales import CASOS, CASOS_CHEQUEO
 
 RAIZ = Path(__file__).resolve().parents[1]
 PRECIOS = RAIZ / "static" / "js" / "precios.js"
@@ -106,6 +106,25 @@ class ResumenTest(unittest.TestCase):
                 self.assertEqual(
                     r, {"subtotal_servicios": st_serv, "subtotal_items": st_items, "total": total}
                 )
+
+    def test_con_chequeo_final_misma_tabla_de_casos_que_el_dominio(self):
+        for descripcion, servicio, adicionales, items, chequeo, st_serv, st_items, total in CASOS_CHEQUEO:
+            with self.subTest(descripcion):
+                r = llamar("resumen", {
+                    "servicio": servicio, "adicionales": list(adicionales), "items": list(items),
+                    "chequeo_final": list(chequeo),
+                })
+                self.assertEqual(
+                    r, {"subtotal_servicios": st_serv, "subtotal_items": st_items, "total": total}
+                )
+
+    def test_sin_chequeo_final_el_resumen_es_igual_que_antes(self):
+        r = llamar("resumen", {"servicio": 100, "adicionales": [50], "items": [10]})
+        self.assertEqual(r, {"subtotal_servicios": 150, "subtotal_items": 10, "total": 160})
+
+    def test_chequeo_invalido_mientras_se_tipea_cuenta_cero(self):
+        r = llamar("resumen", {"servicio": None, "adicionales": [], "items": [], "chequeo_final": ["x", None, 70]})
+        self.assertEqual(r, {"subtotal_servicios": 70, "subtotal_items": 0, "total": 70})
 
     def test_sin_nada_vale_cero(self):
         self.assertEqual(

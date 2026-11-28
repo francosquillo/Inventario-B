@@ -83,7 +83,7 @@ Los precios SHALL guardarse en la misma operación todo o nada que la orden, sus
 - **THEN** no existe la orden ni ninguna de sus líneas, procesos o servicio, y el stock de `A-01` sigue en 5
 
 ### Requirement: Subtotales y total de la orden
-Cada orden SHALL tener, calculados y no guardados (pedido del usuario, 2026-11-27): "Subtotal servicios" = precio del servicio general + suma de los precios de sus servicios adicionales; "Subtotal ítems" = suma de los precios de sus ítems; "Total" = subtotal servicios + subtotal ítems. Un precio vacío SHALL contar como 0; sin ningún precio los tres valen 0.
+Cada orden SHALL tener, calculados y no guardados (pedido del usuario, 2026-11-27): "Subtotal servicios" = precio del servicio general + suma de los precios de sus servicios adicionales + suma de los precios de los ítems marcados de su chequeo final (C-06i); "Subtotal ítems" = suma de los precios de sus ítems; "Total" = subtotal servicios + subtotal ítems. Un precio vacío SHALL contar como 0; sin ningún precio los tres valen 0.
 
 #### Scenario: Todos los precios cargados
 - **GIVEN** una orden con servicio general a 4500000, servicios adicionales a 1500000 y 800000, e ítems a 1200000 y 350000
@@ -104,3 +104,8 @@ Cada orden SHALL tener, calculados y no guardados (pedido del usuario, 2026-11-2
 - **GIVEN** una orden creada antes de existir los precios
 - **WHEN** se consulta la orden
 - **THEN** el subtotal de servicios, el de ítems y el total valen 0
+
+#### Scenario: Chequeo final con precios
+- **GIVEN** una orden con servicio general a 4500000, un servicio adicional a 1500000, el chequeo "Combustible" a 800000 y "Entrega" sin precio, y un ítem a 1200000
+- **WHEN** se consulta la orden
+- **THEN** el subtotal de servicios es 6800000, el de ítems 1200000 y el total 8000000

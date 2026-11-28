@@ -21,7 +21,7 @@ def seccion(texto, desde, hasta):
 class InventarioCategoriaTest(unittest.TestCase):
     def setUp(self):
         self.html = leer("index.html")
-        self.js = leer("js", "inventario.js")
+        self.js = leer("js", "inventario.js") + leer("js", "orden-form.js")  # C-06i: el formulario de orden vive en orden-form.js
 
     def test_columna_categoria_entre_nombre_y_stock(self):
         self.assertRegex(
@@ -52,7 +52,7 @@ class InventarioCategoriaTest(unittest.TestCase):
 class NuevoIngresoCategoriaTest(unittest.TestCase):
     def setUp(self):
         self.html = leer("index.html")
-        self.js = leer("js", "inventario.js")
+        self.js = leer("js", "inventario.js") + leer("js", "orden-form.js")  # C-06i: el formulario de orden vive en orden-form.js
 
     def test_selector_despues_de_stock_con_sin_categoria(self):
         modal = seccion(self.html, 'id="modal-nuevo"', 'id="modal-modificar"')
@@ -77,7 +77,7 @@ class NuevoIngresoCategoriaTest(unittest.TestCase):
 class ModificarCategoriaTest(unittest.TestCase):
     def setUp(self):
         self.html = leer("index.html")
-        self.js = leer("js", "inventario.js")
+        self.js = leer("js", "inventario.js") + leer("js", "orden-form.js")  # C-06i: el formulario de orden vive en orden-form.js
 
     def test_plantilla_con_selector_etiquetado(self):
         plantilla = seccion(self.html, 'id="tpl-mline"', "</template>")
@@ -96,7 +96,7 @@ class ModificarCategoriaTest(unittest.TestCase):
 
 class NuevaOrdenCategoriaTest(unittest.TestCase):
     def setUp(self):
-        self.js = leer("js", "inventario.js")
+        self.js = leer("js", "inventario.js") + leer("js", "orden-form.js")  # C-06i: el formulario de orden vive en orden-form.js
 
     def test_la_linea_tiene_selector_de_categoria_antes_del_producto(self):
         nueva = seccion(self.js, "function nuevaLinea(", "function agregarLinea")
@@ -117,7 +117,7 @@ class NuevaOrdenCategoriaTest(unittest.TestCase):
 
 class PdfInventarioCategoriaTest(unittest.TestCase):
     def test_la_linea_del_pdf_usa_la_categoria_elegida(self):
-        js = leer("js", "inventario.js")
+        js = leer("js", "inventario.js") + leer("js", "orden-form.js")  # C-06i: el formulario de orden vive en orden-form.js
         exportar = seccion(js, "function exportarInventario", "function etiquetaProducto")
         self.assertIn("Busqueda.lineaInventario(", exportar)
 

@@ -55,7 +55,7 @@ class PlantillaFiltroTest(unittest.TestCase):
 
 class LogicaFiltroTest(unittest.TestCase):
     def setUp(self):
-        self.js = leer("js", "inventario.js")
+        self.js = leer("js", "inventario.js") + leer("js", "orden-form.js")  # C-06i: el formulario de orden vive en orden-form.js
         self.llenar = seccion(self.js, "function llenarSelectMod(", "function refrescarSelectsMod")
         self.alcambiar = seccion(self.js, "function alCambiarLineaMod(", "function actualizarLineaMod")
 
@@ -115,7 +115,7 @@ class LogicaFiltroTest(unittest.TestCase):
 
 class AccesibilidadYCuerpoTest(unittest.TestCase):
     def setUp(self):
-        self.js = leer("js", "inventario.js")
+        self.js = leer("js", "inventario.js") + leer("js", "orden-form.js")  # C-06i: el formulario de orden vive en orden-form.js
 
     def test_renumerar_etiqueta_filtro_y_producto(self):
         ren = seccion(self.js, "function renumerarMod(", "function nuevaLineaMod")

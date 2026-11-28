@@ -173,7 +173,7 @@ class CamposEtiquetadosMixin:
 class InventarioPaginaTest(CamposEtiquetadosMixin, unittest.TestCase):
     def setUp(self):
         self.html = leer(STATIC / "index.html")
-        self.js = leer(STATIC / "js" / "inventario.js")
+        self.js = leer(STATIC / "js" / "inventario.js") + leer(STATIC / "js" / "orden-form.js")  # C-06i: formulario de orden compartido
 
     def test_cabecera_y_acciones(self):
         for texto in ("Cerrar sesión", "Usuario:", "Nuevo ingreso", "Modificar stock",
@@ -369,7 +369,7 @@ class BuscadorYExportacionInventarioTest(unittest.TestCase):
 
     def setUp(self):
         self.html = leer(STATIC / "index.html")
-        self.js = leer(STATIC / "js" / "inventario.js")
+        self.js = leer(STATIC / "js" / "inventario.js") + leer(STATIC / "js" / "orden-form.js")  # C-06i: formulario de orden compartido
 
     def test_carga_los_modulos_antes_de_inventario_js(self):
         for modulo in ("busqueda.js", "exportar.js"):

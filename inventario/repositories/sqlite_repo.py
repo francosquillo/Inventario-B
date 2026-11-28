@@ -5,8 +5,11 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from itertools import groupby
 
+from inventario.domain.chequeo_final import CLAVES_CHEQUEO_FINAL, NOMBRES_CHEQUEO_FINAL
 from inventario.domain.entities import (
+    AjusteStock,
     Categoria,
+    ChequeoFinal,
     DatosOrden,
     Faltante,
     ItemOrden,
@@ -19,6 +22,7 @@ from inventario.domain.entities import (
     ProductoUsado,
     Reintegro,
     ResultadoBorradoOrden,
+    ResultadoEdicionOrden,
     ResultadoIngreso,
     ResultadoModificacion,
     ServicioGeneral,
@@ -27,6 +31,7 @@ from inventario.domain.entities import (
 )
 from inventario.domain.errors import (
     CategoriaDuplicada,
+    DatosInvalidos,
     CategoriaEnUso,
     CategoriaNoEncontrada,
     NombreRequerido,
@@ -423,6 +428,36 @@ def _migrar_datos_precios_orden(conn, loguear=True):
             antes[0],
         )
 
+# Chequeo final de ordenes (C-06i, D6/D8). Un item marcado = una fila; la lista es fija (CHECK).
+_CREAR_CHEQUEO_FINAL_SQL = f"""CREATE TABLE orden_chequeo_final (
+    orden_id INTEGER NOT NULL REFERENCES ordenes(id) ON DELETE CASCADE,
+    clave TEXT NOT NULL CHECK (clave IN ({", ".join(repr(c) for c in CLAVES_CHEQUEO_FINAL)})),
+    precio_centavos INTEGER {_PRECIO_CHECK},
+    PRIMARY KEY (orden_id, clave)
+)"""
+
+
+def _crear_chequeo_final(conn, loguear=True):
+    """Crea `orden_chequeo_final` (C-06i, D8). Aditiva e idempotente.
+
+    No hace nada si la tabla ya existe. Una sola transaccion: ante error se revierte (no queda
+    la tabla) y la excepcion sube. Ninguna fila existente cambia.
+    """
+    if _existe_tabla(conn, "orden_chequeo_final"):
+        return
+    with _transaccion(conn):
+        antes = _contar(conn, _TABLAS_CONTADAS_PRECIOS)
+        conn.execute(_CREAR_CHEQUEO_FINAL_SQL)
+        if _contar(conn, _TABLAS_CONTADAS_PRECIOS) != antes:
+            raise sqlite3.IntegrityError(
+                "La migracion del chequeo final cambio la cantidad de filas."
+            )
+    if loguear:  # una base nueva no es una migracion
+        log.info(
+            "Agregado el chequeo final de órdenes (%d orden(es) conservadas, sin chequeo).",
+            antes[0],
+        )
+
 
 def inicializar_esquema(conn):
     categorias_existia = _existe_tabla(conn, "categorias")
@@ -433,6 +468,7 @@ def inicializar_esquema(conn):
     _crear_procesos(conn, loguear=base_existia)
     _crear_servicios_generales(conn, loguear=base_existia)
     _migrar_datos_precios_orden(conn, loguear=base_existia)
+    _crear_chequeo_final(conn, loguear=base_existia)
     conn.execute(NORMALIZAR_FECHAS_SQL)
     sin_parsear = conn.execute(CONTAR_FECHAS_NO_PARSEABLES_SQL).fetchone()[0]
     if sin_parsear:
@@ -1007,6 +1043,18 @@ _SQL_PROCESOS_DE_ORDENES = (
     "WHERE orden_id IN ({}) ORDER BY orden_id, posicion"
 )
 _SQL_BORRAR_ORDEN = "DELETE FROM ordenes WHERE id = ?"
+_SQL_EDITAR_ORDEN = (
+    "UPDATE ordenes SET fecha = ?, cliente = ?, celular = ?, casco = ?, motor = ?, trailer = ?, "
+    "fecha_ingreso = ?, fecha_egreso = ? WHERE id = ?"
+)
+_SQL_PRODUCTOS_DE_EDICION = (
+    "SELECT id, codigo, nombre, stock, activo FROM productos WHERE codigo IN ({})"
+)
+_SQL_CANTIDADES_DE_ORDEN = (
+    "SELECT p.id, p.codigo, p.nombre, p.stock, p.activo, i.cantidad "
+    "FROM orden_items i JOIN productos p ON p.id = i.producto_id WHERE i.orden_id = ?"
+)
+_SQL_PRECIO_SERVICIO = "UPDATE orden_servicio SET precio_centavos = ? WHERE orden_id = ?"
 _SQL_BORRAR_SERVICIO_CHEQUEOS = "DELETE FROM orden_servicio_chequeos WHERE orden_id = ?"
 _SQL_BORRAR_SERVICIO = "DELETE FROM orden_servicio WHERE orden_id = ?"
 _SQL_ALTA_SERVICIO = (
@@ -1015,6 +1063,14 @@ _SQL_ALTA_SERVICIO = (
 _SQL_ALTA_SERVICIO_CHEQUEO = (
     "INSERT INTO orden_servicio_chequeos (orden_id, posicion, nombre) VALUES (?, ?, ?)"
 )
+_SQL_BORRAR_CHEQUEO_FINAL = "DELETE FROM orden_chequeo_final WHERE orden_id = ?"
+_SQL_ALTA_CHEQUEO_FINAL = (
+    "INSERT INTO orden_chequeo_final (orden_id, clave, precio_centavos) VALUES (?, ?, ?)"
+)
+_SQL_CHEQUEO_FINAL_DE_ORDENES = (
+    "SELECT orden_id, clave, precio_centavos FROM orden_chequeo_final WHERE orden_id IN ({})"
+)
+_POSICION_CHEQUEO = {clave: i for i, clave in enumerate(CLAVES_CHEQUEO_FINAL)}
 _SQL_SERVICIOS_DE_ORDENES = (
     "SELECT s.orden_id, s.nombre AS servicio, s.precio_centavos, c.nombre AS chequeo "
     "FROM orden_servicio s "
@@ -1037,6 +1093,22 @@ def _leer_procesos(conn, orden_ids):
             ProcesoOrden(f["nombre"], bool(f["personalizado"]), f["precio_centavos"])
         )
     return {orden_id: tuple(lista) for orden_id, lista in por_orden.items()}
+
+
+def _leer_chequeo_final(conn, orden_ids):
+    """Chequeo final de varias ordenes por lote, en el orden fijo de la lista (no el de SQL)."""
+    if not orden_ids:
+        return {}
+    sql = _SQL_CHEQUEO_FINAL_DE_ORDENES.format(", ".join("?" * len(orden_ids)))
+    por_orden = {}
+    for f in conn.execute(sql, list(orden_ids)).fetchall():
+        por_orden.setdefault(f["orden_id"], []).append(
+            ChequeoFinal(f["clave"], NOMBRES_CHEQUEO_FINAL[f["clave"]], f["precio_centavos"])
+        )
+    return {
+        orden_id: tuple(sorted(lista, key=lambda c: _POSICION_CHEQUEO[c.clave]))
+        for orden_id, lista in por_orden.items()
+    }
 
 
 def _leer_servicios(conn, orden_ids):
@@ -1064,10 +1136,11 @@ def _fecha_o_none(texto):
     return date.fromisoformat(texto) if texto is not None else None
 
 
-def _a_ordenes(filas, procesos=None, servicios=None):
+def _a_ordenes(filas, procesos=None, servicios=None, chequeos=None):
     """Agrupa las filas del JOIN (contiguas por orden) en entidades `Orden`."""
     procesos = procesos or {}
     servicios = servicios or {}
+    chequeos = chequeos or {}
     ordenes = []
     for _, grupo in groupby(filas, key=lambda f: f["id"]):
         lineas = list(grupo)
@@ -1085,6 +1158,7 @@ def _a_ordenes(filas, procesos=None, servicios=None):
                 ),
                 procesos=procesos.get(cabecera["id"], ()),
                 servicio=servicios.get(cabecera["id"]),
+                chequeo_final=chequeos.get(cabecera["id"], ()),
                 datos=DatosOrden(
                     cliente=cabecera["cliente"],
                     celular=cabecera["celular"],
@@ -1117,13 +1191,25 @@ _SQL_PRODUCTOS_USADOS = (
 )
 
 
+class _Delta:
+    """Un producto de la union antes/despues de una edicion (cantidades de la orden)."""
+
+    def __init__(self, producto, anterior, nueva):
+        self.id = producto["id"]
+        self.nombre = producto["nombre"]
+        self.stock = producto["stock"]
+        self.activo = bool(producto["activo"])
+        self.anterior = anterior
+        self.nueva = nueva
+
+
 class SqliteOrdenRepository(OrdenRepository):
     def __init__(self, conn):
         self._conn = conn
 
     def crear(
         self, numero, fecha, items, usuario_id, creada_en, procesos=(), servicio=None,
-        datos=DatosOrden(),
+        datos=DatosOrden(), chequeo_final=(),
     ):
         texto_creada = _fecha_a_texto(creada_en)
         # `items`: (codigo, cantidad, precio); (codigo, cantidad) se toma como sin precio.
@@ -1133,20 +1219,27 @@ class SqliteOrdenRepository(OrdenRepository):
                 orden_id = self._crear_en_transaccion(
                     numero, fecha, items, usuario_id, texto_creada, datos
                 )
-                for posicion, proceso in enumerate(procesos, start=1):
-                    self._conn.execute(
-                        _SQL_ALTA_PROCESO,
-                        (orden_id, posicion, proceso.nombre, int(proceso.personalizado),
-                         proceso.precio),
-                    )
-                if servicio is not None:
-                    self._guardar_servicio(orden_id, servicio)
+                self._guardar_complementos(orden_id, procesos, servicio, chequeo_final)
                 return self._leer_orden(orden_id)
         except sqlite3.IntegrityError as exc:
             # Respaldo del paso 1: el UNIQUE de ordenes.numero ante una carrera.
             if "ordenes.numero" in str(exc):
                 raise OrdenDuplicada(numero) from exc
             raise
+
+    def _guardar_complementos(self, orden_id, procesos, servicio, chequeo_final):
+        """Procesos, servicio general y chequeo final de una orden (alta y edicion)."""
+        for posicion, proceso in enumerate(procesos, start=1):
+            self._conn.execute(
+                _SQL_ALTA_PROCESO,
+                (orden_id, posicion, proceso.nombre, int(proceso.personalizado), proceso.precio),
+            )
+        if servicio is not None:
+            self._guardar_servicio(orden_id, servicio)
+        self._conn.executemany(
+            _SQL_ALTA_CHEQUEO_FINAL,
+            [(orden_id, c.clave, c.precio) for c in chequeo_final],
+        )
 
     def _guardar_servicio(self, orden_id, servicio):
         self._conn.execute(_SQL_ALTA_SERVICIO, (orden_id, servicio.nombre, servicio.precio))
@@ -1211,7 +1304,10 @@ class SqliteOrdenRepository(OrdenRepository):
     def _armar(self, filas):
         ids = list(dict.fromkeys(f["id"] for f in filas))
         return _a_ordenes(
-            filas, _leer_procesos(self._conn, ids), _leer_servicios(self._conn, ids)
+            filas,
+            _leer_procesos(self._conn, ids),
+            _leer_servicios(self._conn, ids),
+            _leer_chequeo_final(self._conn, ids),
         )
 
     def productos_en_ordenes(self, desde, hasta, codigo):
@@ -1242,14 +1338,99 @@ class SqliteOrdenRepository(OrdenRepository):
             if orden is None:
                 raise OrdenNoEncontrada(numero)
             reintegros = self._reintegrar(orden.id) if reintegrar else ()
-            self._conn.execute(_SQL_BORRAR_SERVICIO_CHEQUEOS, (orden.id,))
-            self._conn.execute(_SQL_BORRAR_SERVICIO, (orden.id,))
-            self._conn.execute(_SQL_BORRAR_PROCESOS, (orden.id,))
+            self._borrar_complementos(orden.id)
             self._conn.execute(_SQL_BORRAR_ITEMS, (orden.id,))
             cur = self._conn.execute(_SQL_BORRAR_ORDEN, (orden.id,))
             if cur.rowcount != 1:  # defensa en profundidad; BEGIN IMMEDIATE lo evita
                 raise RuntimeError("No se pudo borrar la orden.")
         return ResultadoBorradoOrden(orden=orden, reintegrado=reintegrar, reintegros=reintegros)
+
+    def editar(
+        self, numero, fecha, items, procesos, servicio, datos, chequeo_final, conservar_servicio
+    ):
+        """Reemplaza el contenido de la orden y ajusta el stock por diferencia, todo o nada (D2)."""
+        items = [(i[0], i[1], i[2] if len(i) > 2 else None) for i in items]
+        with _transaccion(self._conn):
+            orden = self._buscar_orden_por_numero(numero)
+            if orden is None:
+                raise OrdenNoEncontrada(numero)
+            if conservar_servicio and orden.servicio is None:
+                raise DatosInvalidos("La orden no tiene un servicio general para conservar.")
+            deltas = self._calcular_deltas(orden.id, items)
+            self._conn.execute(
+                _SQL_EDITAR_ORDEN,
+                (
+                    fecha.isoformat(), datos.cliente, datos.celular, datos.casco, datos.motor,
+                    datos.trailer, _fecha_a_iso(datos.fecha_ingreso),
+                    _fecha_a_iso(datos.fecha_egreso), orden.id,
+                ),
+            )
+            self._borrar_complementos(orden.id)
+            self._conn.execute(_SQL_BORRAR_ITEMS, (orden.id,))
+            for codigo, cantidad, precio in items:
+                self._conn.execute(
+                    _SQL_ALTA_ITEM, (orden.id, deltas[codigo].id, cantidad, precio)
+                )
+            if conservar_servicio:
+                # Se reutiliza el snapshot guardado (nombre y chequeos); solo cambia el precio.
+                servicio = ServicioOrden(
+                    orden.servicio.nombre, orden.servicio.chequeos, servicio.precio
+                )
+            self._guardar_complementos(orden.id, procesos, servicio, chequeo_final)
+            ajustes = self._aplicar_deltas(deltas)
+            return ResultadoEdicionOrden(orden=self._leer_orden(orden.id), ajustes=ajustes)
+
+    def _calcular_deltas(self, orden_id, items):
+        """{codigo: _Delta} de la union de productos (antes/despues); valida antes de escribir."""
+        anteriores = {
+            f["codigo"]: f for f in self._conn.execute(_SQL_CANTIDADES_DE_ORDEN, (orden_id,))
+        }
+        nuevas = {codigo: cantidad for codigo, cantidad, _ in items}
+        codigos = list(dict.fromkeys(list(nuevas) + list(anteriores)))
+        sql = _SQL_PRODUCTOS_DE_EDICION.format(", ".join("?" * len(codigos)))
+        productos = {f["codigo"]: f for f in self._conn.execute(sql, codigos).fetchall()}
+        deltas, ausentes, faltantes = {}, [], []
+        for codigo in codigos:  # lineas enviadas (como el alta) y luego las quitadas
+            producto = productos.get(codigo)
+            anterior = anteriores[codigo]["cantidad"] if codigo in anteriores else 0
+            nueva = nuevas.get(codigo, 0)
+            delta = nueva - anterior
+            if producto is None or (delta > 0 and not producto["activo"]):
+                ausentes.append(codigo)
+                continue
+            if delta > 0 and producto["stock"] < delta:
+                faltantes.append(Faltante(codigo, producto["stock"], delta))
+            deltas[codigo] = _Delta(producto, anterior, nueva)
+        if ausentes:
+            raise ProductosNoEncontrados(ausentes)
+        if faltantes:
+            raise StockInsuficienteOrden(faltantes)
+        return deltas
+
+    def _aplicar_deltas(self, deltas):
+        ajustes = []
+        for codigo, d in sorted(deltas.items()):  # ajustes por codigo
+            diferencia = d.nueva - d.anterior
+            if diferencia == 0:
+                continue
+            if diferencia > 0:
+                cur = self._conn.execute(_SQL_RESTAR, (diferencia, d.id, diferencia))
+                stock = d.stock - diferencia
+                reactivado = False
+            else:
+                cur = self._conn.execute(_SQL_SUMAR_Y_ACTIVAR, (-diferencia, d.id))
+                stock = d.stock - diferencia
+                reactivado = not d.activo
+            if cur.rowcount != 1:  # defensa en profundidad; BEGIN IMMEDIATE lo evita
+                raise RuntimeError(f"No se pudo ajustar el stock de '{codigo}'.")
+            ajustes.append(AjusteStock(codigo, d.nombre, d.anterior, d.nueva, stock, reactivado))
+        return tuple(ajustes)
+
+    def _borrar_complementos(self, orden_id):
+        self._conn.execute(_SQL_BORRAR_CHEQUEO_FINAL, (orden_id,))
+        self._conn.execute(_SQL_BORRAR_SERVICIO_CHEQUEOS, (orden_id,))
+        self._conn.execute(_SQL_BORRAR_SERVICIO, (orden_id,))
+        self._conn.execute(_SQL_BORRAR_PROCESOS, (orden_id,))
 
     def _reintegrar(self, orden_id):
         """Suma cada cantidad al stock y reactiva; devuelve el detalle (dentro de la transaccion)."""

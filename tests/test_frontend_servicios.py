@@ -15,7 +15,7 @@ def leer(*partes):
 class NuevaOrdenServicioTest(unittest.TestCase):
     def setUp(self):
         self.html = leer("index.html")
-        self.js = leer("js", "inventario.js")
+        self.js = leer("js", "inventario.js") + leer("js", "orden-form.js")  # C-06i: el formulario de orden vive en orden-form.js
 
     def test_bloque_entre_la_fecha_y_componentes_dentro_del_formulario(self):
         i_fecha = self.html.index('id="ord-fecha"')

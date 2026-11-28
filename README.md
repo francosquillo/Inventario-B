@@ -92,6 +92,23 @@ La sesión dura 12 horas desde la última petición.
 
   Las órdenes devuelven además `fecha_ingreso`, `fecha_egreso`, `cliente`, `celular`, `casco`, `motor`, `trailer`, `precio` en cada componente, proceso y servicio, y `subtotal_servicios`, `subtotal_items` y `total` (en este ejemplo 6000000, 1200000 y 7200000).
 
+## Editar órdenes y chequeo final
+
+- **Editar una orden**: en `/ordenes`, el botón "Editar" abre el mismo formulario de "Nueva orden" precargado. El número no se puede cambiar; todo lo demás (fecha, datos del cliente, servicio general, componentes, servicios adicionales, precios y chequeo final) se reemplaza por completo.
+- **Stock por diferencia, todo o nada**: al guardar se descuenta lo que aumenta y se reintegra lo que baja o se quita (reintegrar reactiva productos dados de baja). Si algún producto no alcanza (409) o no existe/está dado de baja y se quiere aumentar (404), no cambia nada. La edición **no escribe movimientos** (igual que el alta y el borrado); la respuesta lista los `ajustes`.
+- **API**: `PUT /api/ordenes/{numero}` con el cuerpo del alta sin `numero` (si se envía, 422), más `conservar_servicio` (`true` conserva el servicio general guardado y actualiza solo `precio_servicio`; no se combina con `servicio`). Responde `{"orden": {...}, "ajustes": [{"codigo", "nombre", "cantidad_anterior", "cantidad_nueva", "stock", "reactivado"}]}`. Ejemplo:
+
+```json
+{
+  "fecha": "2026-11-27",
+  "componentes": [{"codigo": "B-02", "cantidad": 1, "precio": 50000}],
+  "chequeo_final": [{"clave": "entrega", "precio": 500000}]
+}
+```
+
+- **Chequeo final**: lista fija de seis ítems (`combustible`, `puesta-en-marcha`, `check-list-y-verificacion-final`, `prueba-en-el-lago`, `limpieza-de-cortesia`, `entrega`), cada uno marcado con un precio opcional en centavos. `chequeo_final` (claves o `{"clave", "precio"}`) se acepta en el alta y la edición, se devuelve siempre (vacío si no hay) y suma al `subtotal_servicios`. En la web se carga solo al editar; el PDF de una orden lista los seis ítems (`[✓] Hecho` / `[ ] No se hizo`).
+- **Migración (`paso-5i-modificar-ordenes-checkeo`)**: la primera vez que arrancás, la app crea la tabla `orden_chequeo_final` (aditiva, una transacción, las órdenes anteriores quedan sin chequeo). **Antes de ese primer arranque, copiá tu `dev-local.db` a `dev-local.bak-5i.db`** (`.gitignore` ya cubre `*.db`).
+
 ## Reporte de productos en órdenes
 
 - **Pantalla `/reportes`** (pestaña "Reportes"): muestra cuánto se usó de cada producto en las órdenes de un período, con la cantidad total y en cuántas órdenes figura. Ordena por cantidad (de mayor a menor) y marca los productos "dado de baja".

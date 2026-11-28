@@ -2,18 +2,23 @@
 from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 
 from inventario.api.dependencies import get_current_user, get_orden_service
 from inventario.api.schemas import (
     BorradoOrdenOut,
+    EdicionOrdenOut,
     ErrorOut,
+    OrdenEdicionRequest,
     OrdenOut,
     OrdenRequest,
     StockInsuficienteOut,
     borrado_orden_out,
+    edicion_orden_out,
     orden_out,
 )
 from inventario.domain.entities import UsuarioAutenticado
+from inventario.domain.errors import ProductosNoEncontrados
 from inventario.services.orden_service import OrdenService
 
 router = APIRouter(prefix="/api/ordenes", tags=["ordenes"])
@@ -22,6 +27,15 @@ Usuario = Annotated[UsuarioAutenticado, Depends(get_current_user)]
 Servicio = Annotated[OrdenService, Depends(get_orden_service)]
 
 MENSAJE_REINTEGRAR_REPETIDO = "El campo reintegrar debe enviarse una sola vez."
+_CAMPOS_DATOS = ("cliente", "celular", "casco", "motor", "trailer", "fecha_ingreso", "fecha_egreso")
+
+
+def _componentes(datos):
+    return [(c.codigo, c.cantidad, c.precio) for c in datos.componentes]
+
+
+def _datos_orden(datos):
+    return {campo: getattr(datos, campo) for campo in _CAMPOS_DATOS}
 
 
 @router.post(
@@ -38,26 +52,68 @@ MENSAJE_REINTEGRAR_REPETIDO = "El campo reintegrar debe enviarse una sola vez."
     },
 )
 def crear_orden(datos: OrdenRequest, usuario: Usuario, ordenes: Servicio):
-    componentes = [(c.codigo, c.cantidad, c.precio) for c in datos.componentes]
-    datos_orden = {
-        campo: getattr(datos, campo)
-        for campo in (
-            "cliente", "celular", "casco", "motor", "trailer", "fecha_ingreso", "fecha_egreso"
-        )
-    }
     return orden_out(
         ordenes.crear(
             datos.numero,
             datos.fecha,
-            componentes,
+            _componentes(datos),
             usuario.id,
             procesos=datos.procesos,
             procesos_personalizados=datos.procesos_personalizados,
             servicio=datos.servicio,
-            datos=datos_orden,
+            datos=_datos_orden(datos),
             precio_servicio=datos.precio_servicio,
+            chequeo_final=datos.chequeo_final,
         )
     )
+
+
+@router.put(
+    "/{numero:path}",
+    response_model=EdicionOrdenOut,
+    summary="Editar una orden por su número",
+    description=(
+        "Reemplaza por completo el contenido de la orden (el número de la URL se normaliza y "
+        "no se puede cambiar): fecha, datos, componentes, servicios, precios y chequeo final; "
+        "lo que no se envía queda vacío. El stock se ajusta **por diferencia** (descuenta lo que "
+        "aumenta, reintegra lo que baja o se quita; reintegrar reactiva productos dados de baja), "
+        "todo o nada y sin escribir en movimientos. `ajustes` lista los productos cuyo stock "
+        "cambió. Con `conservar_servicio=true` se mantiene el servicio general guardado. "
+        "Los caracteres `?` y `#` del número deben ir codificados (`%3F`, `%23`)."
+    ),
+    responses={
+        404: {
+            "model": ErrorOut,
+            "description": "Orden inexistente, o productos inexistentes/inactivos (con `codigos`)",
+        },
+        409: {
+            "model": StockInsuficienteOut,
+            "description": "Stock insuficiente (con `faltantes`; `solicitado` = cantidad adicional)",
+        },
+        422: {"model": ErrorOut, "description": "Datos inválidos (mensaje en español)"},
+    },
+)
+def editar_orden(numero: str, datos: OrdenEdicionRequest, usuario: Usuario, ordenes: Servicio):
+    try:
+        resultado = ordenes.editar(
+            numero,
+            datos.fecha,
+            _componentes(datos),
+            procesos=datos.procesos,
+            procesos_personalizados=datos.procesos_personalizados,
+            servicio=datos.servicio,
+            datos=_datos_orden(datos),
+            precio_servicio=datos.precio_servicio,
+            chequeo_final=datos.chequeo_final,
+            conservar_servicio=datos.conservar_servicio,
+            numero_cuerpo=datos.numero,
+        )
+    except ProductosNoEncontrados as exc:
+        # La web marca las lineas por `codigos`; el alta mantiene su cuerpo solo con `detail`.
+        return JSONResponse(
+            status_code=404, content={"detail": str(exc), "codigos": list(exc.codigos)}
+        )
+    return edicion_orden_out(resultado)
 
 
 @router.get(

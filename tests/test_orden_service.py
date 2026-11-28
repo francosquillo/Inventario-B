@@ -1,7 +1,7 @@
 import unittest
 from datetime import date, datetime
 
-from inventario.domain.entities import Faltante, ServicioOrden
+from inventario.domain.entities import AjusteStock, ChequeoFinal, Faltante, ServicioOrden
 from inventario.domain.errors import (
     DatosInvalidos,
     OrdenDuplicada,
@@ -759,3 +759,245 @@ class PrioridadDeDatosYPreciosTest(DatosYPreciosBase):
         with self.assertRaises(DatosInvalidos) as cm:
             self.crear("OT-1", procesos=[{"clave": "limpieza", "precio": -1}])
         self.assertEqual(str(cm.exception), f"Proceso 1: {MSG_PRECIO}")
+
+
+MSG_CHEQUEO_TIPO = "El campo chequeo_final debe ser una lista de claves."
+MSG_PRECIO_CHEQUEO = "El precio debe ser un entero de centavos entre 0 y 99.999.999.999."
+MSG_PRECIO_SERVICIO_EDICION = "El precio del servicio general" + MSG_PRECIO_CHEQUEO.removeprefix(
+    "El precio"
+)
+
+
+class EdicionServiceBase(unittest.TestCase):
+    def setUp(self):
+        self.conn = conexion_inicializada()
+        self.addCleanup(self.conn.close)
+        self.uid = insertar_usuario(self.conn)
+        insertar_producto(self.conn, "A-01", "Tornillo", 10)
+        insertar_producto(self.conn, "B-02", "Tuerca", 10)
+        self.service = OrdenService(
+            SqliteOrdenRepository(self.conn),
+            SqliteProcesoRepository(self.conn),
+            SqliteServicioGeneralRepository(self.conn),
+            ahora=lambda: FECHA_FIJA,
+        )
+        self.service.crear("OT-0043", "2026-11-27", [("A-01", 2)], self.uid)  # stock A-01 = 8
+
+    def stock(self, codigo="A-01"):
+        return self.conn.execute(
+            "SELECT stock FROM productos WHERE codigo = ?", (codigo,)
+        ).fetchone()[0]
+
+    def editar(self, numero="OT-0043", fecha="2026-11-28", componentes=(("A-01", 2),), **kwargs):
+        return self.service.editar(numero, fecha, componentes, **kwargs)
+
+    def foto(self):
+        return [
+            tuple(f)
+            for t in ("ordenes", "orden_items", "orden_chequeo_final", "orden_servicio", "productos")
+            for f in self.conn.execute(f"SELECT * FROM {t} ORDER BY 1, 2")
+        ]
+
+    def assertInvalido(self, mensaje, **kwargs):
+        antes = self.foto()
+        with self.assertRaises(DatosInvalidos) as cm:
+            self.editar(**kwargs)
+        self.assertEqual(str(cm.exception), mensaje)
+        self.assertEqual(self.foto(), antes)
+
+
+class EdicionServiceTest(EdicionServiceBase):
+    def test_normaliza_numero_consolida_y_normaliza_el_chequeo(self):
+        resultado = self.service.editar(
+            "  ot-0043 ", fecha="2026-11-28", componentes=[("A-01", 2, 1300000)],
+            chequeo_final=[{"clave": " Entrega ", "precio": 500000}],
+        )
+        orden = resultado.orden
+        self.assertEqual(orden.numero, "OT-0043")
+        self.assertEqual(orden.fecha, date(2026, 11, 28))
+        self.assertEqual(orden.items[0].precio, 1300000)
+        self.assertEqual(orden.chequeo_final, (ChequeoFinal("entrega", "Entrega", 500000),))
+        self.assertEqual(resultado.ajustes, ())
+        self.assertEqual(self.stock(), 8)
+
+    def test_otro_numero_otros_valores_y_ajustes(self):
+        self.service.crear("OT-7", "2026-11-01", [("B-02", 1)], self.uid)
+        resultado = self.service.editar("ot-7", "2026-11-02", [("b-02", 2), ("B-02", 3)])
+        self.assertEqual([(i.codigo, i.cantidad) for i in resultado.orden.items], [("B-02", 5)])
+        self.assertEqual(resultado.ajustes, (AjusteStock("B-02", "Tuerca", 1, 5, 5, False),))
+
+    def test_orden_inexistente(self):
+        with self.assertRaises(OrdenNoEncontrada):
+            self.editar("OT-9999")
+
+    def test_conservar_servicio_con_precio_sin_elegir_servicio_es_valido(self):
+        self.conn.execute(
+            "INSERT INTO orden_servicio (orden_id, nombre) SELECT id, 'Servicio 20 hs' FROM ordenes"
+        )
+        self.conn.commit()
+        resultado = self.editar(conservar_servicio=True, precio_servicio=4500000)
+        self.assertEqual(resultado.orden.servicio, ServicioOrden("Servicio 20 hs", (), 4500000))
+
+    def test_conservar_servicio_en_orden_sin_servicio(self):
+        self.assertInvalido(
+            "La orden no tiene un servicio general para conservar.", conservar_servicio=True
+        )
+
+    def test_servicio_del_catalogo_reemplaza_y_none_lo_quita(self):
+        resultado = self.editar(servicio="servicio-20-hs", precio_servicio=100)
+        self.assertEqual(resultado.orden.servicio.nombre, "Servicio 20 hs")
+        self.assertEqual(len(resultado.orden.servicio.chequeos), 3)
+        self.assertIsNone(self.editar().orden.servicio)
+
+    def test_numero_en_el_cuerpo_se_rechaza(self):
+        for valor in ("OT-0044", "OT-0043", 5, ""):
+            with self.subTest(valor=valor):
+                self.assertInvalido(
+                    "El número de la orden no se puede cambiar.", numero_cuerpo=valor
+                )
+
+    def test_numero_en_el_cuerpo_none_se_ignora(self):
+        self.editar(numero_cuerpo=None)
+
+    def test_conservar_y_elegir_a_la_vez(self):
+        self.assertInvalido(
+            "No se puede elegir un servicio general y conservar el actual a la vez.",
+            servicio="servicio-20-hs", conservar_servicio=True,
+        )
+
+    def test_conservar_servicio_debe_ser_booleano(self):
+        for valor in ("si", 1, "true", 0):
+            with self.subTest(valor=valor):
+                self.assertInvalido(
+                    "El campo conservar_servicio debe ser true o false.", conservar_servicio=valor
+                )
+
+    def test_componentes_vacios_y_egreso_anterior_como_en_el_alta(self):
+        self.assertInvalido("La orden requiere al menos un componente.", componentes=[])
+        self.assertInvalido(
+            "La fecha de egreso no puede ser anterior a la de ingreso.",
+            datos={"fecha_ingreso": "2026-11-29", "fecha_egreso": "2026-11-26"},
+        )
+
+    def test_lineas_repetidas_se_consolidan(self):
+        resultado = self.editar(componentes=[("A-01", 2, 1000), ("a-01", 1, 500)])
+        self.assertEqual(
+            [(i.codigo, i.cantidad, i.precio) for i in resultado.orden.items], [("A-01", 3, 1500)]
+        )
+        self.assertEqual(self.stock(), 7)
+
+
+class ChequeoFinalServiceTest(EdicionServiceBase):
+    """Validacion del chequeo final, tambien en el alta (C-06i, spec chequeo-final-ordenes)."""
+
+    def test_clave_inexistente(self):
+        self.assertInvalido(
+            "El ítem de chequeo final 'lavado' no existe.", chequeo_final=["lavado"]
+        )
+
+    def test_clave_larga_se_recorta_en_el_mensaje(self):
+        self.assertInvalido(
+            f"El ítem de chequeo final '{'x' * 30}…' no existe.", chequeo_final=["x" * 40]
+        )
+
+    def test_repetida_sin_distinguir_mayusculas(self):
+        self.assertInvalido(
+            "Chequeo final 2: 'entrega' está repetido.", chequeo_final=["Entrega", "entrega"]
+        )
+
+    def test_precio_invalido_lleva_la_posicion(self):
+        for precio in (-1, 1.5, "10", True, 100000000000):
+            with self.subTest(precio=precio):
+                self.assertInvalido(
+                    f"Chequeo final 2: {MSG_PRECIO_CHEQUEO}",
+                    chequeo_final=[
+                        {"clave": "combustible", "precio": 800000},
+                        {"clave": "entrega", "precio": precio},
+                    ],
+                )
+
+    def test_tipo_invalido(self):
+        casos = (
+            "combustible", 5, {"clave": "entrega"}, [5],
+            [{"clave": "entrega", "x": 1}], [{"precio": 5}],
+        )
+        for valor in casos:
+            with self.subTest(valor=valor):
+                self.assertInvalido(MSG_CHEQUEO_TIPO, chequeo_final=valor)
+
+    def test_none_o_vacio_es_sin_chequeo(self):
+        for valor in (None, []):
+            with self.subTest(valor=valor):
+                self.assertEqual(self.editar(chequeo_final=valor).orden.chequeo_final, ())
+
+    def test_claves_en_cualquier_orden_se_guardan_con_y_sin_precio(self):
+        orden = self.editar(
+            chequeo_final=[
+                "entrega",
+                {"clave": "combustible", "precio": 800000},
+                {"clave": "prueba-en-el-lago", "precio": None},
+            ]
+        ).orden
+        self.assertEqual(
+            [(c.clave, c.precio) for c in orden.chequeo_final],
+            [("combustible", 800000), ("prueba-en-el-lago", None), ("entrega", None)],
+        )
+
+    def test_el_alta_tambien_valida_y_guarda_el_chequeo(self):
+        orden = self.service.crear(
+            "OT-9", "2026-11-28", [("B-02", 1)], self.uid,
+            chequeo_final=["entrega", {"clave": "combustible", "precio": 800000}],
+        )
+        self.assertEqual([c.clave for c in orden.chequeo_final], ["combustible", "entrega"])
+        self.assertEqual(orden.subtotal_servicios, 800000)
+        antes = self.stock("B-02")
+        with self.assertRaises(DatosInvalidos) as cm:
+            self.service.crear(
+                "OT-10", "2026-11-28", [("B-02", 1)], self.uid, chequeo_final=["lavado"]
+            )
+        self.assertEqual(str(cm.exception), "El ítem de chequeo final 'lavado' no existe.")
+        self.assertEqual(self.stock("B-02"), antes)
+
+
+class PrioridadDeEdicionTest(EdicionServiceBase):
+    def test_numero_en_blanco_gana_a_fecha_invalida(self):
+        with self.assertRaises(DatosInvalidos) as cm:
+            self.service.editar("  ", "2026-02-30", [("A-01", 1)])
+        self.assertEqual(str(cm.exception), "El campo numero es obligatorio.")
+
+    def test_numero_en_cuerpo_gana_a_fecha_invalida(self):
+        self.assertInvalido(
+            "El número de la orden no se puede cambiar.", fecha="2026-02-30", numero_cuerpo="X"
+        )
+
+    def test_fecha_invalida_gana_a_orden_inexistente(self):
+        with self.assertRaises(DatosInvalidos) as cm:
+            self.service.editar("OT-9999", "2026-02-30", [("A-01", 1)])
+        self.assertEqual(str(cm.exception), "La fecha (2026-02-30) no es una fecha válida.")
+
+    def test_chequeo_invalido_gana_a_producto_inexistente(self):
+        self.assertInvalido(
+            "El ítem de chequeo final 'lavado' no existe.",
+            componentes=[("ZZ-99", 1)], chequeo_final=["lavado"],
+        )
+
+    def test_procesos_invalidos_ganan_al_chequeo_invalido(self):
+        self.assertInvalido(
+            "El proceso 'pintura' no existe.", procesos=["pintura"], chequeo_final=["lavado"]
+        )
+
+    def test_precio_del_servicio_gana_a_conservar_y_elegir(self):
+        self.assertInvalido(
+            MSG_PRECIO_SERVICIO_EDICION,
+            servicio="servicio-20-hs", conservar_servicio=True, precio_servicio=-1,
+        )
+
+    def test_producto_inexistente_gana_a_stock_insuficiente(self):
+        with self.assertRaises(ProductosNoEncontrados):
+            self.editar(componentes=[("A-01", 500), ("ZZ-99", 1)])
+
+    def test_stock_insuficiente_informa_la_cantidad_adicional(self):
+        with self.assertRaises(StockInsuficienteOrden) as cm:
+            self.editar(componentes=[("A-01", 12)])
+        self.assertEqual(cm.exception.faltantes, (Faltante("A-01", 8, 10),))
+        self.assertEqual(self.stock(), 8)

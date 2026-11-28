@@ -6,6 +6,7 @@ import unittest
 from datetime import date, datetime
 
 from inventario.domain.entities import (
+    ChequeoFinal,
     DatosOrden,
     Faltante,
     ItemOrden,
@@ -451,7 +452,7 @@ class ListarTest(RepoBase):
         self.assertFalse(self.repo.existe_numero("OT-9999"))
         self.assertFalse(self.repo.existe_numero("OT-1"))
 
-    def test_listar_ejecuta_tres_selects_sin_importar_cuantas_ordenes_hay(self):
+    def test_listar_ejecuta_cuatro_selects_sin_importar_cuantas_ordenes_hay(self):
         self.sembrar_basico()
         for n in ("OT-1", "OT-2", "OT-3"):
             self.sembrar_orden(n, FECHA_ORDEN, items=(("A-01", 1), ("B-02", 1)))
@@ -460,10 +461,10 @@ class ListarTest(RepoBase):
         ordenes = self.repo.listar(None, None, None)
         self.conn.set_trace_callback(None)
         self.assertEqual(len(ordenes), 3)
-        # Ordenes+componentes y, por lote, procesos (C-06f D5) y servicio (C-06g D5): no crece
-        # con las ordenes.
-        self.assertEqual(sum(1 for s in sentencias if s.lstrip().upper().startswith("SELECT")), 3)
-        self.assertEqual(len(sentencias), 3)
+        # Ordenes+componentes y, por lote, procesos (C-06f D5), servicio (C-06g D5) y chequeo
+        # final (C-06i D6): no crece con las ordenes.
+        self.assertEqual(sum(1 for s in sentencias if s.lstrip().upper().startswith("SELECT")), 4)
+        self.assertEqual(len(sentencias), 4)
 
 
 class BorrarBase(RepoBase):
@@ -769,6 +770,75 @@ class AtomicidadPreciosTest(RepoBase):
                 servicio=ServicioOrden("Servicio 20 hs", ("Motor",), -5),  # viola el CHECK
             )
         for tabla in ("ordenes", "orden_items", "orden_procesos", "orden_servicio"):
+            self.assertEqual(self.cuenta(tabla), 0, tabla)
+        self.assertEqual(self.stocks(), {"A-01": 5})
+        self.assertFalse(self.conn.in_transaction)
+
+
+class ChequeoFinalTest(RepoBase):
+    """C-06i: el chequeo final se guarda, se lee en orden fijo y se borra con la orden."""
+
+    ENTREGA = ChequeoFinal("entrega", "Entrega", None)
+    COMBUSTIBLE = ChequeoFinal("combustible", "Combustible", 800000)
+
+    def crear_con_chequeo(self, numero, chequeo, items=(("A-01", 1, None),)):
+        return self.repo.crear(
+            numero, FECHA_ORDEN, list(items), self.uid, FECHA_FIJA, chequeo_final=chequeo
+        )
+
+    def test_crea_con_chequeo_y_lo_devuelve_en_el_orden_fijo(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        orden = self.crear_con_chequeo("OT-1", (self.ENTREGA, self.COMBUSTIBLE))
+        self.assertEqual(orden.chequeo_final, (self.COMBUSTIBLE, self.ENTREGA))
+        self.assertEqual(orden.subtotal_servicios, 800000)
+
+    def test_sin_chequeo_devuelve_tupla_vacia(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        self.assertEqual(self.crear_con_chequeo("OT-1", ()).chequeo_final, ())
+
+    def test_el_orden_sigue_la_lista_fija_y_no_el_alfabeto(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        lago = ChequeoFinal("prueba-en-el-lago", "Prueba en el lago", None)
+        marcha = ChequeoFinal("puesta-en-marcha", "Puesta en marcha", 5)
+        orden = self.crear_con_chequeo("OT-1", (lago, self.ENTREGA, marcha))
+        self.assertEqual([c.clave for c in orden.chequeo_final], [
+            "puesta-en-marcha", "prueba-en-el-lago", "entrega",
+        ])
+
+    def test_listar_y_buscar_no_multiplican_filas(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        insertar_producto(self.conn, "B-02", "Tuerca", 5)
+        self.repo.crear(
+            "OT-1", FECHA_ORDEN, [("A-01", 1, 10), ("B-02", 1, 20)], self.uid, FECHA_FIJA,
+            procesos=(ProcesoOrden("Limpieza", False, 1), ProcesoOrden("Pulido", True, 2)),
+            chequeo_final=(self.COMBUSTIBLE, self.ENTREGA),
+        )
+        (listada,) = self.repo.listar("OT-1", None, None)
+        self.assertEqual(len(listada.items), 2)
+        self.assertEqual(len(listada.procesos), 2)
+        self.assertEqual(listada.chequeo_final, (self.COMBUSTIBLE, self.ENTREGA))
+        self.assertEqual(self.repo._buscar_orden_por_numero("OT-1"), listada)
+
+    def test_borrar_devuelve_la_orden_con_su_chequeo_y_no_deja_filas(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        self.crear_con_chequeo("OT-1", (self.COMBUSTIBLE, self.ENTREGA))
+        resultado = self.repo.borrar("OT-1", False)
+        self.assertEqual(resultado.orden.chequeo_final, (self.COMBUSTIBLE, self.ENTREGA))
+        self.assertEqual(self.cuenta("orden_chequeo_final"), 0)
+
+    def test_falla_al_escribir_el_chequeo_no_deja_orden_ni_cambia_el_stock(self):
+        insertar_producto(self.conn, "A-01", "Tornillo", 5)
+        malo = ChequeoFinal("combustible", "Combustible", -1)  # viola el CHECK de precio
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.repo.crear(
+                "OT-1", FECHA_ORDEN, [("A-01", 2, 10)], self.uid, FECHA_FIJA,
+                procesos=(ProcesoOrden("Limpieza", False, 1),),
+                servicio=ServicioOrden("Servicio 20 hs", ("Motor",), 5),
+                chequeo_final=(malo,),
+            )
+        for tabla in (
+            "ordenes", "orden_items", "orden_procesos", "orden_servicio", "orden_chequeo_final",
+        ):
             self.assertEqual(self.cuenta(tabla), 0, tabla)
         self.assertEqual(self.stocks(), {"A-01": 5})
         self.assertFalse(self.conn.in_transaction)

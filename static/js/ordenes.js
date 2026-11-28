@@ -9,9 +9,12 @@
   let ordenes = [];
   let consulta = "";      // query string de los filtros aplicados
   let ordenABorrar = null;
+  let ordenForm = null;   // formulario compartido en modo "editar" (orden-form.js)
+  let recargarAlCerrar = false;
 
   const $ = (id) => document.getElementById(id);
   const num = (t) => UI.el("span", { "class": "num" }, t);
+  const MENOS = "−";
 
   // ---------------------------------------------------------------- lista
 
@@ -73,6 +76,26 @@
     return pie;
   }
 
+  // Seccion solo de papel: los seis items del chequeo final en el orden fijo, tambien en una orden sin ninguno.
+  function chequeoParaPapel(o) {
+    const porClave = {};
+    (o.chequeo_final || []).forEach((c) => { porClave[c.clave] = c; });
+    const seccion = UI.el("section", { "class": "chk-print print-only", "aria-label": "Chequeo final" });
+    seccion.appendChild(UI.el("h4", null, "Chequeo final"));
+    const lista = UI.el("ul");
+    ChequeoFinal.ITEMS.forEach((item) => {
+      const hecho = porClave[item.clave];
+      const li = UI.el("li", { "class": hecho ? "hecho" : "no-hecho" });
+      li.appendChild(UI.el("span", { "class": "chq-mark" }, hecho ? "[✓]" : "[\u00a0\u00a0]"));
+      li.appendChild(UI.el("span", { "class": "chq-nombre" }, item.nombre));
+      li.appendChild(UI.el("span", { "class": "chq-estado" }, hecho ? "Hecho" : "No se hizo"));
+      li.appendChild(hecho ? precioEl(hecho.precio) : UI.el("span"));
+      lista.appendChild(li);
+    });
+    seccion.appendChild(lista);
+    return seccion;
+  }
+
   function articulo(o) {
     const art = UI.el("article", { "class": "ord", "aria-labelledby": "ord-t-" + o.id });
     const cab = UI.el("div", { "class": "ord-head" });
@@ -80,14 +103,20 @@
     cab.appendChild(UI.el("span", { "class": "num text-sm text-muted" }, o.fecha));
     const n = o.componentes.length;
     cab.appendChild(UI.el("span", { "class": "text-sm text-muted" }, n + (n === 1 ? " componente" : " componentes")));
-    cab.appendChild(UI.el("button", {
-      "class": "btn btn-secondary btn-sm ml-auto", type: "button",
+    const acciones = UI.el("div", { "class": "ord-actions" });
+    acciones.appendChild(UI.el("button", {
+      "class": "btn btn-secondary btn-sm no-print", type: "button", "aria-haspopup": "dialog",
+      "data-editar": o.numero, "aria-label": "Editar orden " + o.numero
+    }, "Editar"));
+    acciones.appendChild(UI.el("button", {
+      "class": "btn btn-secondary btn-sm", type: "button",
       "data-exportar-orden": o.numero, "aria-label": "Exportar PDF de la orden " + o.numero
     }, "Exportar PDF"));
-    cab.appendChild(UI.el("button", {
+    acciones.appendChild(UI.el("button", {
       "class": "btn btn-secondary btn-sm", type: "button",
       "data-borrar": o.numero, "aria-label": "Eliminar orden " + o.numero
     }, "Eliminar"));
+    cab.appendChild(acciones);
     art.appendChild(cab);
 
     const datos = filaDatos(o);
@@ -129,6 +158,24 @@
       bloque.appendChild(lista);
       art.appendChild(bloque);
     }
+
+    // Chequeo final (C-06i). En pantalla: solo los items hechos, con su precio. En papel: los seis items
+    // (hechos y no hechos), marcados con texto ([✓] Hecho / [ ] No se hizo), para que se lea en blanco y negro.
+    const hechos = o.chequeo_final || [];
+    if (hechos.length > 0) {
+      const bloqueChk = UI.el("div", { "class": "chips chips-chk" });
+      bloqueChk.appendChild(UI.el("span", { "class": "lbl" }, "Chequeo final:"));
+      const listaChk = UI.el("ul", { "aria-label": "Chequeo final de " + o.numero });
+      hechos.forEach((c) => {
+        const chip = UI.el("li", { "class": "chip" }, c.nombre);
+        chip.appendChild(UI.el("span", { "class": "sep", "aria-hidden": "true" }, " · "));
+        chip.appendChild(precioEl(c.precio));
+        listaChk.appendChild(chip);
+      });
+      bloqueChk.appendChild(listaChk);
+      art.appendChild(bloqueChk);
+    }
+    art.appendChild(chequeoParaPapel(o));
 
     const region = UI.el("div", {
       "class": "overflow-x-auto", tabindex: "0", role: "region", "aria-label": "Componentes de " + o.numero
@@ -216,6 +263,75 @@
       modo: "orden",
       alRestaurar: () => { articulo.removeAttribute("data-exportar"); }
     });
+  }
+
+  // ---------------------------------------------------------------- editar orden
+
+  function ajustesDe(resultado) {
+    if (resultado.ajustes.length === 0) return UI.el("p", { "class": "text-sm" }, "Sin cambios de stock.");
+    const ul = UI.el("ul", { "class": "ajustes" });
+    resultado.ajustes.forEach((a) => {
+      const li = UI.el("li");
+      li.appendChild(num(a.codigo));
+      const dif = a.cantidad_nueva - a.cantidad_anterior;
+      li.appendChild(document.createTextNode(
+        " " + (dif > 0 ? MENOS + dif + " descontada" : "+" + (-dif) + " devuelta") + " (stock " + a.stock
+      ));
+      if (a.reactivado) {
+        li.appendChild(document.createTextNode(", "));
+        li.appendChild(UI.el("strong", null, "reactivado"));
+      }
+      li.appendChild(document.createTextNode(")"));
+      ul.appendChild(li);
+    });
+    return ul;
+  }
+
+  function mostrarActualizada(resultado) {
+    const caja = UI.vaciar($("aviso-exito"));
+    const cuerpo = UI.el("div", { "class": "flex-1 py-2" });
+    const p = UI.el("p");
+    const fuerte = UI.el("strong");
+    fuerte.appendChild(document.createTextNode("Orden "));
+    fuerte.appendChild(num(resultado.orden.numero));
+    fuerte.appendChild(document.createTextNode(" actualizada."));
+    p.appendChild(fuerte);
+    if (resultado.ajustes.length > 0) p.appendChild(document.createTextNode(" Ajustes de stock:"));
+    cuerpo.appendChild(p);
+    cuerpo.appendChild(ajustesDe(resultado));
+    caja.appendChild(cuerpo);
+    const cerrar = UI.el("button", { "class": "icon-btn", type: "button", "aria-label": "Cerrar aviso" }, "×");
+    cerrar.addEventListener("click", ocultarExito);
+    caja.appendChild(cerrar);
+    caja.hidden = false;
+  }
+
+  // Pide inventario, dados de baja y catalogos frescos (el stock cambia) y abre el formulario precargado.
+  function abrirEditar(numero) {
+    const o = ordenes.find((x) => x.numero === numero);
+    if (!o) return;
+    ocultarExito();
+    recargarAlCerrar = false;
+    Promise.all([
+      Api.get("/api/inventario"), Api.get("/api/productos/inactivos"), ordenForm.cargarCatalogos()
+    ]).then(
+      (r) => {
+        ordenForm.setProductos(r[0]);
+        ordenForm.abrir(o);
+        $("ord-enviar").disabled = false;
+      },
+      (err) => {
+        ordenForm.setProductos([]);
+        ordenForm.abrir(o);
+        UI.alerta($("ord-alerta"), "No se pudo preparar la edición: " + err.detail, "error");
+        $("ord-enviar").disabled = true;
+      }
+    );
+  }
+
+  function ordenEditada(resultado) {
+    mostrarActualizada(resultado);
+    cargar(false);
   }
 
   // ---------------------------------------------------------------- filtros
@@ -391,8 +507,21 @@
     $("ord-lista").addEventListener("click", (e) => {
       const x = e.target.closest("[data-exportar-orden]");
       if (x) { exportarOrden(x.getAttribute("data-exportar-orden")); return; }
+      const ed = e.target.closest("[data-editar]");
+      if (ed) { abrirEditar(ed.getAttribute("data-editar")); return; }
       const b = e.target.closest("[data-borrar]");
       if (b) abrirBorrar(b.getAttribute("data-borrar"));
+    });
+    ordenForm = OrdenForm.montar({
+      modo: "editar",
+      formId: "form-editar",
+      modalId: "modal-editar",
+      recargarProductos: () => Api.get("/api/inventario").then((lista) => { ordenForm.setProductos(lista); }),
+      alExito: ordenEditada,
+      alOrdenInexistente: () => { recargarAlCerrar = true; }
+    });
+    $("modal-editar").addEventListener("modal:cerrado", () => {
+      if (recargarAlCerrar) { recargarAlCerrar = false; cargar(false); }
     });
     $("del-devolver").addEventListener("change", actualizarOpcion);
     $("del-confirmar").addEventListener("click", confirmarBorrado);

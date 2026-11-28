@@ -682,3 +682,78 @@ class DatosYPreciosDeOrdenTest(unittest.TestCase):
         self.columna("fecha_egreso", None)
         self.columna("fecha_ingreso", "2026-12-30")  # posterior a `fecha`
         self.columna("fecha_egreso", "2026-12-31")
+
+
+class ChequeoFinalDeOrdenTest(unittest.TestCase):
+    """C-06i: la tabla `orden_chequeo_final` y sus restricciones (design D6)."""
+
+    def setUp(self):
+        self.conn = conexion_inicializada()
+        self.addCleanup(self.conn.close)
+        uid = insertar_usuario(self.conn)
+        self.oid = self.conn.execute(
+            "INSERT INTO ordenes (numero, fecha, usuario_id) VALUES ('OT-1', '2026-11-27', ?)",
+            (uid,),
+        ).lastrowid
+
+    def marcar(self, clave, precio=None, orden_id=None):
+        self.conn.execute(
+            "INSERT INTO orden_chequeo_final (orden_id, clave, precio_centavos) VALUES (?, ?, ?)",
+            (self.oid if orden_id is None else orden_id, clave, precio),
+        )
+
+    def test_base_nueva_tiene_la_tabla(self):
+        nombres = {
+            f["name"] for f in self.conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        self.assertIn("orden_chequeo_final", nombres)
+
+    def test_acepta_las_seis_claves_fijas(self):
+        for clave in (
+            "combustible", "puesta-en-marcha", "check-list-y-verificacion-final",
+            "prueba-en-el-lago", "limpieza-de-cortesia", "entrega",
+        ):
+            with self.subTest(clave=clave):
+                self.marcar(clave)
+
+    def test_rechaza_una_clave_fuera_de_la_lista(self):
+        for clave in ("lavado", "Entrega", ""):
+            with self.subTest(clave=clave):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.marcar(clave)
+
+    def test_precio_acepta_null_cero_y_el_maximo(self):
+        for precio in (None, 0, 99999999999):
+            with self.subTest(precio=precio):
+                self.conn.execute("DELETE FROM orden_chequeo_final")
+                self.marcar("combustible", precio)
+
+    def test_precio_rechaza_negativo_decimal_texto_y_sobre_el_maximo(self):
+        # '10' no se prueba: la afinidad INTEGER de SQLite lo convierte a 10 (valido).
+        for precio in (-1, 1.5, "diez", 100000000000):
+            with self.subTest(precio=precio):
+                with self.assertRaises(sqlite3.IntegrityError):
+                    self.marcar("combustible", precio)
+
+    def test_la_misma_clave_dos_veces_en_una_orden_se_rechaza_pero_no_en_otra(self):
+        self.marcar("entrega")
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.marcar("entrega")
+        uid = self.conn.execute("SELECT id FROM usuarios").fetchone()[0]
+        otra = self.conn.execute(
+            "INSERT INTO ordenes (numero, fecha, usuario_id) VALUES ('OT-2', '2026-11-27', ?)",
+            (uid,),
+        ).lastrowid
+        self.marcar("entrega", orden_id=otra)
+
+    def test_orden_inexistente_se_rechaza(self):
+        with self.assertRaises(sqlite3.IntegrityError):
+            self.marcar("entrega", orden_id=999)
+
+    def test_borrar_la_orden_en_cascada_borra_su_chequeo(self):
+        self.marcar("entrega")
+        self.marcar("combustible", 100)
+        self.conn.execute("DELETE FROM ordenes WHERE id = ?", (self.oid,))
+        self.assertEqual(
+            self.conn.execute("SELECT COUNT(*) FROM orden_chequeo_final").fetchone()[0], 0
+        )

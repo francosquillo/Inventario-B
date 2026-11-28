@@ -58,6 +58,22 @@ class CsrfTest(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_edicion_de_orden_con_text_plain_422_sin_efectos(self):
+        sembrar(self.ruta, [("A-01", "Tornillo", 5, 1)])
+        login(self.client)
+        alta = {"numero": "OT-1", "fecha": "2026-11-20", "componentes": [{"codigo": "A-01", "cantidad": 1}]}
+        self.assertEqual(self.client.post("/api/ordenes", json=alta).status_code, 201)
+        edicion = {"fecha": "2026-11-21", "componentes": [{"codigo": "A-01", "cantidad": 3}]}
+        for tipo in TIPOS_NO_JSON:
+            with self.subTest(tipo=tipo):
+                r = self.client.put(
+                    "/api/ordenes/OT-1", content=json.dumps(edicion), headers={"Content-Type": tipo}
+                )
+                self.assertEqual((r.status_code, r.json()), (422, {"detail": MENSAJE}))
+        orden = self.client.get("/api/ordenes").json()[0]
+        self.assertEqual((orden["fecha"], orden["componentes"][0]["cantidad"]), ("2026-11-20", 1))
+        self.assertEqual(self.client.get("/api/inventario").json()[0]["stock"], 4)
+
     def test_servicios_generales_con_cualquier_tipo_no_json_422_sin_efectos(self):
         login(self.client)
         cuerpo = json.dumps({"nombre": "Servicio 50 hs", "chequeos": ["A"]})

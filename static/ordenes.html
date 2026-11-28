@@ -15,8 +15,13 @@
   <script src="/static/js/ui.js" defer></script>
   <script src="/static/js/sesion.js" defer></script>
   <script src="/static/js/exportar.js" defer></script>
+  <script src="/static/js/busqueda.js" defer></script>
   <script src="/static/js/precios.js" defer></script>
+  <script src="/static/js/datos-orden.js" defer></script>
+  <script src="/static/js/procesos.js" defer></script>
+  <script src="/static/js/chequeo-final.js" defer></script>
   <script src="/static/js/servicios.js" defer></script>
+  <script src="/static/js/orden-form.js" defer></script>
   <script src="/static/js/servicios-admin.js" defer></script>
   <script src="/static/js/ordenes.js" defer></script>
 </head>
@@ -173,5 +178,111 @@
       </div>
     </div>
   </div>
+  <div class="overlay" id="modal-editar" hidden>
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="ord-titulo">
+      <div class="modal-head"><h2 id="ord-titulo">Editar orden <span class="num" id="ord-titulo-num"></span></h2><button class="icon-btn" type="button" data-close aria-label="Cerrar">&times;</button></div>
+      <form id="form-editar" class="modal-form" novalidate>
+        <div class="modal-body space-y-4">
+          <div id="ord-alerta" hidden></div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="label" for="ord-fecha">Fecha (AAAA-MM-DD)</label>
+              <input class="field num" id="ord-fecha" type="date">
+              
+            </div>
+            <div><p class="label">Número de orden</p><p class="num text-sm min-h-[2.5rem] flex items-center text-muted" id="ord-numero-fijo"></p></div>
+          </div>
+          <fieldset>
+            <legend class="label">Cliente y embarcación <span class="opt">(todos opcionales)</span></legend>
+            <div class="grid-3 mob-2">
+              <div class="span-2 mob-full">
+                <label class="label" for="ord-cliente">Cliente</label>
+                <input class="field" id="ord-cliente" maxlength="80" autocomplete="off">
+              </div>
+              <div class="mob-full">
+                <label class="label" for="ord-celular">Celular</label>
+                <input class="field num" id="ord-celular" type="tel" inputmode="tel" maxlength="20" autocomplete="off">
+              </div>
+              <div class="mob-full">
+                <label class="label" for="ord-casco">Casco</label>
+                <input class="field" id="ord-casco" maxlength="60" autocomplete="off">
+              </div>
+              <div>
+                <label class="label" for="ord-motor">Motor</label>
+                <input class="field" id="ord-motor" maxlength="60" autocomplete="off">
+              </div>
+              <div>
+                <label class="label" for="ord-trailer">Trailer</label>
+                <input class="field" id="ord-trailer" maxlength="60" autocomplete="off">
+              </div>
+              <div>
+                <label class="label" for="ord-ingreso">Fecha de ingreso</label>
+                <input class="field num" id="ord-ingreso" type="date">
+              </div>
+              <div>
+                <label class="label" for="ord-egreso">Fecha de egreso</label>
+                <input class="field num" id="ord-egreso" type="date">
+              </div>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend class="label">Servicio general</legend>
+            <p id="ord-servicio-aviso" class="err" role="alert" hidden></p>
+            <div class="srv-row">
+              <div>
+                <label class="sr-only" for="ord-servicio">Servicio general de la orden</label>
+                <select class="field" id="ord-servicio" aria-describedby="ord-servicio-inc" data-desc-base="ord-servicio-inc">
+                  <option value="">Sin servicio general</option>
+                </select>
+              </div>
+              <div class="money" id="ord-servicio-precio-caja">
+                <input class="field" id="ord-servicio-precio" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Precio del servicio general" disabled>
+              </div>
+            </div>
+            <div class="srv-incluye" id="ord-servicio-inc" aria-live="polite" hidden>
+              <span class="lbl">Incluye:</span>
+              <ul id="ord-servicio-chequeos"></ul>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend class="label">Componentes</legend>
+            <p id="ord-general-e" class="err" role="alert" hidden></p>
+            <div class="cols-head cols-head-sc" aria-hidden="true"><span></span><span>Producto</span><span class="r">Cant.</span><span class="r">Importe</span><span></span></div>
+            <ol id="ord-lineas" class="space-y-2"></ol>
+            <div class="flex flex-wrap items-center justify-between gap-2 mt-3">
+              <button id="ord-agregar" class="btn btn-secondary" type="button" aria-describedby="ord-max">Agregar componente</button>
+              <span id="ord-contador" class="text-xs text-muted" aria-live="polite"></span>
+            </div>
+            <p class="help" id="ord-max" hidden>Una orden admite hasta 100 componentes.</p>
+          </fieldset>
+          <fieldset>
+            <legend class="label">Servicios adicionales</legend>
+            <p id="ord-proc-aviso" class="err" role="alert" hidden></p>
+            <ul id="ord-procesos" class="plist"></ul>
+            <div class="flex flex-wrap items-center justify-between gap-2 mt-3">
+              <button id="ord-proc-agregar" class="btn btn-secondary" type="button" aria-describedby="ord-proc-max">Agregar servicio adicional</button>
+              <span id="ord-proc-contador" class="text-xs text-muted" aria-live="polite"></span>
+            </div>
+            <p class="help" id="ord-proc-max" hidden>Una orden admite hasta 10 servicios adicionales personalizados.</p>
+          </fieldset>
+          <fieldset>
+            <legend class="label">Chequeo final</legend>
+            <p class="help" style="margin-top:0">Marcá lo que se hizo antes de entregar. El importe es opcional y suma a "Subtotal servicios".</p>
+            <ul id="ord-chequeo" class="chk-list mt-1"></ul>
+          </fieldset>
+          <div class="resumen" aria-live="polite" aria-label="Resumen de precios">
+            <dl>
+              <dt>Subtotal servicios</dt><dd id="ord-sub-servicios">$ 0,00</dd>
+              <dt>Subtotal ítems</dt><dd id="ord-sub-items">$ 0,00</dd>
+              <dt class="tot">Total</dt><dd class="tot" id="ord-total">$ 0,00</dd>
+            </dl>
+            <p class="help">Incluye el chequeo final. Importes vacíos cuentan como $ 0.</p>
+          </div>
+        </div>
+        <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancelar</button><button id="ord-enviar" class="btn btn-primary" type="submit">Guardar cambios</button></div>
+      </form>
+    </div>
+  </div>
+
 </body>
 </html>

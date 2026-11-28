@@ -277,6 +277,7 @@ class ListadoTest(OrdenesBase):
                     ],
                     "procesos": [],
                     "servicio": None,
+                    "chequeo_final": [],
                     "subtotal_servicios": 0,
                     "subtotal_items": 0,
                     "total": 0,
@@ -396,7 +397,7 @@ class OpenApiOrdenesTest(unittest.TestCase):
         self.assertTrue(self.esquema("/api/ordenes/{numero}", "delete", "200").endswith("/BorradoOrdenOut"))
         self.assertTrue(self.esquema("/api/ordenes/{numero}", "delete", "404").endswith("/ErrorOut"))
         self.assertTrue(self.esquema("/api/ordenes/{numero}", "delete", "422").endswith("/ErrorOut"))
-        self.assertEqual(set(self.spec["paths"]["/api/ordenes/{numero}"]), {"delete"})
+        self.assertEqual(set(self.spec["paths"]["/api/ordenes/{numero}"]), {"put", "delete"})
 
     def test_delete_de_producto_documenta_respuestas(self):
         ruta = "/api/productos/{codigo}"
@@ -523,6 +524,7 @@ class BorrarExitoTest(BorrarBase):
                     ],
                     "procesos": [],
                     "servicio": None,
+                    "chequeo_final": [],
                     "subtotal_servicios": 0,
                     "subtotal_items": 1000,
                     "total": 1000,
@@ -648,7 +650,7 @@ class BorrarErroresTest(BorrarBase):
 CAMPOS_ORDEN = {
     "id", "numero", "fecha", "fecha_ingreso", "fecha_egreso", "cliente", "celular", "casco",
     "motor", "trailer", "usuario", "componentes", "procesos", "servicio",
-    "subtotal_servicios", "subtotal_items", "total",
+    "chequeo_final", "subtotal_servicios", "subtotal_items", "total",
 }
 MSG_PRECIO = "El precio debe ser un entero de centavos entre 0 y 99.999.999.999."
 

@@ -3,10 +3,13 @@ import unittest
 from datetime import date
 
 from inventario.domain.entities import (
+    AjusteStock,
+    ChequeoFinal,
     DatosOrden,
     ItemOrden,
     Orden,
     ProcesoOrden,
+    ResultadoEdicionOrden,
     ServicioOrden,
 )
 
@@ -19,8 +22,16 @@ CASOS = (
     ("precio cero", 0, (0,), (0,), 0, 0, 0),
 )
 
+# (descripcion, servicio, adicionales, items, chequeo, subtotal_servicios, subtotal_items, total)
+CASOS_CHEQUEO = (
+    ("chequeo con y sin precio", 4500000, (1500000,), (1200000,), (800000, None), 6800000, 1200000, 8000000),
+    ("chequeo solo con precios vacios", None, (), (500,), (None, None), 0, 500, 500),
+    ("chequeo con el tope", None, (), (), (99999999999,), 99999999999, 0, 99999999999),
+    ("sin chequeo igual que antes", 4500000, (1500000, 800000), (1200000, 350000), (), 6800000, 1550000, 8350000),
+)
 
-def armar(servicio, adicionales, items):
+
+def armar(servicio, adicionales, items, chequeo=()):
     return Orden(
         id=1,
         numero="OT-1",
@@ -29,6 +40,7 @@ def armar(servicio, adicionales, items):
         items=tuple(ItemOrden(f"A-{i}", "Pieza", 1, precio) for i, precio in enumerate(items)),
         procesos=tuple(ProcesoOrden(f"P{i}", False, precio) for i, precio in enumerate(adicionales)),
         servicio=ServicioOrden("Servicio 20 hs", (), servicio) if servicio is not None else None,
+        chequeo_final=tuple(ChequeoFinal(f"c{i}", f"Item {i}", precio) for i, precio in enumerate(chequeo)),
     )
 
 
@@ -54,6 +66,22 @@ class TotalesTest(unittest.TestCase):
         self.assertIsNone(orden.items[0].precio)
         self.assertEqual(orden.datos, DatosOrden())
         self.assertEqual((orden.subtotal_servicios, orden.subtotal_items, orden.total), (0, 0, 0))
+
+    def test_chequeo_final_segun_la_tabla_de_casos(self):
+        for descripcion, servicio, adicionales, items, chequeo, st_serv, st_items, total in CASOS_CHEQUEO:
+            with self.subTest(descripcion):
+                orden = armar(servicio, adicionales, items, chequeo)
+                self.assertEqual(orden.subtotal_servicios, st_serv)
+                self.assertEqual(orden.subtotal_items, st_items)
+                self.assertEqual(orden.total, total)
+
+    def test_ajuste_de_stock_y_resultado_de_edicion_son_valores_inmutables(self):
+        orden = armar(None, (), (1,))
+        ajuste = AjusteStock("A-01", "Tornillo", 2, 4, 3, False)
+        resultado = ResultadoEdicionOrden(orden, (ajuste,))
+        self.assertEqual((resultado.orden, resultado.ajustes[0].stock), (orden, 3))
+        with self.assertRaises(Exception):
+            ajuste.stock = 9
 
 
 if __name__ == "__main__":

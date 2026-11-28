@@ -39,9 +39,10 @@
     return (lista || []).reduce(function (acc, v) { return acc + aCentavos(v); }, 0);
   }
 
-  // {servicio, adicionales: [centavos|null], items: [centavos|null]} -> subtotales y total (vista previa).
+  // {servicio, adicionales: [centavos|null], items: [centavos|null], chequeo_final?: [centavos|null]} -> subtotales y total
+  // (vista previa). El chequeo final suma al subtotal de servicios.
   function resumen(datos) {
-    var servicios = aCentavos(datos.servicio) + sumar(datos.adicionales);
+    var servicios = aCentavos(datos.servicio) + sumar(datos.adicionales) + sumar(datos.chequeo_final);
     var items = sumar(datos.items);
     return { subtotal_servicios: servicios, subtotal_items: items, total: servicios + items };
   }

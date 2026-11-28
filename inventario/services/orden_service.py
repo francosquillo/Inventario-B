@@ -1,5 +1,8 @@
 """Alta de ordenes de trabajo: validacion, normalizacion y consolidacion de componentes."""
-from inventario.domain.entities import DatosOrden, ProcesoOrden, ServicioOrden
+from typing import NamedTuple
+
+from inventario.domain.chequeo_final import NOMBRES_CHEQUEO_FINAL
+from inventario.domain.entities import ChequeoFinal, DatosOrden, ProcesoOrden, ServicioOrden
 from inventario.domain.errors import DatosInvalidos, OrdenNoEncontrada
 from inventario.domain.tiempo import ahora_argentina
 from inventario.services.fechas import parsear_fecha, parsear_filtro_fecha, validar_rango
@@ -44,6 +47,12 @@ CLAVE_ERROR_MAX = 30
 MENSAJE_PROCESOS_TIPO = "El campo procesos debe ser una lista de textos."
 MENSAJE_PERSONALIZADOS_TIPO = "El campo procesos_personalizados debe ser una lista de textos."
 MENSAJE_SERVICIO_TIPO = "El campo servicio debe ser texto."
+MENSAJE_CHEQUEO_TIPO = "El campo chequeo_final debe ser una lista de claves."
+MENSAJE_NUMERO_INMUTABLE = "El número de la orden no se puede cambiar."
+MENSAJE_CONSERVAR_TIPO = "El campo conservar_servicio debe ser true o false."
+MENSAJE_CONSERVAR_Y_ELEGIR = (
+    "No se puede elegir un servicio general y conservar el actual a la vez."
+)
 MENSAJE_PERSONALIZADOS_DEMASIADOS = (
     f"La orden admite hasta {PERSONALIZADOS_MAX} procesos personalizados."
 )
@@ -261,12 +270,78 @@ def _validar_personalizados(personalizados, catalogo):
     return validos
 
 
+def _resolver_chequeo_final(chequeo_final):
+    """Claves de la lista fija (texto u objeto {clave, precio}) -> ChequeoFinal, sin repetir."""
+    elementos = _elementos(chequeo_final, MENSAJE_CHEQUEO_TIPO, "clave")
+    vistos = {}
+    for posicion, (texto, precio) in enumerate(elementos, start=1):
+        clave = texto.strip().lower()
+        precio = _precio_de("Chequeo final", posicion, precio)
+        if clave not in NOMBRES_CHEQUEO_FINAL:
+            raise DatosInvalidos(f"El ítem de chequeo final '{_recortar(clave)}' no existe.")
+        if clave in vistos:
+            raise DatosInvalidos(f"Chequeo final {posicion}: '{clave}' está repetido.")
+        vistos[clave] = ChequeoFinal(clave, NOMBRES_CHEQUEO_FINAL[clave], precio)
+    return tuple(vistos.values())
+
+
+def _parsear_conservar(valor):
+    """Solo bool (o ausente = False); cualquier otro valor es un error."""
+    if valor is None:
+        return False
+    if isinstance(valor, bool):
+        return valor
+    raise DatosInvalidos(MENSAJE_CONSERVAR_TIPO)
+
+
+class ContenidoOrden(NamedTuple):
+    """Contenido de una orden ya validado (alta y edicion)."""
+
+    fecha: object
+    items: list
+    datos: DatosOrden
+    servicio: "ServicioOrden | None"
+    procesos: tuple
+    chequeo_final: tuple
+
+
 class OrdenService:
     def __init__(self, orden_repo, proceso_repo, servicio_repo, ahora=ahora_argentina):
         self._repo = orden_repo
         self._procesos = proceso_repo
         self._servicios = servicio_repo
         self._ahora = ahora
+
+    def _validar_contenido(
+        self, fecha, componentes, datos, servicio, precio_servicio, procesos,
+        procesos_personalizados, chequeo_final, conservar_servicio=False,
+    ):
+        """Validacion compartida por el alta y la edicion (prioridad de design D4)."""
+        f_orden = _parsear_fecha(fecha)
+        datos_orden = _validar_datos(datos)
+        items = _consolidar(componentes)
+        if conservar_servicio:
+            servicio_orden = self._servicio_a_conservar(servicio, precio_servicio)
+        else:
+            servicio_orden = _resolver_servicio(servicio, precio_servicio, self._servicios)
+        catalogo = self._procesos.listar()
+        todos = _resolver_procesos(procesos, catalogo) + _validar_personalizados(
+            procesos_personalizados, catalogo
+        )
+        return ContenidoOrden(
+            f_orden, items, datos_orden, servicio_orden, tuple(todos),
+            _resolver_chequeo_final(chequeo_final),
+        )
+
+    @staticmethod
+    def _servicio_a_conservar(servicio, precio):
+        """Con `conservar_servicio` solo importa el precio; el repo reutiliza nombre y chequeos."""
+        if servicio is not None and not isinstance(servicio, str):
+            raise DatosInvalidos(MENSAJE_SERVICIO_TIPO)
+        nuevo_precio = validar_precio(precio, MENSAJE_PRECIO_SERVICIO)
+        if servicio is not None and servicio.strip():
+            raise DatosInvalidos(MENSAJE_CONSERVAR_Y_ELEGIR)
+        return ServicioOrden("", (), nuevo_precio)
 
     def crear(
         self,
@@ -279,25 +354,50 @@ class OrdenService:
         servicio=None,
         datos=None,
         precio_servicio=None,
+        chequeo_final=None,
     ):
         numero = _normalizar_numero(numero)
-        f_orden = _parsear_fecha(fecha)
-        datos_orden = _validar_datos(datos)
-        items = _consolidar(componentes)
-        servicio_orden = _resolver_servicio(servicio, precio_servicio, self._servicios)
-        catalogo = self._procesos.listar()
-        todos = _resolver_procesos(procesos, catalogo) + _validar_personalizados(
-            procesos_personalizados, catalogo
+        c = self._validar_contenido(
+            fecha, componentes, datos, servicio, precio_servicio, procesos,
+            procesos_personalizados, chequeo_final,
         )
         return self._repo.crear(
             numero,
-            f_orden,
-            items,
+            c.fecha,
+            c.items,
             usuario_id,
             self._ahora(),
-            procesos=tuple(todos),
-            servicio=servicio_orden,
-            datos=datos_orden,
+            procesos=c.procesos,
+            servicio=c.servicio,
+            datos=c.datos,
+            chequeo_final=c.chequeo_final,
+        )
+
+    def editar(
+        self,
+        numero,
+        fecha,
+        componentes,
+        procesos=None,
+        procesos_personalizados=None,
+        servicio=None,
+        datos=None,
+        precio_servicio=None,
+        chequeo_final=None,
+        conservar_servicio=None,
+        numero_cuerpo=None,
+    ):
+        """Reemplaza el contenido de la orden `numero` (el del cuerpo, si viene, se rechaza)."""
+        numero = _normalizar_numero(numero)
+        if numero_cuerpo is not None:
+            raise DatosInvalidos(MENSAJE_NUMERO_INMUTABLE)
+        conservar = _parsear_conservar(conservar_servicio)
+        c = self._validar_contenido(
+            fecha, componentes, datos, servicio, precio_servicio, procesos,
+            procesos_personalizados, chequeo_final, conservar,
+        )
+        return self._repo.editar(
+            numero, c.fecha, c.items, c.procesos, c.servicio, c.datos, c.chequeo_final, conservar
         )
 
     def listar(self, numero=None, desde=None, hasta=None):

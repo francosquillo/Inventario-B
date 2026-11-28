@@ -70,7 +70,7 @@ class NuevaOrdenDatosTest(unittest.TestCase):
 
 class NuevaOrdenJsTest(unittest.TestCase):
     def setUp(self):
-        self.js = leer("js", "inventario.js")
+        self.js = leer("js", "inventario.js") + leer("js", "orden-form.js")  # C-06i: el formulario de orden vive en orden-form.js
 
     def test_usa_los_modulos_puros(self):
         for uso in ("Precios.parsear(", "Precios.resumen(", "Precios.formatear(", "DatosOrden.validar(",
